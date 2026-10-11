@@ -6,7 +6,8 @@
 #  - N 6+ and 7+ (K shell, 552 and 667 eV) are ionized only near the peak of the pulse, inside the
 #    bubble: these electrons are born with Delta = 1 deep in the wake potential and many of them are
 #    trapped (ionization injection).  A quasi-static code cannot follow trapped electrons: they are
-#    removed and counted in the log ("plasma particles removed as trapped").
+#    removed and counted in the log ("plasma particles removed as trapped"), unless
+#    <species>.trap = 1 turns them into beam particles (see trojan_horse.in).
 # Diagnostics: ionization.txt (electrons born per step, mean charge state at the end of the box),
 # nz_helium / nz_nitrogen in the field files (ion charge densities).
 units.n0_cm3 = 1e18

@@ -86,6 +86,17 @@ public:
     bool frozen() const { return frozen_; }
     int  num_particles() const { return Np_; }
     int  lost_count() const;
+    void reset_lost();
+
+    // ---- trapping (<name>.trap = 1): particles beyond the quasi-static limit (gamma/Delta >
+    // pusher.max_qsa_factor or Delta < pusher.delta_min) become particles of the beam trap_beam()
+    bool trap() const { return trap_; }
+    const std::string& trap_beam() const { return trap_beam_; }
+    int trap_nphi() const { return trap_nphi_; }
+    // particles trapped in this sweep, in index order: x y p_x p_y p_z xi_rel w per particle
+    // (state at the slice where the limit was reached, xi_rel = xi - xi of the box head, w the
+    // plasma weight = particles per unit length); clears the trap records. Returns the count.
+    int collect_trapped(std::vector<double>& out);
 
     // complete particle state incl. the Adams-Bashforth history (hand-off to the downstream rank)
     void pack_state(std::vector<double>& buf) const;
@@ -124,6 +135,11 @@ private:
     unsigned long long seed_ = 1;
     View3D hist_;   // (order, 5, Np): dx, dy, dpx, dpy, dDelta
     IView1D lost_;
+    bool trap_ = false;
+    std::string trap_beam_;
+    int trap_nphi_ = 1;
+    View1D tw_, txi_, tpz_;   // trap records: weight (0 = none), xi_rel and p_z at the trapping slice
+    IView1D ntrap_;
 };
 
 } // namespace quarz

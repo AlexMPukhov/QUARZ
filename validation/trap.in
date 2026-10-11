@@ -1,0 +1,45 @@
+# Trojan-horse injection (section 21): a rigid electron driver blows out a bubble in a hydrogen
+# plasma with a 0.1 % admixture of neutral helium; a weak laser (a0 = 0.06, w0 = 0.5) sits inside
+# the bubble and ionizes the helium. The freed electrons (species 'hel', born at rest) slide back,
+# reach the quasi-static limit at the rear of the bubble and become particles of the beam
+# 'hel_trapped' (hel.trap = 1), which is accelerated. The trapped beam is passive here (no
+# beam loading) so that the wake stays stationary and gamma - p_z - psi(r, xi) is conserved
+# exactly: = 1 - psi(birth) for every trapped electron.
+units.n0_cm3 = 1e17
+grid.type = regions
+grid.rmax = 6
+grid.regions = 1:0.01 6:0.04
+grid.max_ratio = 1.05
+xi.min = 0
+xi.max = 10
+xi.step = 0.02
+time.dt = 0.2
+time.steps = 30
+plasma.species = electrons he hel
+electrons.ppc = 4
+he.element = He
+he.z_max = 1
+he.density = 0.001
+he.ppc = 16
+he.mobile = 0
+he.ionization.product = hel
+hel.ppc = 0
+hel.trap = 1
+hel_trapped.passive = 1
+beams = driver
+driver.n0 = 5
+driver.sigma_r = 0.3
+driver.sigma_xi = 1
+driver.xi0 = 2.5
+driver.gamma = 20000
+driver.cut = 4
+driver.nparticles = 200000
+driver.rigid = 1
+laser.k0 = 132
+laser.a0 = 0.06
+laser.w0 = 0.5
+laser.L0 = 0.3
+laser.xi0 = 5
+output.dir = out_trap
+output.every = 30
+output.beam_every = 30

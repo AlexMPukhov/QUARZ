@@ -118,6 +118,36 @@ whose quasi-static weight γ/Δ = 1/(1 − v_z) exceeds `pusher.max_qsa_factor`
 treated quasi-statically and would make the density and currents singular at
 the closure of a strong bubble, so they are removed and counted.
 
+**Trapped particles become beam particles** (`<species>.trap = 1`, off by default). Instead of
+being dropped, the particles of that species that reach the quasi-static limit join the beam
+`<species>.trap_beam` (default `<species>_trapped`, created automatically with the species'
+charge and mass, initially empty) and are followed from then on with the full equations of
+motion in t, like any beam. This is meant for injection: ionization injection (e.g. a
+Trojan-horse laser that ionizes a neutral admixture inside the bubble) or self-injection.
+- A plasma macro-particle of weight w (particles per unit length, the stream through the box)
+  stands for the w Δt electrons that reach the limit during the time step: the beam particle
+  gets the weight w Δt, with Δt = (Δt_{n−1} + Δt_n)/2 (the conversion at step n covers
+  t_n − Δt_{n−1}/2 … t_n + Δt_n/2).
+- It starts from the plasma particle's state at the slice where the limit is reached:
+  (x, y, ξ), p⊥ and p_z = γ − Δ (γ incl. the laser quiver term, so p_z is the cycle-averaged
+  momentum); the leapfrog momentum is then moved back by Δt_{n−1}/2 with the fields of the
+  step. With `modes = 0` the ring is placed at a random azimuth (hash of its state, so MPI and
+  restarts are reproducible) or split into `<species>.trap_nphi` equidistant particles; with
+  `modes = 1` it keeps its azimuth.
+- The conversion point does not matter physically: in a stationary wake γ − p_z − ψ is
+  conserved both in the quasi-static push (as Δ − ψ) and in the beam push, and the same
+  electrons are trapped with `max_qsa_factor` 20, 35 or 70 (section 21). Electrons that reach
+  the limit without being trapped simply slip out of the box as beam particles.
+- The new particles deposit from the next step on (beam loading); during the step of their
+  conversion their charge is missing behind the conversion point (an O(Δt) transient).
+  `<beam>.passive = 1` makes the trapped beam (or any beam) a set of test particles.
+- Low-energy trapped electrons need a time step that resolves their betatron motion; with
+  `time.adaptive` the trapped beam counts for the step (switch it off with
+  `<species>_trapped.adaptive_dt = 0`). All beam options (`pusher`, `spin`, `scattering`, …) apply
+  under the beam's name. Self-injection at the closure of a strong bubble in a cold plasma is
+  sensitive to the closure singularity (see `plasma.smooth_length`); ionization injection
+  inside the bubble is not.
+
 **Adaptive sub-slicing** (`pusher.max_cells_per_step`, off by default). On a grid with very
 small cells near the axis, electrons converging on the axis at the back of a bubble can
 cross many cells in one ξ step. Before each step the code finds the largest number of radial
@@ -659,7 +689,7 @@ The generated grid is written to `out/grid.txt` (j, r_j, h_j, V_j).
 | `<beam>.adaptive_dt` | 1 | include this beam in the adaptive step (rigid beams never count) |
 | `pusher.ab_order` | 3 | Adams–Bashforth order 1–5 for plasma rings. 2–3 is most robust at bubble closure; 5 can blow up there. |
 | `pusher.delta_min` | 10⁻³ | rings with γ − p_z below this are removed (trapped) |
-| `pusher.max_qsa_factor` | 35 | rings with γ/(γ − p_z) above this are removed (trapped; the quasi-static weight diverges) |
+| `pusher.max_qsa_factor` | 35 | rings with γ/(γ − p_z) above this are removed (trapped; the quasi-static weight diverges), or become beam particles with `<species>.trap` |
 | `plasma.smooth_length` | 0 | a > 0: radial smoothing of all plasma sources, f ← (1 − a²∇⊥²)⁻¹ f, which regularizes the singular density/E_z spike at the closure of a bubble (§1, plasma push). 0.005 is a good value; the axis cell and Δξ should be ≤ a. |
 | `pusher.max_cells_per_step` | 0 | adaptive sub-slicing: split a ξ step into sub-slices if a plasma particle would cross more radial cells than this (0 = off; 1 is a good value). The step line of the log reports the extra sub-slices (rank 0). |
 | `pusher.substep_max` | 64 | largest number of sub-slices per step |
@@ -770,6 +800,9 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.mass` | from the element | in electron masses |
 | `<species>.mobile` | 1 | 0: ions stay at their positions (still macro-particles: their charge changes) |
 | `<species>.ionization.product` | `electrons` | species that receives the new electrons (mobile, negative; `ppc = 0` for an initially empty one) |
+| `<species>.trap` | 0 | 1 = particles of this (mobile, non-ionizable) species that reach the quasi-static limit become beam particles (§1) |
+| `<species>.trap_beam` | `<species>_trapped` | name of that beam (created automatically; set its options under this name) |
+| `<species>.trap_nphi` | 1 | `modes = 0`: beam particles per converted ring (equidistant azimuths, random offset) |
 | `<species>.ionization.field` | 1 | ADK by the plasma, beam and laser fields |
 | `<species>.ionization.impact` | 1 if a cross-section is known | beam impact ionization 0 → 1 |
 | `<species>.impact.M2`, `<species>.impact.C` | Ar: 4.22, 37.93 | Bethe parameters |
@@ -799,6 +832,7 @@ separate species.
 | `<beam>.nparticles` | 100000 | macro-particles |
 | `<beam>.seed` | 12345 | RNG seed |
 | `<beam>.rigid` | 0 | 1 = frozen beam |
+| `<beam>.passive` | 0 | 1 = test particles: pushed, but no charge or current deposited |
 | `<beam>.analytic` | 0 | 1 = noise-free rigid beam deposited analytically on the grid (gaussian/flattop, offsets and slopes allowed) |
 | `<beam>.x0`, `<beam>.y0` | 0 | transverse centroid offset (modes = 1) |
 | `<beam>.x_slope`, `<beam>.y_slope` | 0 | centroid tilt: x_c(ξ) = x0 + x_slope (ξ − ξ0) (modes = 1) |
@@ -1185,6 +1219,20 @@ measurable, fixed Coulomb logarithms):
 | Scattering only (section 18 deck, rate × 10⁶), spin along z | s_⊥ / (κ θ_⊥) = 0.999999 / 0.999998 (first-order small-angle result) |
 | Restart; 2 ranks vs serial | bit-identical; particles and spins bit-identical (fields 5·10⁻¹⁶, beam moments in `beams.txt` 10⁻⁹ at print precision) |
 
+**Trapping → beam particles** (section 21, `trap.in`, `trap_check.py`): Trojan-horse injection,
+rigid driver (n_b = 5, σ_r = 0.3) in hydrogen with 0.1 % neutral helium, laser a0 = 0.06, w0 = 0.5
+in the bubble ionizes it; the helium electrons are trapped at the rear of the bubble (748
+conversions per step, γ ≈ 4 at the conversion, γ ≈ 9.3 at t = 6). The trapped beam is passive, so
+the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an exact invariant.
+
+| test | result |
+|---|---|
+| H at the conversion: minimum = 1 − max ψ (born at rest at the top of the potential) | 0.157824 vs 0.157833 (9·10⁻⁶) |
+| H of the electrons converted at step 0, after 30 steps (γ 4 → 9.3) | conserved to 3.9·10⁻⁴ rms (8.5·10⁻⁴ max); 1.5·10⁻⁴ with Δt/2 |
+| trapped charge per unit time, Δt = 0.2 vs 0.1 (weight = w Δt) | 1.4·10⁻³ (injection noise) |
+| `max_qsa_factor` 20 / 35 / 70 | the same trapped charge (identical) |
+| with beam loading (1 % He, not passive): restart; 2 and 3 ranks vs serial | bit-identical |
+
 **Two-stage runs** (section 19, `boundary.in`, `bnd_check.py`; driver in 0…5, witness at ξ = 7,
 stage 2 from ξ = 5.01):
 
@@ -1281,9 +1329,18 @@ focusing gradient at r = 0.01 is 0.88 instead of 0.5.
   - He and N up to N⁵⁺ are ionized in the leading edge; N⁶⁺ and N⁷⁺ only about one
     c/ω_p before the peak.
   - About 1000 plasma electrons per step are trapped and removed (ionization
-    injection, which a quasi-static code cannot follow).
+    injection), or followed as beam particles with `electrons.trap = 1`.
   - It takes 3.4 s per step on 2 cores. The plasma particle count is about three times
     that of the pre-ionized run.
+
+- `examples/trojan_horse.in`: Trojan-horse injection. A rigid driver (n_b = 5, σ_r = 0.3)
+  in hydrogen at 10¹⁷ cm⁻³ with 1 % neutral helium; a laser with a0 = 0.06, w0 = 8.4 µm
+  inside the bubble ionizes the helium (`hel.trap = 1`).
+  - About 750 electrons per step are converted at the rear of the bubble, γ ≈ 4.
+  - The injection fades as the laser diffracts (z_R = 16.5 c/ω_p).
+  - At t = 40 (0.67 mm) the trapped beam has 19 pC (0.246 e n₀ k_p⁻³), ⟨γ⟩ = 25 (rms 9),
+    and ε_n = 0.05 c/ω_p.
+  - It takes 0.5 s per step on 2 cores.
 
 `validation/quarz_validation_summary.png` shows the pinched-witness grid
 comparison, the blowout on the stretched grid, and the SMI run.
@@ -1334,8 +1391,8 @@ comparison, the blowout on the stretched grid, and the SMI run.
 **Physics caveats:**
 
 - A quasi-static code cannot follow trapped plasma electrons; they are
-  removed (Δ < `delta_min` or γ/Δ > `max_qsa_factor`) and counted in the log. This includes
-  ionization-injected electrons.
+  removed (Δ < `delta_min` or γ/Δ > `max_qsa_factor`) and counted in the log, or, with
+  `<species>.trap = 1`, converted into beam particles (ionization injection, §1).
 - With `modes = 1`, keep beam offsets small compared with the beam and
   bubble sizes; the m ≥ 2 content is dropped. Use `nsym` (≥ 2) or
   `analytic = 1` beams so that sampling noise does not seed spurious m = 1.

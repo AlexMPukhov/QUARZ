@@ -191,3 +191,22 @@ out_opmd_uni vs out_opmd_p2: iterations [0, 2, 4], max rel diff 0.00e+00
   beamlog  max rel diff 9.04e-10  (beams.txt col 11)
   dumps    max rel diff 0.00e+00  (beam_electrons_000000.bin:x)
   fields   max rel diff 5.30e-16  (fields_000010.bin:bz)
+== 21. trapped plasma electrons -> beam particles (Trojan-horse ionization injection) ==
+ (a) H = gamma - p_z - psi = 1 - psi(birth), conserved through the conversion and the beam push:
+ 748 electrons converted per step; at the conversion gamma 4.01, H = gamma - p_z - psi in [0.15782, 0.22959]; 1 - max psi = 0.15783 (difference 9.2e-06)
+ step 30: these electrons have gamma 9.29; H changed by rms 3.9e-04, max 8.4e-04; all 23179 trapped: H in [0.15804, 0.25872]
+ (b) trapped charge per unit time, dt = 0.2 vs 0.1 (expected: equal within the injection noise):
+ dt = 0.2: 23179 macro-particles, Q/(T + dt) = -6.883138e-04
+ dt = 0.1: 45640 macro-particles, Q/(T + dt) = -6.892451e-04
+ relative difference 1.4e-03
+ (c) conversion threshold gamma/Delta = 35, 20, 70 (expected: the same trapped charge):
+ out_trap: Q = -4.2675453820e-03  (23179 macro-particles)
+ out_trap_20: Q = -4.2675453820e-03  (23179 macro-particles)
+ out_trap_70: Q = -4.2675453820e-03  (23179 macro-particles)
+ (d) with beam loading: restart (expected: bit-identical):
+  11 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)

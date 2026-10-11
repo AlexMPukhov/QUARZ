@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 20)}
+SECTIONS=${*:-$(seq 1 21)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -441,6 +441,35 @@ sec20() {
     fi
     unset OMP_NUM_THREADS
     rm -rf out_spin*
+}
+
+sec21() {
+    echo "== 21. trapped plasma electrons -> beam particles (Trojan-horse ionization injection) =="
+    local N=$(q 30 10) N2=$(q 60 20)
+    $QS trap.in time.steps=$N output.every=$N output.beam_every=$N > /dev/null
+    echo " (a) H = gamma - p_z - psi = 1 - psi(birth), conserved through the conversion and the beam push:"
+    python3 trap_check.py h out_trap $N
+    $QS trap.in time.dt=0.1 time.steps=$N2 output.every=$N2 output.beam_every=$N2 output.dir=out_trap_dt > /dev/null
+    echo " (b) trapped charge per unit time, dt = 0.2 vs 0.1 (expected: equal within the injection noise):"
+    python3 trap_check.py rate out_trap $N 0.2 out_trap_dt $N2 0.1
+    $QS trap.in time.steps=$N output.every=$N output.beam_every=$N pusher.max_qsa_factor=20 output.dir=out_trap_20 > /dev/null
+    $QS trap.in time.steps=$N output.every=$N output.beam_every=$N pusher.max_qsa_factor=70 output.dir=out_trap_70 > /dev/null
+    echo " (c) conversion threshold gamma/Delta = 35, 20, 70 (expected: the same trapped charge):"
+    python3 trap_check.py thr out_trap out_trap_20 out_trap_70 $N
+    # (d) with beam loading (not passive, 1 % helium): restart and 2 ranks bit-identical
+    export OMP_NUM_THREADS=1
+    local M="trap.in time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp hel_trapped.passive=0 he.density=0.01"
+    $QS $M checkpoint.every=4 checkpoint.keep=0 checkpoint.dir=out_trap_chk output.dir=out_trap_A > /dev/null
+    $QS $M restart.from=out_trap_chk/chk_000004 output.dir=out_trap_B > /dev/null
+    echo " (d) with beam loading: restart (expected: bit-identical):"
+    python3 restart_check.py out_trap_A out_trap_B 0 || true
+    if [ -n "$MPIRUN" ]; then
+        $MPIRUN 2 $QS $M output.dir=out_trap_P > /dev/null
+        echo " 2 ranks vs serial (expected: bit-identical):"
+        python3 cmp_runs.py out_trap_A out_trap_P 1e-14 || true
+    fi
+    unset OMP_NUM_THREADS
+    rm -rf out_trap*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

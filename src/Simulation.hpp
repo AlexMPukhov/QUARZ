@@ -135,6 +135,9 @@ private:
     std::ofstream beamlog_;
     std::ofstream spinlog_;   // spin.txt: mean spin (polarization) of the beams with <beam>.spin
     long lost_total_ = 0;
+    std::vector<int> trap_beam_;   // per plasma species: index of the beam its trapped particles join (-1: none)
+    long trapped_step_ = 0;        // particles converted in this step (this rank)
+    void convert_trapped(int n);
     // ---- output groups (SimulationIO.cpp)
     std::vector<OutputGroup> groups_;        // [0] = main output (output.*), then diag.names
     void setup_output();

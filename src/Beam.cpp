@@ -18,12 +18,14 @@
 
 namespace quarz {
 
-Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, const BeamGrid& bg, bool mode1)
+Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, const BeamGrid& bg, bool mode1,
+           const double* qm)
     : name_(name), grid_(grid), bg_(bg), m1_(mode1) {
-    q_ = cfg.get_double(name + ".charge", -1.0);
-    m_ = cfg.get_double(name + ".mass", 1.0);
-    rigid_ = cfg.get_bool(name + ".rigid", false);
+    q_ = qm ? qm[0] : cfg.get_double(name + ".charge", -1.0);
+    m_ = qm ? qm[1] : cfg.get_double(name + ".mass", 1.0);
+    rigid_ = qm ? false : cfg.get_bool(name + ".rigid", false);
     adaptive_dt_ = cfg.get_bool(name + ".adaptive_dt", true);
+    passive_ = cfg.get_bool(name + ".passive", false);
     const std::string pm = cfg.get_string(name + ".pusher", cfg.get_string("pusher.beam", "vay"));
     if (pm == "vay") pusher_ = BeamPusher::Vay;
     else if (pm == "boris") pusher_ = BeamPusher::Boris;
@@ -93,6 +95,13 @@ Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, c
         sc_.seed = static_cast<uint64_t>(cfg.get_int("scattering.seed", 1)) * 0x9e3779b97f4a7c15ULL ^
                    std::hash<std::string>{}(name);
         if (rigid_) throw std::runtime_error(name + ".scattering: not for rigid beams");
+    }
+    if (qm) {   // empty beam, filled by add_new
+        std::vector<double> none;
+        set_particles(none);
+        np_global_ = 0;
+        gref_ = 0; xiref_ = 0;
+        return;
     }
     const std::string prof = cfg.get_string(name + ".profile", "gaussian");
     analytic_ = cfg.get_bool(name + ".analytic", false);
@@ -484,6 +493,7 @@ void Beam::init_file(const std::string& filename) {
 }
 
 void Beam::deposit(const View3D& src) const {
+    if (passive_) return;
     if (analytic_ && parsed_) { deposit_analytic_parsed(src); return; }
     if (analytic_) { deposit_analytic(src); return; }
     const GridD g = grid_.d;
@@ -545,6 +555,7 @@ void Beam::deposit(const View3D& src) const {
 }
 
 void Beam::deposit_impact(const View3D& imp) const {
+    if (passive_) return;
     const GridD g = grid_.d;
     const Real z2 = q_ * q_;
     if (analytic_) {   // rigid analytic beam: m = 0 density at every node
@@ -663,7 +674,23 @@ double Beam::min_gamma_eff(double gthr) const {
     return static_cast<double>(g) * m_ / std::abs(q_);
 }
 
-void Beam::advance(const View3D& fld, Real dt_kick, Real dt, bool move, const View3D& pond, const View3D& diag, int step) {
+void Beam::add_new(const std::vector<double>& p7, const View3D& fld, Real dt_prev, const View3D& pond) {
+    const size_t n = p7.size() / 7;
+    if (n == 0) return;
+    std::vector<double> e;
+    if (spin_) {
+        e.resize(10 * n);
+        for (size_t i = 0; i < n; ++i) {
+            std::copy(p7.begin() + 7 * i, p7.begin() + 7 * i + 7, e.begin() + 10 * i);
+            e[10 * i + 7] = s0_[0]; e[10 * i + 8] = s0_[1]; e[10 * i + 9] = s0_[2];
+        }
+    }
+    append(spin_ ? e.data() : p7.data(), n);
+    // before the first push the start-up of push() moves all momenta back
+    if (started_) advance(fld, -0.5 * dt_prev, -0.5 * dt_prev, false, pond, View3D(), 0, Np_ - static_cast<int>(n));
+}
+
+void Beam::advance(const View3D& fld, Real dt_kick, Real dt, bool move, const View3D& pond, const View3D& diag, int step, int i0) {
     const bool scat = sc_.on && move && diag.extent(0) > 0;
     const Scatter sc = sc_;
     const uint64_t skey = ion_mix(sc_.seed ^ ion_mix(static_cast<uint64_t>(step) + 0x51ed27ULL));
@@ -682,7 +709,7 @@ void Beam::advance(const View3D& fld, Real dt_kick, Real dt, bool move, const Vi
     const bool spin = spin_;
     const Real an = anom_;
     auto sx = sx_; auto sy = sy_; auto sz = sz_;
-    Kokkos::parallel_for("beam.push", Range(0, Np_), KOKKOS_LAMBDA(int i) {
+    Kokkos::parallel_for("beam.push", Range(i0, Np_), KOKKOS_LAMBDA(int i) {
         if (w(i) == Real(0)) return;
         const Real X = x(i), Y = y(i);
         const Real r = Kokkos::sqrt(X * X + Y * Y);

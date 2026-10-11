@@ -33,7 +33,10 @@ enum class BeamPusher { Vay = 0, Boris = 1, HC = 2, IMP = 3, IMP_RR = 4 };
 
 class Beam {
 public:
-    Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, const BeamGrid& bg, bool mode1);
+    // qm != nullptr: an initially empty beam with charge qm[0] and mass qm[1] (trapped plasma
+    // particles); the pusher, spin and scattering keys of <name> still apply
+    Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, const BeamGrid& bg, bool mode1,
+         const double* qm = nullptr);
 
     // add this beam's sources to src(xi, r, comp)  (layout BeamComp)
     void deposit(const View3D& src) const;
@@ -50,7 +53,11 @@ public:
     // one pusher step (move=false: explicit kick only, for the leapfrog start). Public because
     // CUDA extended lambdas may not live in private member functions.
     void advance(const View3D& fld, Real dt_kick, Real dt_drift, bool move, const View3D& pond,
-                 const View3D& diag = View3D(), int step = 0);
+                 const View3D& diag = View3D(), int step = 0, int i0 = 0);
+    // new particles (7 doubles each: x y p_x p_y p_z xi w, momenta at the current time t_n) are
+    // appended; if the leapfrog is running their momenta (and spins) are moved back to
+    // t_n - dt_prev/2 with the fields fld of this step
+    void add_new(const std::vector<double>& p7, const View3D& fld, Real dt_prev, const View3D& pond);
     // multiple Coulomb scattering on the plasma ions and electrons (<beam>.scattering)
     struct Scatter {
         bool on = false;
@@ -80,6 +87,7 @@ public:
     Real charge() const { return q_; }
     Real mass() const { return m_; }
     bool adaptive_dt() const { return adaptive_dt_ && !rigid_; }
+    bool passive() const { return passive_; }
 
     // decomposition along xi: ownership by nearest slice, migration to the downstream rank
     std::vector<double> packed(const Kokkos::View<int*, HostSpace>* sel = nullptr) const;
@@ -130,7 +138,8 @@ private:
     void finish_init(std::vector<double>& local, const RefAcc& a);
     long np_global_ = 0;
     bool rigid_ = false;
-    bool adaptive_dt_ = true;   // <beam>.adaptive_dt: counts for the adaptive time step
+    bool adaptive_dt_ = true;
+    bool passive_ = false;      // <beam>.passive: test particles, no charge or current deposited   // <beam>.adaptive_dt: counts for the adaptive time step
     bool started_ = false;
     // analytic rigid beam: rho = q n0 exp(-|x_perp - c(xi)|^2 / 2 sigma^2) f(xi), c = centroid
     bool analytic_ = false;

@@ -70,7 +70,7 @@ Package for delivery (includes .git, so the history survives the container):
 ## Validation policy (keep it fast)
 - After a code change: quick suite with `-c` (2 min). Only the sections the change can affect
   if it is clearly local (laser -> 11, ionization -> 12, MPI/output -> 9 10, m = 1 -> 6 7,
-  grid/solver -> 1 2 5, plasma push / sub-slicing -> 13, smoothing -> 14, checkpoints / output groups -> 15, time step -> 16, GUI -> 17, Coulomb scattering -> 18, two-stage runs -> 19, spin -> 20). Full suite with `-c` at milestones and before delivering physics results.
+  grid/solver -> 1 2 5, plasma push / sub-slicing -> 13, smoothing -> 14, checkpoints / output groups -> 15, time step -> 16, GUI -> 17, Coulomb scattering -> 18, two-stage runs -> 19, spin -> 20, trapping -> 21). Full suite with `-c` at milestones and before delivering physics results.
 - Run long suites in the background (`nohup ... &`) and poll the process, not `pgrep -f`
   with a pattern that matches the polling shell itself.
 - CUDA compile check (~10 min) only when device code changed (kernels, Types.hpp, views).
@@ -227,6 +227,22 @@ Done and validated (README §7, `validation/reference_full.txt`):
   wake with a = 2 vs Python RK4 second order (1.3e-3 -> 3.1e-4), scattering slope 0.999999, restart
   and 2 ranks bit-identical. Cost: beam-only run 17 % longer. Not included: Stern-Gerlach force,
   Sokolov-Ternov. Full suite 20/20, CUDA compiles.
+- Trapped plasma particles -> beam particles (2026-10-11, Alexander: Trojan-horse / ionization
+  injection): `<species>.trap = 1` (mobile, non-ionizable), `.trap_beam` (default <species>_trapped,
+  created automatically with the species' q, m; must NOT be in `beams`), `.trap_nphi` (m = 0 copies).
+  Push kernel: at the QS limit (Delta < delta_min or gamma/Delta > max_qsa_factor) records tw = w,
+  txi = xi_cur before the push, tpz = gamma - Delta (incl. laser A); the dead particle keeps its OLD
+  state (x, y, px, py) -> beam particle at the slice where the limit was reached (stays local to the
+  rank). Simulation::convert_trapped after step_fields: weight w * (dt_prev + dt)/2, xi = xi_head_ +
+  txi, m = 0 random azimuth from a hash of the state; Beam::add_new appends and back-kicks by
+  -dt_prev/2 (only if the beam is started; else the start-up does it). `<beam>.passive = 1`: no
+  deposit (test particles). Also fixed: lost_ counter was never reset on ranks > 0 (display only).
+  Section 21 (trap.in, trap_check.py; Trojan horse: rigid driver, 0.1 % He, laser a0 0.06 in the
+  bubble, passive trapped beam): H = gamma - p_z - psi = 1 - psi_birth, min H = 1 - max psi to 9e-6,
+  conserved per particle 4e-4 rms over 30 steps; charge rate dt 0.2 vs 0.1 1.4e-3; max_qsa 20/35/70
+  identical charge; with beam loading restart and 2/3 ranks bit-identical. Self-injection at the
+  closure of a strong bubble (blowout n_b = 8) is NOT clean: H far from 1 (closure caustic).
+  Example examples/trojan_horse.in (19 pC, <gamma> 25 at t = 40).
 - Paper v1 (arXiv submission planned Fri 2026-10-09): new subsection "Bubble closure on a fine
   axial mesh" (sec:closure, Fig. fig_closure from scripts/closure.sh + fig_closure.py), framed
   around the grid: uniform grids regularize the caustic implicitly over one cell, the fine axis

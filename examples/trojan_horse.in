@@ -1,0 +1,45 @@
+# Trojan-horse (plasma photocathode) injection, after Hidding et al., PRL 108, 035001 (2012):
+# a rigid electron driver blows out a bubble in a hydrogen plasma (n0 = 1e17 cm^-3) with an
+# admixture of neutral helium (1 %), which the driver's fields cannot ionize. A weak, tightly
+# focused laser (a0 = 0.06, 800 nm, w0 = 8.4 um) placed inside the bubble ionizes the helium; the
+# electrons are born at rest at the top of the wake potential, slide back, are trapped at the rear
+# of the bubble (hel.trap = 1: they become particles of the beam 'hel_trapped') and accelerated.
+# Units: k_p^-1 = 16.8 um, 1/omega_p = 56 fs; t = 40 is 0.67 mm of propagation.
+# Watch beams.txt (hel_trapped: charge, gamma_mean, emittance) and the beam dumps.
+units.n0_cm3 = 1e17
+grid.type = regions
+grid.rmax = 6
+grid.regions = 1:0.01 6:0.04
+grid.max_ratio = 1.05
+xi.min = 0
+xi.max = 10
+xi.step = 0.02
+time.dt = 0.2
+time.steps = 200
+plasma.species = electrons he hel
+electrons.ppc = 4
+he.element = He
+he.z_max = 1
+he.density = 0.01
+he.ppc = 16
+he.mobile = 0
+he.ionization.product = hel
+hel.ppc = 0
+hel.trap = 1
+beams = driver
+driver.n0 = 5
+driver.sigma_r = 0.3
+driver.sigma_xi = 1
+driver.xi0 = 2.5
+driver.gamma = 20000
+driver.cut = 4
+driver.nparticles = 200000
+driver.rigid = 1
+laser.lambda0_um = 0.8
+laser.a0 = 0.06
+laser.w0 = 0.5
+laser.L0 = 0.3
+laser.xi0 = 5
+output.dir = out_trojan_horse
+output.every = 50
+output.beam_every = 50

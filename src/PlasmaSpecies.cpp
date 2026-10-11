@@ -135,6 +135,18 @@ PlasmaSpecies::PlasmaSpecies(const Config& cfg, const std::string& name, const R
     fresh_ = IView1D(name + ".fresh", cap_);
     hist_ = View3D(name + ".hist", ab_.order, 5, cap_);
     lost_ = IView1D(name + ".lost", 1);
+    trap_ = cfg.get_bool(name + ".trap", false);
+    if (trap_) {
+        if (ionizable_ || !mobile_) throw std::runtime_error(name + ".trap: only for mobile species without ionization (e.g. the electrons)");
+        trap_beam_ = cfg.get_string(name + ".trap_beam", name + "_trapped");
+        trap_nphi_ = cfg.get_int(name + ".trap_nphi", 1);
+        if (trap_nphi_ < 1) throw std::runtime_error(name + ".trap_nphi must be >= 1");
+        if (m1_ && trap_nphi_ != 1) throw std::runtime_error(name + ".trap_nphi: only with modes = 0 (with modes = 1 the particles keep their azimuth)");
+        tw_ = View1D(name + ".trap_w", cap_);
+        txi_ = View1D(name + ".trap_xi", cap_);
+        tpz_ = View1D(name + ".trap_pz", cap_);
+        ntrap_ = IView1D(name + ".ntrap", 1);
+    }
     if (ionizable_) {
         lev_ = View1D(name + ".z", cap_);
         wq_ = View1D(name + ".wq", cap_);
@@ -218,6 +230,7 @@ void PlasmaSpecies::load(Real z, unsigned long long seed) {
     Kokkos::deep_copy(hist_, 0.0);
     Kokkos::deep_copy(lost_, 0);
     Kokkos::deep_copy(fresh_, 0);
+    if (trap_) { Kokkos::deep_copy(tw_, 0.0); Kokkos::deep_copy(ntrap_, 0); }
     Np_ = i;   // rings with plasma (<= Nload_)
     npush_ = 0;
     xi_cur_ = 0;
@@ -235,6 +248,7 @@ void PlasmaSpecies::ensure_capacity(int n) {
     for (View1D* v : {&x_, &y_, &px_, &py_, &dl_, &w_}) Kokkos::resize(*v, nc);
     Kokkos::resize(fresh_, nc);
     Kokkos::resize(hist_, ab_.order, 5, nc);
+    if (trap_) for (View1D* v : {&tw_, &txi_, &tpz_}) Kokkos::resize(*v, nc);   // new entries are 0
     if (ionizable_) {
         Kokkos::resize(lev_, nc);
         Kokkos::resize(wq_, nc);
@@ -296,6 +310,30 @@ int PlasmaSpecies::lost_count() const {
     auto h = Kokkos::create_mirror_view(lost_);
     Kokkos::deep_copy(h, lost_);
     return h(0);
+}
+
+void PlasmaSpecies::reset_lost() { Kokkos::deep_copy(lost_, 0); }
+
+int PlasmaSpecies::collect_trapped(std::vector<double>& out) {
+    if (!trap_) return 0;
+    auto hn = Kokkos::create_mirror_view_and_copy(HostSpace(), ntrap_);
+    if (hn(0) == 0) return 0;
+    auto hw = Kokkos::create_mirror_view_and_copy(HostSpace(), tw_);
+    auto hx = Kokkos::create_mirror_view_and_copy(HostSpace(), x_);
+    auto hy = Kokkos::create_mirror_view_and_copy(HostSpace(), y_);
+    auto hpx = Kokkos::create_mirror_view_and_copy(HostSpace(), px_);
+    auto hpy = Kokkos::create_mirror_view_and_copy(HostSpace(), py_);
+    auto hpz = Kokkos::create_mirror_view_and_copy(HostSpace(), tpz_);
+    auto hxi = Kokkos::create_mirror_view_and_copy(HostSpace(), txi_);
+    int n = 0;
+    for (int i = 0; i < Np_; ++i) {
+        if (!(hw(i) > 0)) continue;
+        out.insert(out.end(), {hx(i), hy(i), hpx(i), hpy(i), hpz(i), hxi(i), hw(i)});
+        ++n;
+    }
+    Kokkos::deep_copy(tw_, 0.0);
+    Kokkos::deep_copy(ntrap_, 0);
+    return n;
 }
 
 void PlasmaSpecies::deposit(const SliceSources& s, const SliceFields& f) const {
@@ -468,6 +506,7 @@ void PlasmaSpecies::push(const SliceFields& f, Real dxi) {
         if (m > 0 && std::abs((tn[m - 1] - tn[m]) - static_cast<double>(dxi)) > 1e-9 * dxi) uniform = false;
     }
     const ABCoeffs abv = uniform ? ab_ : make_ab_variable(ordh, tn, dxi);
+    const Real xi_old = static_cast<Real>(xi_cur_);
     ++npush_;
     xi_cur_ += dxi;
     const GridD g = grid_.d;
@@ -486,6 +525,8 @@ void PlasmaSpecies::push(const SliceFields& f, Real dxi) {
     const bool first = first0;
     const Real R = grid_.R;
     const bool m1 = m1_;
+    const bool trap = trap_;
+    auto tw = tw_; auto txi = txi_; auto tpz = tpz_; auto ntrap = ntrap_;
     Kokkos::parallel_for("plasma.push", Range(0, Np_), KOKKOS_LAMBDA(int i) {
         const Real wi = w(i);
         if (wi == Real(0)) return;
@@ -527,6 +568,12 @@ void PlasmaSpecies::push(const SliceFields& f, Real dxi) {
         // (gamma without the laser term: the laser quiver motion is not a forward drift)
         const Real gn = (Real(1) + pxn * pxn + pyn * pyn + dn * dn) / (Real(2) * dn);
         if (!(dn > dmin) || gn > qsamax * dn) {
+            if (trap) {   // record the state at this slice (x, y, p_x, p_y, Delta stay unchanged)
+                tw(i) = wi;
+                txi(i) = xi_old;
+                tpz(i) = gam - D;   // incl. the laser quiver term: the mean p_z
+                Kokkos::atomic_add(&ntrap(0), 1);
+            }
             w(i) = Real(0);
             Kokkos::atomic_add(&lost(0), 1);
             return;

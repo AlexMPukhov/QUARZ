@@ -132,6 +132,19 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         beams_.push_back(std::make_unique<Beam>(cfg, n, *grid_, box_, m1_));
         nglobal.push_back(beams_.back()->num_global());   // the generators keep only the local particles
     }
+    // beams of trapped plasma particles (<species>.trap = 1): initially empty
+    trap_beam_.assign(species_.size(), -1);
+    for (size_t i = 0; i < species_.size(); ++i) {
+        if (!species_[i]->trap()) continue;
+        const std::string bn = species_[i]->trap_beam();
+        for (const auto& b : beams_)
+            if (b->name() == bn)
+                throw std::runtime_error(species_[i]->name() + ".trap_beam '" + bn + "' is created automatically: do not list it in 'beams'");
+        const double qm[2] = {species_[i]->charge(), species_[i]->mass()};
+        beams_.push_back(std::make_unique<Beam>(cfg, bn, *grid_, box_, m1_, qm));
+        nglobal.push_back(0);
+        trap_beam_[i] = static_cast<int>(beams_.size()) - 1;
+    }
     outbox_.resize(beams_.size());
 
     const int M = grid_->N + 1;
@@ -931,6 +944,41 @@ void Simulation::write_axis(const std::string& fn) const {
     Comm::write_at(fn, hw + static_cast<long long>(lw) * k0, buf.data(), buf.size());
 }
 
+// plasma particles that reached the quasi-static limit in this sweep become beam particles:
+// state of the slice where the limit was reached, weight = plasma weight (particles per unit
+// length) x the time this step represents; with modes = 0 at a random azimuth (nphi copies)
+void Simulation::convert_trapped(int n) {
+    trapped_step_ = 0;
+    const double dtw = have_prev_ ? 0.5 * (dt_prev_ + cur_dt_) : cur_dt_;
+    const double dtp = have_prev_ ? dt_prev_ : cur_dt_;
+    for (size_t s = 0; s < species_.size(); ++s) {
+        if (trap_beam_[s] < 0) continue;
+        std::vector<double> rec;
+        const int nt = species_[s]->collect_trapped(rec);
+        if (nt == 0) continue;
+        trapped_step_ += nt;
+        const int nphi = species_[s]->trap_nphi();
+        std::vector<double> p;
+        p.reserve(static_cast<size_t>(7 * nt * nphi));
+        for (int i = 0; i < nt; ++i) {
+            const double* r = &rec[7 * static_cast<size_t>(i)];
+            const double xi = xi_head_ + r[5], w = r[6] * dtw / nphi;
+            if (m1_) { p.insert(p.end(), {r[0], r[1], r[2], r[3], r[4], xi, w}); continue; }
+            // random azimuth from a hash of the state (independent of the particle index and the rank)
+            union { double d; uint64_t u; } b0{r[0]}, b1{r[1]}, b2{r[2]}, b3{r[3]}, b4{r[4]}, b5{xi};
+            const uint64_t key = ion_mix(0x7a3dULL ^ ion_mix(static_cast<uint64_t>(n) + 1000003ULL * (s + 1)));
+            const uint64_t id = ion_mix(b0.u ^ ion_mix(b1.u ^ ion_mix(b2.u ^ ion_mix(b3.u ^ ion_mix(b4.u ^ ion_mix(b5.u))))));
+            const double ph0 = 2 * PI * ion_rand(key, id, 0);
+            for (int j = 0; j < nphi; ++j) {
+                const double ph = ph0 + 2 * PI * j / nphi, c = std::cos(ph), sn = std::sin(ph);
+                p.insert(p.end(), {c * r[0] - sn * r[1], sn * r[0] + c * r[1], c * r[2] - sn * r[3], sn * r[2] + c * r[3],
+                                   r[4], xi, w});
+            }
+        }
+        beams_[trap_beam_[s]]->add_new(p, fld, static_cast<Real>(dtp), laser_ ? laser_->ponderomotive() : View3D());
+    }
+}
+
 void Simulation::write_beam_output(int n) {
     const bool par = comm_.size() > 1;
     const std::string rk = ".part" + std::to_string(comm_.rank());
@@ -1222,11 +1270,14 @@ void Simulation::run() {
         step_ = n;
         step_fields(msg, off);
         if (bwf_) write_boundary(n);
+        convert_trapped(n);
         const double tf = timer.seconds();
         if (rank < P - 1) comm_.isend(rank + 1, n % 30000, make_message(n));
 
         long lost = 0;
-        for (auto& s : species_) if (s->mobile()) lost += s->lost_count();
+        for (auto& s : species_) if (s->mobile()) { lost += s->lost_count(); s->reset_lost(); }
+        const long trapped = trapped_step_;
+        lost -= trapped;
         const double nsub = nsub_step_;
         nsub_step_ = 0;
         lost_total_ += lost;
@@ -1242,11 +1293,14 @@ void Simulation::run() {
             std::cout << "   sweep " << std::fixed << std::setprecision(3) << tf << " s" << std::defaultfloat;
             if (P > 1) std::cout << " (rank 0 of " << P << ", pipelined)";
             if (lost) std::cout << "   (" << lost << " plasma particles removed as trapped)";
+            if (trapped) std::cout << "   (" << trapped << " trapped plasma particles -> beam)";
             if (nsub > 0) std::cout << "   (" << static_cast<long>(nsub) << " extra sub-slices)";
             std::cout << std::endl;
-        } else if (lost) {
-            std::cout << "rank " << rank << " step " << n << ": " << lost
-                      << " plasma particles removed as trapped" << std::endl;
+        } else if (lost || trapped) {
+            std::cout << "rank " << rank << " step " << n << ": ";
+            if (lost) std::cout << lost << " plasma particles removed as trapped ";
+            if (trapped) std::cout << trapped << " trapped plasma particles -> beam";
+            std::cout << std::endl;
         }
 
         if (adaptive_ && comm_.root() && !cur_last_)
