@@ -76,7 +76,7 @@ Package for delivery (includes .git, so the history survives the container):
 - CUDA compile check (~10 min) only when device code changed (kernels, Types.hpp, views).
 - Never edit `run_validation.sh` while it is running (bash reads scripts incrementally).
 
-## Status (2026-10-10)
+## Status (2026-10-11)
 Done and validated (README §7, `validation/reference_full.txt`):
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a
@@ -242,7 +242,7 @@ Done and validated (README §7, `validation/reference_full.txt`):
   conserved per particle 4e-4 rms over 30 steps; charge rate dt 0.2 vs 0.1 1.4e-3; max_qsa 20/35/70
   identical charge; with beam loading restart and 2/3 ranks bit-identical. Self-injection at the
   closure of a strong bubble (blowout n_b = 8) is NOT clean: H far from 1 (closure caustic).
-  Example examples/trojan_horse.in (19 pC, <gamma> 25 at t = 40).
+  Example examples/trojan_horse.in (19 pC, <gamma> 25 at t = 40). Full suite 21/21, CUDA compiles.
 - Paper v1 (arXiv submission planned Fri 2026-10-09): new subsection "Bubble closure on a fine
   axial mesh" (sec:closure, Fig. fig_closure from scripts/closure.sh + fig_closure.py), framed
   around the grid: uniform grids regularize the caustic implicitly over one cell, the fine axis
@@ -286,11 +286,9 @@ Done and validated (README §7, `validation/reference_full.txt`):
 Later: m >= 2 modes (POSTPONED, agreed 2026-10-07: only for generality; flat beams not a goal.
 For AWAKE e-seed misalignment m = 1 suffices to O((d/sigma)^2): check by an offset scan,
 response/d constant = linear regime, plus one QPAD/HiPACE++ case at the largest offset.
-Estimate if ever done: 3-5 days, refactor to mode-indexed arrays first); trapped electrons -> beam particles; phase-corrected / m = 1 laser
+Estimate if ever done: 3-5 days, refactor to mode-indexed arrays first); phase-corrected / m = 1 laser
 envelope; beams from openPMD files, warm plasma, Python/PICMI interface;
 GPU benchmark vs a full current CPU node, fused slice kernels; Bethe data beyond Ar.
 
 ## Earlier proposals
-- Convert trapped plasma electrons into beam particles (charge w * dt per step) so that
-  ionization injection can be followed through acceleration.
 - Benedetti phase-corrected envelope; m = 1 laser envelope.
