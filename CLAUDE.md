@@ -22,7 +22,7 @@ working state and the rules for developing.
 
 ## Project
 **Name:** QUARZ = Quasistatic Arbitrary-resolution RZ code (chosen by Alexander and Thomas,
-2026-10-06; formerly QSRZ). Executable `quarz`, namespace `quarz`, macros/CMake options
+2026-10-06; formerly QSRZ). Nickname "Q" (Alexander, 2026-10-11; matches the avatar). Executable `quarz`, namespace `quarz`, macros/CMake options
 `QUARZ_*`. Old names still accepted: CMake `-DQSRZ_*` options (deprecation warning),
 `tools/qsrz_read.py` (shim), `QSRZ_*` variables in `tools/build_gpu.sh`. Input keys and output
 formats unchanged (openPMD attributes renamed `qsrz_*` -> `quarz_*`; no reader depends on them).

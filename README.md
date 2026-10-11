@@ -9,6 +9,7 @@
 
 *Quasi-static PIC code in (r, θ, ξ) with azimuthal modes m = 0, 1 and a flexible non-uniform radial grid.*
 (Formerly QSRZ; renamed in October 2026. Input files and output formats are unchanged.)
+Nickname: **Q**, after the Q ring of its logo.
 
 QUARZ is a quasi-static particle-in-cell code for plasma wakefield
 acceleration in the spirit of LCODE-2D, written in C++17 on top of
