@@ -1,8 +1,8 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.5.8)  9 OCT 2026 17:02
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.5.8)  11 OCT 2026 16:12
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**quarz_paper
+**quarz_paper.tex
 (./quarz_paper.tex
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -754,100 +754,92 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 (hyperref)                removing `\\' on input line 29.
 
 [1{/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-Underfull \hbox (badness 7064) in paragraph at lines 71--72
+Underfull \hbox (badness 7064) in paragraph at lines 73--74
  []\OT1/cmr/m/it/10 b. Beam par-ti-cles[] \OT1/cmr/m/n/10 are full 3D macro-par
 ticles
  []
 
+[2]
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 105.
+(hyperref)                removing `math shift' on input line 107.
 
 
 Package hyperref Warning: Token not allowed in a PDF string (Unicode):
-(hyperref)                removing `math shift' on input line 105.
+(hyperref)                removing `math shift' on input line 107.
 
 
-Underfull \hbox (badness 1762) in paragraph at lines 107--108
+Underfull \hbox (badness 1762) in paragraph at lines 109--110
 []\OT1/cmr/m/n/10 Every scalar is ex-panded as $\OML/cmm/m/it/10 f\OT1/cmr/m/n/
 10 (\OML/cmm/m/it/10 r; ^^R\OT1/cmr/m/n/10 ) = \OML/cmm/m/it/10 f[]\OT1/cmr/m/n
 /10 (\OML/cmm/m/it/10 r\OT1/cmr/m/n/10 ) +
  []
 
-[2] [3]
-<figs/fig_maps.pdf, id=189, 489.70316pt x 283.63577pt>
+[3]
+<figs/fig_maps.pdf, id=190, 489.70316pt x 283.63577pt>
 File: figs/fig_maps.pdf Graphic file (type pdf)
 <use figs/fig_maps.pdf>
-Package pdftex.def Info: figs/fig_maps.pdf  used on input line 194.
+Package pdftex.def Info: figs/fig_maps.pdf  used on input line 196.
 (pdftex.def)             Requested size: 510.0pt x 295.39838pt.
-<figs/fig_convergence.pdf, id=191, 505.89pt x 169.8345pt>
+<figs/fig_convergence.pdf, id=192, 505.89pt x 169.8345pt>
 File: figs/fig_convergence.pdf Graphic file (type pdf)
 <use figs/fig_convergence.pdf>
-Package pdftex.def Info: figs/fig_convergence.pdf  used on input line 203.
+Package pdftex.def Info: figs/fig_convergence.pdf  used on input line 205.
 (pdftex.def)             Requested size: 510.0pt x 171.21791pt.
-<figs/fig_evolution.pdf, id=204, 505.89pt x 173.448pt>
+<figs/fig_evolution.pdf, id=205, 505.89pt x 173.448pt>
 File: figs/fig_evolution.pdf Graphic file (type pdf)
 <use figs/fig_evolution.pdf>
-Package pdftex.def Info: figs/fig_evolution.pdf  used on input line 232.
+Package pdftex.def Info: figs/fig_evolution.pdf  used on input line 234.
 (pdftex.def)             Requested size: 510.0pt x 174.86086pt.
  [4] [5 <./figs/fig_maps.pdf>]
-<figs/fig_closure.pdf, id=313, 505.89pt x 177.0615pt>
+<figs/fig_closure.pdf, id=315, 505.89pt x 177.0615pt>
 File: figs/fig_closure.pdf Graphic file (type pdf)
 <use figs/fig_closure.pdf>
-Package pdftex.def Info: figs/fig_closure.pdf  used on input line 253.
+Package pdftex.def Info: figs/fig_closure.pdf  used on input line 255.
 (pdftex.def)             Requested size: 510.0pt x 178.50375pt.
- [6 <./figs/fig_convergence.pdf>]
-<figs/fig_awake.pdf, id=401, 244.6937pt x 203.91142pt>
+ [6 <./figs/fig_convergence.pdf>] [7 <./figs/fig_evolution.pdf> <./figs/fig_clo
+sure.pdf>]
+<figs/fig_awake.pdf, id=561, 244.6937pt x 203.91142pt>
 File: figs/fig_awake.pdf Graphic file (type pdf)
 <use figs/fig_awake.pdf>
-Package pdftex.def Info: figs/fig_awake.pdf  used on input line 268.
+Package pdftex.def Info: figs/fig_awake.pdf  used on input line 270.
 (pdftex.def)             Requested size: 246.0pt x 205.003pt.
- [7 <./figs/fig_evolution.pdf> <./figs/fig_closure.pdf>]
-
-LaTeX Warning: A float is stuck (cannot be placed) on input line 276.
-
-
-LaTeX Warning: A float is stuck (cannot be placed) on input line 276.
-
-
-Class revtex4-2 Warning: Deferred float stuck during \clearpage processing.
-
-[8 <./figs/fig_awake.pdf>]
-Underfull \hbox (badness 1303) in paragraph at lines 319--320
+ [8 <./figs/fig_awake.pdf>]
+Underfull \hbox (badness 1303) in paragraph at lines 323--324
  []\OT1/cmr/m/n/9 A. Fer-ran Pousa \OT1/cmr/m/it/9 et al.\OT1/cmr/m/n/9 , Grid-
 less qua-sistatic model
  []
 
 
-Underfull \hbox (badness 2165) in paragraph at lines 328--329
+Underfull \hbox (badness 2165) in paragraph at lines 332--333
  \OT1/cmr/m/n/9 Arbitrary-resolution RZ code, [][]$\OT1/cmtt/m/n/9 https : / / 
 github . com /
  []
 
 
-Underfull \hbox (badness 4752) in paragraph at lines 329--330
+Underfull \hbox (badness 4752) in paragraph at lines 333--334
  []\OT1/cmr/m/n/9 Anthropic, Claude, large lan-guage model (model
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 329--330
+Underfull \hbox (badness 10000) in paragraph at lines 333--334
  \OT1/cmtt/m/n/9 claude-opus-5-5\OT1/cmr/m/n/9 ), [][]$\OT1/cmtt/m/n/9 https : 
 / / www . anthropic . com /
  []
 
 
-Underfull \hbox (badness 3118) in paragraph at lines 331--332
+Underfull \hbox (badness 3118) in paragraph at lines 335--336
  []\OT1/cmr/m/n/9 J. P. Farmer, T. Wil-son, A. Pukhov, M. Mor-
  []
 
 
-Underfull \hbox (badness 2229) in paragraph at lines 331--332
+Underfull \hbox (badness 2229) in paragraph at lines 335--336
  \OT1/cmr/m/n/9 dy-nam-ics in AWAKE Run 2c, in \OT1/cmr/m/it/9 Proc. IPAC'26\OT
 1/cmr/m/n/9 ,
  []
 
 No file quarz_paper.bbl.
-[9] (./quarz_paper.aux)
+[9] [10] (./quarz_paper.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -856,13 +848,13 @@ Package rerunfilecheck Info: File `quarz_paper.out' has not changed.
 (rerunfilecheck)             Checksum: F16A4319ECDE3B128B08C64CE461F5B5;3114.
  ) 
 Here is how much of TeX's memory you used:
- 22813 strings out of 476106
- 413032 string characters out of 5793934
- 1960975 words of memory out of 5000000
- 44377 multiletter control sequences out of 15000+600000
+ 22815 strings out of 476106
+ 413051 string characters out of 5793934
+ 1965975 words of memory out of 5000000
+ 44378 multiletter control sequences out of 15000+600000
  571571 words of font info for 86 fonts, out of 8000000 for 9000
  59 hyphenation exceptions out of 8191
- 84i,12n,93p,1683b,856s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,12n,93p,1948b,856s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx9.pfb></usr/share
 /texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texli
@@ -884,10 +876,10 @@ ublic/amsfonts/cm/cmti10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/
 amsfonts/cm/cmti9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfont
 s/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/c
 mtt9.pfb>
-Output written on quarz_paper.pdf (9 pages, 847788 bytes).
+Output written on quarz_paper.pdf (10 pages, 850682 bytes).
 PDF statistics:
- 759 PDF objects out of 1000 (max. 8388607)
- 411 compressed objects within 5 object streams
- 81 named destinations out of 1000 (max. 500000)
+ 768 PDF objects out of 1000 (max. 8388607)
+ 419 compressed objects within 5 object streams
+ 82 named destinations out of 1000 (max. 500000)
  166 words of extra memory for PDF output out of 10000 (max. 10000000)
 
