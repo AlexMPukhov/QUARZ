@@ -75,7 +75,10 @@ The awkward term ∂_ξ J⊥ in the B⊥ equation is computed **explicitly from 
 particle equations of motion**, following Baxevanis & Stupakov (PRAB 21,
 071301, 2018), the scheme also used by HiPACE++'s explicit solver. Its part
 proportional to B⊥ is −iχB₊, with χ = Σ q²w/(m(γ − p_z)) ≥ 0. The remainder,
-S₊, is deposited from the particles.
+S₊, is deposited from the particles:
+S₊ = Σ q w [a₊ δ_p − u₊ (u⊥·∇⊥) δ_p], a₊ = (q̂/Δ²)(γW₊ − i p₊ B_z) − (p₊/Δ²) dΔ/dξ
+(+ the ponderomotive force with a laser), u₊ = p₊/Δ, i.e. dJ₊/dξ along the orbits without −iχB₊:
+acceleration by W⊥, B_z (and E_z through Δ) plus transport of the current.
 
 - **m = 0:** the axisymmetric part χ₀ goes into the operator. The resulting
   Helmholtz problem is negative definite, so no iterations are needed.

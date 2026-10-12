@@ -53,20 +53,25 @@ We use normalized units: time in $1/\omega_p$, lengths in $c/\omega_p$, densitie
 \nabla_\perp^2 \psi &= -(\rho - J_z), \label{eq:psi}\\
 \nabla_\perp^2 E_z &= -\partial_\xi(\rho - J_z), \label{eq:ez}\\
 \nabla_\perp^2 B_z &= -(\nabla_\perp\times\bm{J}_\perp)_z, \label{eq:bz}\\
-\nabla_\perp^2 \bm{B}_\perp &= \hat{\bm z}\times\left(\partial_\xi \bm{J}_\perp - \nabla_\perp J_z\right). \label{eq:bperp}
+\nabla_\perp^2 \bm{B}_\perp &= \hat{\bm z}\times\left(\partial_\xi \bm{J}_\perp + \nabla_\perp J_z\right). \label{eq:bperp}
 \end{align}
 The term $\partial_\xi\bm{J}_\perp$ is not known on the current slice. Following Baxevanis and Stupakov~\cite{Baxevanis2018}, it is computed from the particle equations of motion. Its part proportional to $\bm{B}_\perp$ is moved to the operator. In complex notation $B_+ = B_x + iB_y$, Eq.~\eqref{eq:bperp} becomes a screened Poisson (Helmholtz) problem,
 \begin{align}
 \left(\nabla_\perp^2 - \chi\right) B_+ &= i\left[(\partial_x + i\partial_y) J_z + S_+\right], \label{eq:helm}\\
 \chi &= \sum_p \frac{q_p^2 w_p}{m_p(\gamma_p - p_{z,p})} \ge 0, \label{eq:chi}
 \end{align}
-where $S_+$ collects the remaining terms, deposited from the particles. Since $\chi\ge 0$, the operator is negative definite and the solve needs no iteration. Finally $E_+ = W_+ - iB_+$.
+where $J_+ = J_x + iJ_y$ and
+\begin{align}
+S_+ &= \sum_p q_p w_p \left[ a_{+,p}\, \delta_p - u_{+,p}\, (\bm{u}_{\perp,p}\cdot\nabla_\perp)\, \delta_p \right], \label{eq:splus}\\
+a_+ &= \frac{\hat q}{\Delta^2}\left(\gamma W_+ - i p_+ B_z\right) - \frac{p_+}{\Delta^2}\,\frac{\dd\Delta}{\dd\xi}. \label{eq:aplus}
+\end{align}
+Here $u_+ = p_+/\Delta = (p_x + i p_y)/\Delta$ is the transverse velocity $\dd x_+/\dd\xi$ of a particle, $\delta_p = \delta(\bm{x}_\perp - \bm{x}_{\perp,p})$ (in the code the hat-function shape of Sec.~\ref{sec:disc}), and $\dd\Delta/\dd\xi$ is given by Eq.~\eqref{eq:ddelta}. $S_+$ is the $\xi$-derivative of $J_+ = \sum_p q_p w_p u_{+,p}\delta_p$ along the particle orbits, $\dd u_+/\dd\xi = a_+ - i\hat q B_+/\Delta$, without its part $-i\chi B_+$: the first term in Eq.~\eqref{eq:splus} is the acceleration of the particles by $\bm{W}_\perp$ and $B_z$ (and, through $\Delta$, by $E_z$), the second is the transport of the current by the moving particles. Since $\chi\ge 0$, the operator is negative definite and the solve needs no iteration. Finally $E_+ = W_+ - iB_+$.
 
 \paragraph{Plasma particles} carry $(x, y, p_x, p_y, \Delta = \gamma - p_z, w)$, with $\Delta$ conserved in a static potential. With $\hat q = q/m$ they obey
 \begin{align}
 \frac{\dd x}{\dd\xi} &= \frac{p_x}{\Delta}, \label{eq:eom}\\
 \frac{\dd p_x}{\dd\xi} &= \hat q\left[\frac{\gamma W_x}{\Delta} + B_y + \frac{p_y B_z}{\Delta}\right], \\
-\frac{\dd \Delta}{\dd\xi} &= \hat q\left[\frac{\bm{p}_\perp\cdot\bm{W}_\perp}{\Delta} - E_z\right],
+\frac{\dd \Delta}{\dd\xi} &= \hat q\left[\frac{\bm{p}_\perp\cdot\bm{W}_\perp}{\Delta} - E_z\right], \label{eq:ddelta}
 \end{align}
 and the analogous equations for $y$. They are integrated with an Adams--Bashforth scheme of order 1 to 5 (default 3). Particles are Cartesian in the transverse plane, so they cross the axis without special treatment. Any number of species, including mobile ions, can be used. Particles with $\Delta$ below a threshold are trapped and are removed, since the quasi-static model cannot follow them.
 
