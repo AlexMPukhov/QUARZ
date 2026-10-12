@@ -58,7 +58,7 @@ We use normalized units: time in $1/\omega_p$, lengths in $c/\omega_p$, densitie
 The term $\partial_\xi\bm{J}_\perp$ is not known on the current slice. Following Baxevanis and Stupakov~\cite{Baxevanis2018}, it is computed from the particle equations of motion. Its part proportional to $\bm{B}_\perp$ is moved to the operator. In complex notation $B_+ = B_x + iB_y$, Eq.~\eqref{eq:bperp} becomes a screened Poisson (Helmholtz) problem,
 \begin{align}
 \left(\nabla_\perp^2 - \chi\right) B_+ &= i\left[(\partial_x + i\partial_y) J_z + S_+\right], \label{eq:helm}\\
-\chi &= \sum_p \frac{q_p^2 w_p}{m_p(\gamma_p - p_{z,p})} \ge 0, \label{eq:chi}
+\chi &= \sum_p \frac{q_p^2 w_p}{m_p(\gamma_p - p_{z,p})}\,\delta_p \ge 0, \label{eq:chi}
 \end{align}
 where $J_+ = J_x + iJ_y$ and
 \begin{align}
@@ -73,9 +73,16 @@ Here $u_+ = p_+/\Delta = (p_x + i p_y)/\Delta$ is the transverse velocity $\dd x
 \frac{\dd p_x}{\dd\xi} &= \hat q\left[\frac{\gamma W_x}{\Delta} + B_y + \frac{p_y B_z}{\Delta}\right], \\
 \frac{\dd \Delta}{\dd\xi} &= \hat q\left[\frac{\bm{p}_\perp\cdot\bm{W}_\perp}{\Delta} - E_z\right], \label{eq:ddelta}
 \end{align}
-and the analogous equations for $y$. They are integrated with an Adams--Bashforth scheme of order 1 to 5 (default 3). Particles are Cartesian in the transverse plane, so they cross the axis without special treatment. Any number of species, including mobile ions, can be used. Particles with $\Delta$ below a threshold are trapped and are removed, since the quasi-static model cannot follow them.
+and the analogous equations for $y$. The weight $w$ of a plasma particle is the number of real particles per unit length in $\xi$ that it represents (a ring for $m=0$, a ring segment for $m=1$), in units of $n_0 c^2/\omega_p^2$. It is set where the plasma enters the box at rest, $w = n\,\delta A$ with $n$ the local density and $\delta A$ the cross-section of the ring, and it stays constant along the orbit. A particle crosses a slice in the time $1/(1-v_z) = \gamma/\Delta$, so its sources are
+\begin{align}
+\rho &= \sum_p q_p w_p \frac{\gamma_p}{\Delta_p}\,\delta_p, \quad
+\bm{J} = \sum_p q_p w_p \frac{\bm{p}_p}{\Delta_p}\,\delta_p, \nonumber\\
+\rho - J_z &= \sum_p q_p w_p\, \delta_p,
+\label{eq:plsources}
+\end{align}
+where $\delta_p$ is the transverse shape of Eq.~\eqref{eq:splus}. They are integrated with an Adams--Bashforth scheme of order 1 to 5 (default 3). Particles are Cartesian in the transverse plane, so they cross the axis without special treatment. Any number of species, including mobile ions, can be used. Particles with $\Delta$ below a threshold are trapped and are removed, since the quasi-static model cannot follow them.
 
-\paragraph{Beam particles} are full 3D macro-particles $(x, y, p_x, p_y, p_z, \xi, w)$, advanced in lab time $t$ with a time step $\Delta t \gg \Delta\xi$. We use the Vay pusher~\cite{Vay2008} by default, because the beam's own fields nearly cancel ($E_r\approx B_\theta$) and the Boris pusher does not preserve this balance; the Higuera--Cary pusher~\cite{Higuera2017} and an implicit scheme with radiation reaction are available. The beam charge and current, $(\rho - J_z)_b$, enter the right-hand sides above.
+\paragraph{Beam particles} are full 3D macro-particles $(x, y, p_x, p_y, p_z, \xi, w)$, where $w$ is the number of real particles a macro-particle represents, in units of $n_0 c^3/\omega_p^3$; they are deposited with a shape in $r$ and in $\xi$, $\rho_b = \sum_p q_p w_p\, \delta_p\,\delta(\xi - \xi_p)$ and $\bm{J}_b = \sum_p q_p w_p \bm{v}_p\, \delta_p\,\delta(\xi - \xi_p)$. They are advanced in lab time $t$ with a time step $\Delta t \gg \Delta\xi$. We use the Vay pusher~\cite{Vay2008} by default, because the beam's own fields nearly cancel ($E_r\approx B_\theta$) and the Boris pusher does not preserve this balance; the Higuera--Cary pusher~\cite{Higuera2017} and an implicit scheme with radiation reaction are available. The beam charge and current, $(\rho - J_z)_b$, enter the right-hand sides above.
 
 %---------------------------------------------------------------------------
 \section{Discretization on an arbitrary radial grid}\label{sec:disc}

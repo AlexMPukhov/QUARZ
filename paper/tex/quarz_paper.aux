@@ -22,7 +22,6 @@
 \citation{Baxevanis2018}
 \citation{Vay2008}
 \citation{Higuera2017}
-\citation{Verboncoeur2001}
 \@writefile{toc}{\contentsline {section}{\numberline {II}Quasi-static model}{2}{section*.4}\protected@file@percent }
 \newlabel{sec:model}{{II}{2}{}{section*.4}{}}
 \newlabel{eq:psi}{{1}{2}{}{equation.2.1}{}}
@@ -36,40 +35,41 @@
 \@writefile{toc}{\contentsline {paragraph}{\numberline {a}Plasma particles}{2}{section*.5}\protected@file@percent }
 \newlabel{eq:eom}{{9}{2}{}{equation.2.9}{}}
 \newlabel{eq:ddelta}{{11}{2}{}{equation.2.11}{}}
+\newlabel{eq:plsources}{{12}{2}{}{equation.2.12}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {b}Beam particles}{2}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {III}Discretization on an arbitrary radial grid}{2}{section*.7}\protected@file@percent }
 \newlabel{sec:disc}{{III}{2}{}{section*.7}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {a}Hat-function volumes.}{2}{section*.8}\protected@file@percent }
-\newlabel{eq:vol}{{12}{2}{}{equation.3.12}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {b}$m=0$ Laplacian.}{2}{section*.9}\protected@file@percent }
-\newlabel{eq:L0}{{13}{2}{}{equation.3.13}{}}
+\citation{Verboncoeur2001}
 \citation{Li2021}
 \citation{Lifschitz2009}
 \citation{Trott2022}
 \citation{Laszlo2016}
 \citation{QUARZ}
 \citation{Claude}
-\citation{Feng2009}
-\citation{Diederichs2022}
+\newlabel{eq:vol}{{13}{3}{}{equation.3.13}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {b}$m=0$ Laplacian.}{3}{section*.9}\protected@file@percent }
+\newlabel{eq:L0}{{14}{3}{}{equation.3.14}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {c}Higher-order operators.}{3}{section*.10}\protected@file@percent }
-\newlabel{eq:Ln}{{14}{3}{}{equation.3.14}{}}
+\newlabel{eq:Ln}{{15}{3}{}{equation.3.15}{}}
 \@writefile{toc}{\contentsline {paragraph}{\numberline {d}Boundary conditions.}{3}{section*.11}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {e}Exact $\xi $-derivatives of the deposits.}{3}{section*.12}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {f}Gradients}{3}{section*.13}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {IV}Azimuthal mode $m=1$}{3}{section*.14}\protected@file@percent }
 \newlabel{sec:m1}{{IV}{3}{}{section*.14}{}}
-\newlabel{eq:vplus}{{15}{3}{}{equation.4.15}{}}
+\newlabel{eq:vplus}{{16}{3}{}{equation.4.16}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {V}Implementation and parallelization}{3}{section*.15}\protected@file@percent }
 \newlabel{sec:impl}{{V}{3}{}{section*.15}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {a}MPI pipelining along $\xi $.}{3}{section*.16}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Time pipelining along $\xi $ with three ranks. Arrows: one message per time step from rank $r$ to $r+1$ (plasma particles with their Adams--Bashforth history, $B_+$ and $(\rho -J_z)_b$ of the last slice, and beam particles that slipped downstream). Highlighted: one time step crossing the box. After $P-1$ sweeps all ranks are busy.}}{4}{figure.1}\protected@file@percent }
-\newlabel{fig:pipeline}{{1}{4}{Time pipelining along $\xi $ with three ranks. Arrows: one message per time step from rank $r$ to $r+1$ (plasma particles with their Adams--Bashforth history, $B_+$ and $(\rho -J_z)_b$ of the last slice, and beam particles that slipped downstream). Highlighted: one time step crossing the box. After $P-1$ sweeps all ranks are busy}{figure.1}{}}
+\citation{Feng2009}
+\citation{Diederichs2022}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {a}MPI pipelining along $\xi $.}{4}{section*.16}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {VI}Validation and benchmarks}{4}{section*.17}\protected@file@percent }
 \newlabel{sec:valid}{{VI}{4}{}{section*.17}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {A}Verification}{4}{section*.18}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Time pipelining along $\xi $ with three ranks. Arrows: one message per time step from rank $r$ to $r+1$ (plasma particles with their Adams--Bashforth history, $B_+$ and $(\rho -J_z)_b$ of the last slice, and beam particles that slipped downstream). Highlighted: one time step crossing the box. After $P-1$ sweeps all ranks are busy.}}{4}{figure.1}\protected@file@percent }
+\newlabel{fig:pipeline}{{1}{4}{Time pipelining along $\xi $ with three ranks. Arrows: one message per time step from rank $r$ to $r+1$ (plasma particles with their Adams--Bashforth history, $B_+$ and $(\rho -J_z)_b$ of the last slice, and beam particles that slipped downstream). Highlighted: one time step crossing the box. After $P-1$ sweeps all ranks are busy}{figure.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {B}Pinched witness with ion motion}{4}{section*.19}\protected@file@percent }
 \newlabel{sec:pinch}{{VI\,B}{4}{}{section*.19}{}}
-\@writefile{toc}{\contentsline {paragraph}{\numberline {}Witness evolution.}{4}{section*.20}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Verification tests (stretched grids have neighbour ratio $\le 1.05$).}}{5}{table.1}\protected@file@percent }
 \newlabel{tab:verif}{{I}{5}{Verification tests (stretched grids have neighbour ratio $\le 1.05$)}{table.1}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Pinched witness with mobile hydrogen ions (single quasi-static solve, noise-free beams). (a) Electron density and beam density contours over the whole box, stretched grid with 512 cells. (b)--(e) Ion density near the axis inside the witness: uniform grids with $\Delta r = 0.01$ (800 cells) and $0.005$ (1600 cells), the stretched grid of (a) with $h_0 = 5\times 10^{-4}$ on the axis, and the reference ($h_0 = 1.6\times 10^{-5}$, 14\,617 cells). On the uniform grids the ion spike is spread over the first cells and its peak is too low; the stretched grid is indistinguishable from the reference.}}{5}{figure.2}\protected@file@percent }
@@ -79,9 +79,10 @@
 \newlabel{fig:convergence}{{3}{6}{Error versus number of radial cells for the pinched witness of Fig.~\ref {fig:maps}: (a) ion density on the axis, (b) focusing field $W_r = E_r - B_\theta $ at $r=0.01$ (the witness radius), (c) $E_z$ on the axis. Open circles: uniform grids; squares: stretched grids with the same shape and all spacings scaled. The grids of Table~\ref {tab:pinch} are labelled. The flattening of the finest stretched points in (b) reflects the accuracy of the reference}{figure.3}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces Pinched witness with mobile hydrogen ions: maximum relative errors in the witness with respect to the reference of Fig.~\ref {fig:convergence}. $W_r = E_r - B_\theta $. Times per sweep of 1461 slices on 2 CPU cores.}}{6}{table.2}\protected@file@percent }
 \newlabel{tab:pinch}{{II}{6}{Pinched witness with mobile hydrogen ions: maximum relative errors in the witness with respect to the reference of Fig.~\ref {fig:convergence}. $W_r = E_r - B_\theta $. Times per sweep of 1461 slices on 2 CPU cores}{table.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {}Witness evolution.}{6}{section*.20}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {C}Bubble closure on a fine axial mesh}{6}{section*.21}\protected@file@percent }
 \newlabel{sec:closure}{{VI\,C}{6}{}{section*.21}{}}
-\newlabel{eq:smooth}{{16}{6}{}{equation.6.16}{}}
+\newlabel{eq:smooth}{{17}{6}{}{equation.6.17}{}}
 \citation{Farmer2026}
 \citation{Diederichs2022}
 \citation{Farmer2026}
@@ -90,14 +91,12 @@
 \newlabel{fig:evolution}{{4}{7}{Evolution of the pinched witness of Fig.~\ref {fig:maps} behind a rigid driver, with mobile hydrogen ions, on two uniform and two stretched grids ($\Delta t = 10$, $2\times 10^5$ witness particles). (a) Normalized emittance, (b) rms radius, both relative to their initial values. The 512-cell stretched grid coincides with the 967-cell one; the uniform grids overestimate the envelope oscillation}{figure.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {D}Self-modulation of a long proton bunch}{7}{section*.22}\protected@file@percent }
 \newlabel{sec:awake}{{VI\,D}{7}{}{section*.22}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {E}Parallel performance}{7}{section*.23}\protected@file@percent }
-\newlabel{sec:perf}{{VI\,E}{7}{}{section*.23}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Bubble closure in the pinched-witness case of Fig.~\ref {fig:maps}, with the box extended to $\xi =12$ (single quasi-static solve). (a) $E_z$ on the axis at the closure: uniform grid $\Delta r = 0.005$; stretched grid ($h_0 = 5\times 10^{-4}$) with a cold plasma and with smoothing of the plasma sources, Eq.~\eqref  {eq:smooth}, $a = 0.005$. The cold spike reaches $-78$ at $\Delta \xi = 6.25\times 10^{-4}$. (b) Rms relative error of $E_z(0)$ and $\psi (0)$ behind the closure ($9.2<\xi <11.9$) versus $\Delta \xi $, with respect to $\Delta \xi = 6.25\times 10^{-4}$ of the same model. Triangles: $a = 0.005$ with axis cells $10^{-3}$ and $2.5\times 10^{-4}$ ($\Delta \xi = 0.00125$).}}{8}{figure.5}\protected@file@percent }
 \newlabel{fig:closure}{{5}{8}{Bubble closure in the pinched-witness case of Fig.~\ref {fig:maps}, with the box extended to $\xi =12$ (single quasi-static solve). (a) $E_z$ on the axis at the closure: uniform grid $\Delta r = 0.005$; stretched grid ($h_0 = 5\times 10^{-4}$) with a cold plasma and with smoothing of the plasma sources, Eq.~\eqref {eq:smooth}, $a = 0.005$. The cold spike reaches $-78$ at $\Delta \xi = 6.25\times 10^{-4}$. (b) Rms relative error of $E_z(0)$ and $\psi (0)$ behind the closure ($9.2<\xi <11.9$) versus $\Delta \xi $, with respect to $\Delta \xi = 6.25\times 10^{-4}$ of the same model. Triangles: $a = 0.005$ with axis cells $10^{-3}$ and $2.5\times 10^{-4}$ ($\Delta \xi = 0.00125$)}{figure.5}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Self-modulation of the AWAKE proton bunch after 6~m of plasma: QUARZ on uniform (3840 cells) and stretched (403 cells) radial grids, on CPUs and GPUs, compared with HiPACE++. (a) $E_z$ on the axis, with the head of the bunch at $\xi = 0$. (b) Phase of $E_z(r=0)$ and of the transverse force $F_r = E_r - B_\theta $ at $r = 0.1$ and $1\,k_p^{-1}$, from the zero crossings of the fields. Saturated lines: HiPACE++; light lines: the four QUARZ runs.}}{8}{figure.6}\protected@file@percent }
 \newlabel{fig:awake}{{6}{8}{Self-modulation of the AWAKE proton bunch after 6~m of plasma: QUARZ on uniform (3840 cells) and stretched (403 cells) radial grids, on CPUs and GPUs, compared with HiPACE++. (a) $E_z$ on the axis, with the head of the bunch at $\xi = 0$. (b) Phase of $E_z(r=0)$ and of the transverse force $F_r = E_r - B_\theta $ at $r = 0.1$ and $1\,k_p^{-1}$, from the zero crossings of the fields. Saturated lines: HiPACE++; light lines: the four QUARZ runs}{figure.6}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Wall-clock time of one sweep per rank (s), AWAKE case of Sec.~\ref {sec:awake} on the uniform grid (3840 cells, 64\,064 slices, $2\times 10^7$ beam particles). Averages over 50 sweeps (10 on one core). CPU: JUWELS (Intel Xeon Platinum 8168, 48 cores per node); GPU: NVIDIA GH200 (JUPITER).}}{8}{table.3}\protected@file@percent }
-\newlabel{tab:perf}{{III}{8}{Wall-clock time of one sweep per rank (s), AWAKE case of Sec.~\ref {sec:awake} on the uniform grid (3840 cells, 64\,064 slices, $2\times 10^7$ beam particles). Averages over 50 sweeps (10 on one core). CPU: JUWELS (Intel Xeon Platinum 8168, 48 cores per node); GPU: NVIDIA GH200 (JUPITER)}{table.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {E}Parallel performance}{8}{section*.23}\protected@file@percent }
+\newlabel{sec:perf}{{VI\,E}{8}{}{section*.23}{}}
 \citation{Claude}
 \bibcite{Mora1997}{{1}{}{{}}{{}}}
 \bibcite{Lotov2003}{{2}{}{{}}{{}}}
@@ -111,14 +110,16 @@
 \bibcite{Rosenzweig2005}{{10}{}{{}}{{}}}
 \bibcite{An2017}{{11}{}{{}}{{}}}
 \bibcite{Baxevanis2018}{{12}{}{{}}{{}}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Wall-clock time of one sweep per rank (s), AWAKE case of Sec.~\ref {sec:awake} on the uniform grid (3840 cells, 64\,064 slices, $2\times 10^7$ beam particles). Averages over 50 sweeps (10 on one core). CPU: JUWELS (Intel Xeon Platinum 8168, 48 cores per node); GPU: NVIDIA GH200 (JUPITER).}}{9}{table.3}\protected@file@percent }
+\newlabel{tab:perf}{{III}{9}{Wall-clock time of one sweep per rank (s), AWAKE case of Sec.~\ref {sec:awake} on the uniform grid (3840 cells, 64\,064 slices, $2\times 10^7$ beam particles). Averages over 50 sweeps (10 on one core). CPU: JUWELS (Intel Xeon Platinum 8168, 48 cores per node); GPU: NVIDIA GH200 (JUPITER)}{table.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Conclusions}{9}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {}Acknowledgments}{9}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {}References}{9}{section*.26}\protected@file@percent }
 \bibcite{Vay2008}{{13}{}{{}}{{}}}
 \bibcite{Higuera2017}{{14}{}{{}}{{}}}
 \bibcite{Verboncoeur2001}{{15}{}{{}}{{}}}
 \bibcite{Lifschitz2009}{{16}{}{{}}{{}}}
 \bibcite{Trott2022}{{17}{}{{}}{{}}}
-\@writefile{toc}{\contentsline {section}{\numberline {VII}Conclusions}{9}{section*.24}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {}Acknowledgments}{9}{section*.25}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {}References}{9}{section*.26}\protected@file@percent }
 \bibcite{QUARZ}{{18}{}{{}}{{}}}
 \bibcite{Claude}{{19}{}{{}}{{}}}
 \bibcite{Laszlo2016}{{20}{}{{}}{{}}}
