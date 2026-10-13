@@ -26,7 +26,7 @@ ax.text(6.8, 0.35, 'witness', color='#c4511a', fontsize=7, ha='center')
 cax = fig.add_axes([0.915, 0.60, 0.012, 0.28]); cb = fig.colorbar(im, cax=cax); cb.set_label(r'$n_e/n_0$')
 ax.set_title(r'(a) electron density (grey) and beam density (contours), stretched grid with 512 cells', fontsize=8, loc='left')
 # (b-e) ion density near the axis in the witness
-panels = [('u0.01', 'uniform, 800 cells'), ('u0.005', 'uniform, 1600 cells'), ('s1', 'stretched, 512 cells'), ('s0.03125', 'reference')]
+panels = [('u0.01', 'uniform, 800 cells'), ('u0.005', 'uniform, 1600 cells'), ('s1', 'stretched, 512 cells'), ('s0.03125', 'reference, 14617 cells')]
 for i, (n, lab) in enumerate(panels):
     ax = fig.add_subplot(gs[1, i]); d = D[n]; xx, x, f = mirror(d, 'ni', 0.042, 6.38, 7.3)
     im = ax.pcolormesh(xx, x, f.T, cmap='magma', vmin=0.8, vmax=2.4, shading='gouraud', rasterized=True)
