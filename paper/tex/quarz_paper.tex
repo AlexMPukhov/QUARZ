@@ -288,24 +288,24 @@ Figure~\ref{fig:awake} compares the fields after 6~m of propagation with HiPACE+
 
 MPI runs were compared file by file with serial runs that use the same nearest-slice beam assignment. Runs without beam particles crossing rank boundaries are bit-identical (witness gain, ion motion, parsed profiles, analytic offset driver with $m=1$). When particles move between ranks, their order in memory changes and the results differ at round-off level: $10^{-10}$ in the fields for hosing ($m=1$, 12 steps) and $5\times10^{-8}$ for a $\gamma=5$ beam slipping through all ranks. On 2 CPU cores the speed-up is 1.77--1.83 for 13--25 sweeps, against 1.86--1.92 for an ideal pipeline.
 
-Larger runs were timed with the AWAKE case of Sec.~\ref{sec:awake} on the uniform grid, without output, on the supercomputers JUWELS (nodes with two 24-core Intel Xeon Platinum 8168 CPUs) and JUPITER (nodes with four NVIDIA GH200 superchips, of which only the GPUs are used). Table~\ref{tab:perf} gives the wall-clock time of one sweep through the box, per rank, i.e.\ the work of a full sweep divided among the ranks. With one MPI rank per core, a JUWELS node is 43 times faster than a single core, an efficiency of 90\%. On GPUs the scaling is ideal up to 16 devices, the largest number tested. One GPU does a sweep in 25~s, 60 times faster than one CPU core and 1.4 times faster than a full 48-core node. Threading within a rank is less efficient: 24 OpenMP threads are only 5.5 times faster than one, so on CPUs we run one MPI rank per core.
+Larger runs were timed with the AWAKE case of Sec.~\ref{sec:awake} on the uniform grid, without output, on the supercomputers JUWELS (nodes with two 24-core Intel Xeon Platinum 8168 CPUs) and JUPITER (nodes with four NVIDIA GH200 superchips, of which only the GPUs are used). Table~\ref{tab:perf} gives the wall-clock time per time step, i.e.\ for one sweep through the whole box. With $P$ ranks each rank processes $1/P$ of the slices and all ranks work at the same time on consecutive steps, so in the steady state of the pipeline a step takes the time one rank needs for its block of slices; a run of $N$ steps then takes about $N+P-1$ times this value. With one MPI rank per core, a JUWELS node is 43 times faster than a single core, an efficiency of 90\%. On GPUs the scaling is ideal up to 16 devices, the largest number tested. One GPU does a sweep in 25~s, 60 times faster than one CPU core and 1.4 times faster than a full 48-core node. Threading within a rank is less efficient: 24 OpenMP threads are only 5.5 times faster than one, so on CPUs we run one MPI rank per core.
 
 \begin{table}[t]
-\caption{Wall-clock time of one sweep per rank (s), AWAKE case of Sec.~\ref{sec:awake} on the uniform grid (3840 cells, 64\,064 slices, $2\times10^7$ beam particles). Averages over 50 sweeps (10 on one core). CPU: JUWELS (Intel Xeon Platinum 8168, 48 cores per node); GPU: NVIDIA GH200 (JUPITER).}
+\caption{Wall-clock time per time step (s), i.e.\ per sweep through the box in the steady state of the pipeline, AWAKE case of Sec.~\ref{sec:awake} on the uniform grid (3840 cells, 64\,064 slices, $2\times10^7$ beam particles). Averages over 50 sweeps (10 on one core). CPU: JUWELS (Intel Xeon Platinum 8168, 48 cores per node); GPU: NVIDIA GH200 (JUPITER).}
 \label{tab:perf}
 \begin{ruledtabular}
 \begin{tabular}{lrrrrr}
 CPU cores & 1 & 6 & 12 & 24 & 48 \\
-MPI ranks & 1519 & 246 & 125 & 64 & 35 \\
-OpenMP threads & 1519 & 444 & 327 & 277 & 83\footnotemark[1] \\ \hline
+one MPI rank per core & 1519 & 246 & 125 & 64 & 35 \\
+OpenMP threads in one rank & 1519 & 444 & 327 & 277 & 83\footnotemark[1] \\ \hline
 GPUs & 1 & 2 & 4 & 8 & 16 \\
-MPI ranks & 25 & 13 & 6.5 & 3.4 & 1.8 \\
+one MPI rank per GPU & 25 & 13 & 6.5 & 3.4 & 1.8 \\
 \end{tabular}
 \end{ruledtabular}
 \footnotetext[1]{2 MPI ranks with 24 threads each, one per socket.}
 \end{table}
 
-The full runs of Fig.~\ref{fig:awake} (301 sweeps up to 12~m, with field output) took 667~s on the uniform and 319~s on the stretched grid with 16 GPUs, and 3900~s and 1530~s on 384 CPU cores (8 JUWELS nodes). The stretched grid has ten times fewer cells, but the run is only 2--2.5 times faster: it has half as many plasma particles, and these dominate its cost. With 384 ranks each rank holds only 167 slices, and the pipeline fill limits the efficiency to $N/(N+P-1) = 44\%$ for $N = 301$ sweeps; 16 GPUs work at 95\%.
+The full runs of Fig.~\ref{fig:awake} (301 sweeps up to 12~m, with field output) took 667~s on the uniform and 319~s on the stretched grid with 16 GPUs, and 3900~s and 1530~s on 384 CPU cores (8 JUWELS nodes). For 16 GPUs on the uniform grid, Table~\ref{tab:perf} predicts $(301+15)\times 1.8~\mathrm{s} \approx 570$~s without output. The stretched grid has ten times fewer cells, but the run is only 2--2.5 times faster: it has half as many plasma particles, and these dominate its cost. With 384 ranks each rank holds only 167 slices, and the pipeline fill limits the efficiency to $N/(N+P-1) = 44\%$ for $N = 301$ sweeps; 16 GPUs work at 95\%.
 
 %---------------------------------------------------------------------------
 \section{Stretched radial grid versus mesh refinement}\label{sec:mr}
