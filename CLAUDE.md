@@ -78,6 +78,10 @@ Package for delivery (includes .git, so the history survives the container):
 
 ## Status (2026-10-11)
 Done and validated (README §7, `validation/reference_full.txt`):
+- openPMD native grid (2026-10-14): rectilinear meshes, `gridType = "rectilinear"` + `gridCoordinates_r`,
+  geometry `other` + geometryParameters `thetaMode;...` (interim), the convention shared with GEM-PIC-RZ and
+  proposed to openPMD (`docs/openpmd_rectilinear.md`); shared reader `tools/openpmd_rectilinear.py`, checked
+  in section 10 (`check_openpmd.py`). `quarz_r_nodes` still written (deprecated).
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a
   Xeon E5620; no systematic benchmark and no GPU-vs-CPU file comparison yet);

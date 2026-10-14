@@ -34,6 +34,17 @@ for n, it in S.iterations.items():
                     den = np.abs(ref).max() or 1.0
                     worst = max(worst, np.abs(a[k] - ref).max() / den)
         print(f'iteration {n}: t = {t:g} ({it.time_unit_SI:.3e} s), meshes {sorted(it.meshes)}  geometry {it.meshes["E"].geometry}')
+        if mode == 'native' and ext == 'h5':
+            # rectilinear mesh (docs/openpmd_rectilinear.md) through the generic reader shared with GEM-PIC-RZ
+            from openpmd_rectilinear import read_mesh
+            mm = read_mesh(f'{d}/openpmd/data_{n:06d}.h5', 'E', 'z', iteration=n)
+            gU = it.meshes['E'].grid_unit_SI
+            assert mm.geometry == 'thetaMode' and it.meshes['E'].get_attribute('gridType') == 'rectilinear'
+            e_r = np.abs(mm.axes['r'] - r * gU).max() / (r.max() * gU)
+            a = it.meshes['E']['z'].load_chunk(); S.flush()
+            e_d = np.abs(mm.data - a * it.meshes['E']['z'].unit_SI).max() / max(np.abs(mm.data).max(), 1e-300)
+            print(f'  rectilinear reader: radial nodes {e_r:.1e}, E_z data {e_d:.1e}')
+            worst = max(worst, e_r, e_d)
     for sp_name, sp in it.particles.items():
         b = read_beam(f'{d}/beam_{sp_name}_{n:06d}.bin')
         x = sp['position']['x'].load_chunk(); z = sp['position']['z'].load_chunk(); w = sp['weighting'][io.Record_Component.SCALAR].load_chunk()

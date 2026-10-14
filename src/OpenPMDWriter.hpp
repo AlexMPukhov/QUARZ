@@ -9,8 +9,10 @@
 //   openPMD requires a uniform grid spacing.  By default the fields are therefore
 //   interpolated (piecewise linear, as the hat functions of the code) onto a uniform radial
 //   grid  r = 0, dr, 2dr, ... <= output.openpmd_rmax.  With output.openpmd_grid = native they
-//   are written on the native non-uniform nodes, with geometry "other" and the node
-//   positions in the mesh attribute "quarz_r_nodes".
+//   are written on the native non-uniform nodes as rectilinear meshes (proposed openPMD extension,
+//   docs/openpmd_rectilinear.md, the same convention as GEM-PIC-RZ): gridType "rectilinear", radial
+//   node positions in "gridCoordinates_r" (also in the deprecated "quarz_r_nodes"), geometry "other"
+//   with geometryParameters "thetaMode;m=...;imag=+" until the extension is in the standard.
 // Particles: every beam is a species with position (x, y, z = t - xi), positionOffset (0),
 //   momentum, weighting, charge and mass.
 // Units: SI (unitSI attributes) when the plasma density is given (units.n0_cm3); without it

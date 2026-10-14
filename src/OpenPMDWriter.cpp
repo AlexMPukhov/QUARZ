@@ -241,10 +241,15 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
 
         auto setup_mesh = [&](Mesh& m, const UD& ud) {
             if (I.native) {
+                // rectilinear mesh (proposed openPMD extension, docs/openpmd_rectilinear.md, shared with
+                // GEM-PIC-RZ): radial node positions in gridCoordinates_r, the xi axis stays regular.
+                // geometry "other" (intended geometry first in geometryParameters) until the extension
+                // is part of the standard, so that readers of regular grids skip these meshes.
                 m.setGeometry("other");
-                m.setGeometryParameters(std::string("thetaMode;m=") + (I.m1 ? "2" : "1") +
-                                        ";imag=+;radial nodes non-uniform, see quarz_r_nodes");
-                m.setAttribute("quarz_r_nodes", I.rout);
+                m.setGeometryParameters(std::string("thetaMode;m=") + (I.m1 ? "2" : "1") + ";imag=+");
+                m.setAttribute("gridType", std::string("rectilinear"));
+                m.setAttribute("gridCoordinates_r", I.rout);
+                m.setAttribute("quarz_r_nodes", I.rout);   // deprecated name of gridCoordinates_r
             } else {
                 m.setGeometry(Mesh::Geometry::thetaMode);
                 m.setGeometryParameters(std::string("m=") + (I.m1 ? "2" : "1") + ";imag=+");

@@ -982,8 +982,14 @@ frequent small dumps and rare full dumps can be combined (§6):
     uniform radial grid. The default spacing is h_min, which can make the files much
     larger than the native ones; the code prints the size per output and a hint.
     `output.openpmd_grid = native` writes the exact data on the non-uniform nodes
-    instead (geometry `other`, node positions in the mesh attribute `quarz_r_nodes`);
-    standard readers then do not know the radial positions.
+    instead, as *rectilinear meshes*: `gridType = "rectilinear"`, radial node positions
+    in the mesh attribute `gridCoordinates_r` (the ξ axis stays regular). This is the
+    form proposed as an openPMD extension ([`docs/openpmd_rectilinear.md`](docs/openpmd_rectilinear.md)),
+    the same as in GEM-PIC-RZ. Until it is part of the standard the meshes carry
+    geometry `other` with geometryParameters `thetaMode;m=…;imag=+`, so readers of
+    regular grids skip them. `tools/openpmd_rectilinear.py` (shared with GEM-PIC-RZ)
+    reads them (`read_mesh`, `theta_slice`). The old attribute `quarz_r_nodes` is still
+    written (deprecated).
   - **Particles:** every beam is a species with `position` (x, y, z = t − ξ),
     `positionOffset` (0), `momentum` (per physical particle), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.
