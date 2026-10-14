@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use QUARZ, please cite the paper below."
+title: "QUARZ: Quasistatic Arbitrary-resolution RZ code"
+authors:
+  - family-names: Pukhov
+    given-names: Alexander
+  - family-names: Wilson
+    given-names: Thomas C.
+repository-code: "https://github.com/AlexMPukhov/QUARZ"
+preferred-citation:
+  type: article
+  title: "QUARZ: a quasi-static particle-in-cell code with non-uniform radial grids for plasma wakefields"
+  authors:
+    - family-names: Pukhov
+      given-names: Alexander
+    - family-names: Wilson
+      given-names: Thomas C.
+  year: 2026
+  identifiers:
+    - type: other
+      value: "arXiv:2610.16910"
+  url: "https://arxiv.org/abs/2610.16910"

@@ -273,7 +273,9 @@ Done and validated (README §7, `validation/reference_full.txt`):
   slice kernels, laser.advance is still a serial complex
   Thomas (Range(0,1)) on the GPU. CPU OpenMP scaling poor (5.5x on 24 threads): wait for profiles.
 
-- Paper: Alexander submits v1 to arXiv now (priority for the non-uniform radial grid); referee
+- Paper: v1 on arXiv as arXiv:2610.16910 (announced 2026-10-14; README header + "Citing QUARZ",
+  CITATION.cff). Later edits in paper/tex (S+ explicit, w defined, Sec. VII stretched grid vs mesh
+  refinement, Table III per step, Fig. 2e label) go into v2 / the PRAB submission; referee
   round used for items 1-3 below. The manuscript cites https://github.com/AlexMPukhov/QUARZ
   (public). Everything pushed is visible to everyone: no unpublished results in the repo.
 

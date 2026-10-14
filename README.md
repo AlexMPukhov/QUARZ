@@ -11,6 +11,10 @@
 (Formerly QSRZ; renamed in October 2026. Input files and output formats are unchanged.)
 Nickname: **Q**, after the Q ring of its logo.
 
+**Paper:** A. Pukhov and T. C. Wilson, *QUARZ: a quasi-static particle-in-cell code with non-uniform
+radial grids for plasma wakefields*, [arXiv:2610.16910](https://arxiv.org/abs/2610.16910) (2026).
+Please cite it if you use QUARZ (BibTeX at the end of this file).
+
 QUARZ is a quasi-static particle-in-cell code for plasma wakefield
 acceleration in the spirit of LCODE-2D, written in C++17 on top of
 [Kokkos](https://github.com/kokkos/kokkos). One source compiles for CPUs
@@ -1427,3 +1431,19 @@ comparison, the blowout on the stretched grid, and the SMI run.
 | `tests/test_solvers.cpp`, `tests/test_pushers.cpp`, `tests/test_parser.cpp`, `tests/test_profiles.cpp` | unit tests (run by `ctest`) |
 | `validation/` | physics validation inputs and scripts |
 | `tools/` | Python readers and plotting (optional); `quarz_gui.py` + `quarz_gui.html`: browser GUI |
+
+## Citing QUARZ
+
+```bibtex
+@article{Pukhov2026QUARZ,
+  author        = {Pukhov, Alexander and Wilson, Thomas C.},
+  title         = {{QUARZ}: a quasi-static particle-in-cell code with non-uniform radial grids for plasma wakefields},
+  year          = {2026},
+  eprint        = {2610.16910},
+  archivePrefix = {arXiv},
+  url           = {https://arxiv.org/abs/2610.16910}
+}
+```
+
+QUARZ is a zero-touch code: all of its source code, tests and documentation were written by the AI
+agent Claude (Anthropic), directed by A. Pukhov, who did not write a line of the code (see the paper).
