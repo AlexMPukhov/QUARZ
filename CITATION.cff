@@ -7,6 +7,7 @@ authors:
   - family-names: Wilson
     given-names: Thomas C.
 repository-code: "https://github.com/AlexMPukhov/QUARZ"
+license: BSD-3-Clause
 preferred-citation:
   type: article
   title: "QUARZ: a quasi-static particle-in-cell code with non-uniform radial grids for plasma wakefields"

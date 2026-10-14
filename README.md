@@ -13,7 +13,7 @@ Nickname: **Q**, after the Q ring of its logo.
 
 **Paper:** A. Pukhov and T. C. Wilson, *QUARZ: a quasi-static particle-in-cell code with non-uniform
 radial grids for plasma wakefields*, [arXiv:2610.16910](https://arxiv.org/abs/2610.16910) (2026).
-Please cite it if you use QUARZ (BibTeX at the end of this file).
+Please cite it if you use QUARZ (BibTeX at the end of this file). License: BSD 3-Clause (`LICENSE`).
 
 QUARZ is a quasi-static particle-in-cell code for plasma wakefield
 acceleration in the spirit of LCODE-2D, written in C++17 on top of
