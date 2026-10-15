@@ -984,8 +984,10 @@ frequent small dumps and rare full dumps can be combined (§6):
     `output.openpmd_grid = native` writes the exact data on the non-uniform nodes
     instead, as *rectilinear meshes*: `gridType = "rectilinear"`, radial node positions
     in the mesh attribute `gridCoordinates_r` (the ξ axis stays regular). This is the
-    form proposed as an openPMD extension ([`docs/openpmd_rectilinear.md`](docs/openpmd_rectilinear.md)),
-    the same as in GEM-PIC-RZ. Until it is part of the standard the meshes carry
+    interim form of the rectilinear meshes proposed for openPMD 2.0
+    ([`docs/openpmd_rectilinear.md`](docs/openpmd_rectilinear.md)), where the coordinates
+    become data sets referenced by the attribute `gridCoordinates` (as GEM-PIC-RZ
+    already writes); QUARZ switches when openPMD-api can write them. Until it is part of the standard the meshes carry
     geometry `other` with geometryParameters `thetaMode;m=…;imag=+`, so readers of
     regular grids skip them. `tools/openpmd_rectilinear.py` (shared with GEM-PIC-RZ)
     reads them (`read_mesh`, `theta_slice`). The old attribute `quarz_r_nodes` is still

@@ -82,6 +82,9 @@ Done and validated (README §7, `validation/reference_full.txt`):
   geometry `other` + geometryParameters `thetaMode;...` (interim), the convention shared with GEM-PIC-RZ and
   proposed to openPMD (`docs/openpmd_rectilinear.md`); shared reader `tools/openpmd_rectilinear.py`, checked
   in section 10 (`check_openpmd.py`). `quarz_r_nodes` still written (deprecated).
+  2026-10-15: A. Huebl (openPMD) invited a PR against upcoming-2.0.0; the 2.0 form stores coordinates
+  as DATA SETS referenced by the mesh attribute `gridCoordinates` (HDF5 attribute size limit, issue #142).
+  QUARZ keeps the attribute form until openPMD-api can write such data sets; the shared reader reads both.
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a
   Xeon E5620; no systematic benchmark and no GPU-vs-CPU file comparison yet);

@@ -1,9 +1,10 @@
 """Read openPMD meshes on regular or rectilinear (non-uniform) grids, e.g. the native records of
 GEM-PIC-RZ (native_E_r, ...) and of QUARZ (output.openpmd_grid = native).
 
-A rectilinear mesh is a regular openPMD mesh with, for some axes, the node positions in the
-attribute gridCoordinates_<axis label> (proposal: docs/openpmd_rectilinear.md). Axes without it
-are regular (gridGlobalOffset + i * gridSpacing). Positions are in units of gridUnitSI, relative to
+A rectilinear mesh is a regular openPMD mesh with, for some axes, explicit node positions: the mesh
+attribute gridCoordinates names one 1D data set per axis ("" = regular axis), as proposed for openPMD
+2.0 (docs/openpmd_rectilinear.md); the interim form of openPMD 1.1 files (QUARZ) keeps them in the
+attribute gridCoordinates_<axis label>. Regular axes: gridGlobalOffset + (i + position) * gridSpacing. Positions are in units of gridUnitSI, relative to
 gridGlobalOffset. Works with geometry "thetaMode" and with "other" + geometryParameters
 "thetaMode;...", the interim marking of rectilinear thetaMode meshes.
 
@@ -70,7 +71,12 @@ def read_mesh(path, name, component=None, iteration=None):
     axes = {}
     for d, lab in enumerate(labels):
         n = data.shape[lead + d]
-        coords = _attr(obj, parent, "gridCoordinates_" + lab)
+        coords = None
+        paths = _attr(obj, parent, "gridCoordinates")  # proposal for openPMD 2.0: data set per axis
+        if paths is not None and _s(paths[d]) != "":
+            coords = f[_s(paths[d])][...]
+        if coords is None:  # interim form (QUARZ, openPMD 1.1 files): attribute per axis
+            coords = _attr(obj, parent, "gridCoordinates_" + lab)
         if coords is not None:  # rectilinear axis: explicit node positions
             x = np.asarray(coords, float)
             if len(x) != n:

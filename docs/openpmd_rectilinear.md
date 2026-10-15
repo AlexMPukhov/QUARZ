@@ -1,148 +1,105 @@
-# Proposal: rectilinear meshes in openPMD
+# Rectilinear meshes in openPMD
 
-*Draft for the openPMD-standard repository (github.com/openPMD/openPMD-standard), proposed by the developers of
-GEM-PIC-RZ and QUARZ. Both codes already write meshes in this form; see "Reference implementations".*
+Proposal for the openPMD standard 2.0 (pull request against the `upcoming-2.0.0` branch of
+github.com/openPMD/openPMD-standard; follows issue #142 "Mesh gridSpacing/Offset: Array"), by the developers
+of GEM-PIC-RZ and QUARZ. This file explains the proposal and the forms our two codes write now.
 
 ## Summary
 
-Allow mesh records whose nodes are **not equally spaced along some axes**, while the mesh stays a tensor
-product of 1D axes (a *rectilinear* grid). For each such axis, the node positions are stored in an attribute
-`gridCoordinates_<axis label>`. Axes without this attribute stay regular, so a regular mesh is a special case
-and existing files remain valid.
+A mesh may have explicit, non-equidistant coordinates along some of its axes. It stays a tensor product of 1D
+axes, i.e. a *rectilinear* mesh, as in VTK's `vtkRectilinearGrid`.
+- **Reference attribute:** the new optional mesh attribute `gridCoordinates` holds one string per axis. An
+  empty string means a regular axis. Otherwise the string is the path of a 1D data set with the positions of
+  the data points along that axis.
+- **Coordinates as data sets, not attributes:** there is no size limit (HDF5 attributes are limited to 64 kB
+  without dense storage), the coordinates can be read in chunks, and one coordinate set can be shared by many
+  records and iterations. This is the mechanism discussed in #142 by A. Huebl and F. Pöschel.
 
 ## Motivation
 
-Many codes use grids that are non-uniform along one or more axes but still rectilinear. Examples:
-- stretched radial grids in cylindrical and quasi-cylindrical (thetaMode) codes, fine near the axis and coarse
-  far out;
-- longitudinal grids that are fine at a laser pulse or a witness bunch and coarse elsewhere;
-- moving-window codes whose window grid is given by reference points with interpolated steps.
+Many codes use grids that are non-uniform along some axes but rectilinear:
+- stretched radial grids in cylindrical and thetaMode codes, fine near the axis and coarse outside;
+- longitudinal grids refined at a laser pulse or a witness bunch;
+- non-linear binning of diagnostics (PIConGPU's radiation and calorimeter plugins, #142).
 
-openPMD 1.1 describes a mesh by one `gridSpacing` per axis, so such data must be interpolated to a uniform
-grid before writing. That costs:
-- **Accuracy:** the stored data are no longer the simulation's. Staggered and axis values are smeared, and
-  diagnostics or restarts built on the files differ from the code.
-- **Size:** the uniform grid must resolve the finest cell everywhere. In our cases the files grow 5–50× (a
-  stretched radial grid with 40 nm near the axis and 3 µm at the edge).
-- **Clarity:** each code invents a private convention, e.g. geometry `other` plus a code-specific node
-  attribute, which no tool can read.
+openPMD has one `gridSpacing` per axis, so today such data must be interpolated to a uniform grid. That loses
+accuracy (staggered and axis values are smeared). It also grows the files 5–50×, because the uniform grid
+must resolve the finest cell everywhere. Codes therefore invent private conventions that no tool reads.
 
-## Specification (additions to "Mesh based records")
+## Specification (text of the pull request, in "Mesh based records")
 
-### New mesh attribute
+**New optional attribute of a `mesh record`: `gridCoordinates`**
+- **Type:** 1D array of N *(string)*, one per axis in the order of `axisLabels`.
+- **Empty string:** the axis is regularly spaced (`gridSpacing`, `gridGlobalOffset` and `position` as now).
+- **Otherwise:** the absolute path, in the same file, of a 1D data set of *(floatX)* with the coordinates of
+  the data points along that axis.
+- **Staggering:** the attribute may also be set on a component of a vector record, and then takes precedence.
+  Staggered components (e.g. on cell faces and cell centres of a non-uniform grid) can so have different
+  coordinates and extents.
 
-- `gridType`
-  - type: *(string)*
-  - optional; default `regular`
-  - values:
-    - `regular`: every axis is equally spaced, as in openPMD 1.1;
-    - `rectilinear`: axes may have explicit node positions, see `gridCoordinates_<a>`.
+**Coordinate data sets**
+- One value per data point: the length equals the extent of the record (component) along the axis.
+- Values are in grid units (× the axis's `gridUnitSI` gives SI) and relative to the axis's
+  `gridGlobalOffset`. A moving window therefore needs new offsets, not new coordinates.
+- Values are strictly increasing.
+- Recommended location: per iteration, `<basePath>gridCoordinates/<free name>`. For grids constant in time,
+  `/data/gridCoordinates/<free name>`, repeated in every file with `fileBased` encoding.
+- A data set may be referenced by any number of records and components.
 
-### New attributes for `gridType = rectilinear`
+**Changes to existing attributes**
+- `gridSpacing`: informative for axes with explicit coordinates. Writers should store the smallest spacing.
+- `position`: `0.0` along axes with explicit coordinates, because the coordinates give the positions of the
+  data points.
+- `thetaMode`: "regularly-spaced mesh in the r-z plane" becomes "mesh in the r-z plane (regularly spaced, or
+  rectilinear …)".
 
-- `gridCoordinates_<a>`, where `<a>` is an entry of `axisLabels`
-  - type: *(1D array of floatX)*
-  - optional per axis; on the mesh record, or on a record component (see "Staggering")
-  - description: positions of the data points along axis `<a>`, in units of `gridUnitSI`, relative to the
-    corresponding entry of `gridGlobalOffset`. The array length equals the extent of the dataset along `<a>`,
-    and the values are strictly increasing.
-  - The position of data point `i` along `<a>` is `gridGlobalOffset[a] + gridCoordinates_<a>[i]`, times
-    `gridUnitSI` in SI.
-  - Axes without `gridCoordinates_<a>` are regular and follow the existing rules (`gridSpacing`,
-    `gridGlobalOffset`, `position`).
+**Why positions, not spacings**
+- Positions describe staggered and cell-centred data directly.
+- They avoid summation errors.
+- They are what visualization tools take (`vtkRectilinearGrid`, `pcolormesh`).
 
-### Changes to existing attributes
+Cell edges (N + 1 values, for finite-volume codes) are left as an open question.
 
-- `gridSpacing` remains required. For a rectilinear axis its value is informative; writers should store the
-  smallest spacing along that axis, so that tools can estimate resolution and memory.
-- `position` of a record component: on rectilinear axes the entry must be `0`. The node positions already
-  include any staggering.
-- `geometry` / `geometryParameters`: unchanged. The extension applies to every geometry, including `thetaMode`,
-  where the mode index stays the first dataset index and is not an axis.
-
-### Staggering
-
-If the components of a record live on different nodes, e.g. E_r on cell faces and E_z on cell centres:
-- each record component may carry its own `gridCoordinates_<a>`, which takes precedence over the mesh-level
-  attribute, as `position` does today;
-- components may then have different extents along `<a>`.
-
-Alternatively, writers may store such components as separate scalar meshes.
-
-### Why one attribute per axis
-
-The axes have different numbers of nodes, so their positions cannot be one rectangular array attribute.
-Putting the axis label in the attribute name keeps every attribute a plain 1D array, which all backends
-(HDF5, ADIOS2, JSON) and openPMD-api store directly.
-
-**Note on HDF5.** Attributes larger than 64 kB (more than 8192 float64 nodes) need dense attribute storage,
-which the HDF5 ≥ 1.8 file format supports. Writers set `H5Pset_libver_bounds(fapl, H5F_LIBVER_V18,
-H5F_LIBVER_LATEST)`. ADIOS2 has no such limit.
-
-## Compatibility and transition
-
-A reader that does not know `gridType` would place rectilinear data at `gridGlobalOffset + i·gridSpacing`,
-silently wrong. We therefore suggest:
-1. **In the standard:** `gridType` enters with the next minor or major version. Readers of that version must
-   check it and reject `rectilinear` meshes they cannot handle.
-2. **Until then (interim convention, used by GEM-PIC-RZ and QUARZ):**
-   - writers mark rectilinear meshes with `geometry = "other"` and put the intended geometry first in
-     `geometryParameters`, e.g. `"thetaMode;m=2;imag=+"`;
-   - existing readers skip or reject geometry `other`, so they cannot misplace the data;
-   - the same files become standard-conforming by changing `geometry` to `thetaMode` once the extension is
-     accepted.
-3. **Writers that need every tool to work today** may store both a regular (interpolated) mesh and the
-   rectilinear one in the same iteration, as GEM-PIC-RZ does by default (`E`, `B`, `n_e` regular;
-   `native_E_r`, … rectilinear).
-
-## Example (GEM-PIC-RZ, `h5dump`-style, iteration 4)
+## Example (GEM-PIC-RZ, iteration 4, `h5dump`-style)
 
 ```
-/data/4/meshes/native_E_z            float64 [3][100][992]      # modes (m = 0, cos 1, sin 1) x r x z
-  geometry            = "other"                                 # interim; "thetaMode" once adopted
-  geometryParameters  = "thetaMode;m=2;imag=+"
-  gridType            = "rectilinear"
+/data/4/gridCoordinates/r_faces          float64 [101]          # stretched radial grid, faces
+/data/4/gridCoordinates/r_centers        float64 [100]          # ... and cell centres
+/data/4/gridCoordinates/zeta_slices      float64 [992]          # non-uniform longitudinal slices
+/data/4/meshes/native_E_z                float64 [3][100][992]  # modes (m = 0, cos 1, sin 1) x r x z
+  geometry            = "thetaMode"            # files written now: "other", see below
+  geometryParameters  = "m=2;imag=+"
   axisLabels          = ["r", "z"]
-  dataOrder           = "C"
-  gridUnitSI          = 1.2732e-07                              # 1/k0 in m
-  gridGlobalOffset    = [0.0, 122.554]                          # z offset: s (moving window)
-  gridSpacing         = [0.3002, 0.25]                          # informative: smallest spacings
-  gridCoordinates_r   = [0.150, 0.450, 0.750, ...]   (100)      # cell centres of a stretched grid
-  gridCoordinates_z   = [0.0, 0.499, 0.998, ..., 300.16] (992)  # non-uniform slices (0.25 ... 0.5)
+  gridCoordinates     = ["/data/4/gridCoordinates/r_centers", "/data/4/gridCoordinates/zeta_slices"]
+  gridSpacing         = [0.3002, 0.25]         # informative: smallest spacings
+  gridGlobalOffset    = [0.0, 122.554]         # z offset = s, the window position
+  gridUnitSI          = 1.2732e-07             # 1/k0 [m]
   position            = [0.0, 0.0]
   unitSI              = 4.0134e+12
-  unitDimension       = [1, 1, -3, -1, 0, 0, 0]
-  timeOffset          = 0.0
 ```
 
-## Reference implementations
+## What our codes write now (openPMD 1.1 files)
 
-- **GEM-PIC-RZ** (github.com/AlexMPukhov/GEM-PIC-RZ):
-  - `src/output_hdf5.cpp` writes the records `native_*` (`output.openpmd_grid = native | both`);
-  - `tools/h5_extract.cpp` (C++) and `tools/openpmd_rectilinear.py` (Python, h5py) read them;
-  - `tests/openpmd.sh` checks that the native records reproduce the code's data exactly and pass
-    `openPMD_check_h5`.
-- **QUARZ** (github.com/AlexMPukhov/QUARZ):
-  - `src/OpenPMDWriter.cpp` (openPMD-api) writes `gridType` and `gridCoordinates_r` for its non-uniform
-    radial grid with `output.openpmd_grid = native`; its ξ axis is regular.
+openPMD 1.1 has no rectilinear meshes. So that readers of regular grids skip these meshes, both codes write
+them with `geometry = "other"` and the intended geometry in `geometryParameters` (`"thetaMode;m=2;imag=+"`).
+Once 2.0 is out, the geometry becomes `thetaMode` and the files conform.
+- **GEM-PIC-RZ** (`output.openpmd_grid = native | both`, records `native_*`) already writes the coordinates
+  as data sets referenced by `gridCoordinates`, exactly as proposed.
+- **QUARZ** (`output.openpmd_grid = native`) writes through openPMD-api, which cannot yet write data sets
+  outside records. It keeps the radial nodes in the mesh attribute `gridCoordinates_r` (and the older
+  `quarz_r_nodes`), with `gridType = "rectilinear"`. Its ξ axis is regular. It will switch to the data-set
+  form when openPMD-api supports it.
+- **Readers:** `tools/openpmd_rectilinear.py` (Python, in both repositories) reads both forms, and so does
+  GEM-PIC-RZ's `h5_extract`.
 
-## Changes needed in the ecosystem
+## Needed in the ecosystem
 
-- **openPMD-api:** `Mesh::gridType()` and `gridCoordinates(axis)` accessors; the writers need nothing new
-  (attributes are written today).
+- **openPMD-api:** read and write `gridCoordinates` and coordinate data sets (e.g.
+  `Mesh::setGridCoordinates(axis, std::vector<double>)`, which writes the data set and the reference).
 - **openPMD-viewer:**
-  - build the axes of `FieldMetaInformation` from `gridCoordinates_<a>` when present;
-  - plot with `pcolormesh` on the node coordinates instead of `imshow` with an extent.
+  - build `FieldMetaInformation` from the coordinates;
+  - plot with `pcolormesh` on the nodes.
 - **openPMD-validator:**
-  - accept `gridType`;
-  - check the length and monotonicity of `gridCoordinates_<a>`;
-  - require `position = 0` on rectilinear axes.
-- **ParaView and VisIt readers:** map to rectilinear grids (`vtkRectilinearGrid`), which they support natively.
-
-## Open questions for the community
-
-1. Attribute per axis (`gridCoordinates_<a>`) or a dataset per axis in a reserved group (e.g.
-   `<mesh>/coordinates/<a>`)? Attributes are simpler for writers. Datasets avoid the HDF5 size limit and allow
-   chunked reading.
-2. Should cell edges (N + 1 values) be allowed in addition to data-point positions, for finite-volume codes?
-3. Is `gridType = "rectilinear"` the right name? VTK and NetCDF use "rectilinear" for this tensor-product case.
+  - check the paths, lengths and monotonicity;
+  - check `position = 0` along explicit axes.
+- **ParaView, VisIt:** map to rectilinear grids, which they already support.
