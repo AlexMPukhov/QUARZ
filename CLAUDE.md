@@ -87,7 +87,7 @@ Done and validated (README §7, `validation/reference_full.txt`):
   QUARZ keeps the attribute form until openPMD-api can write such data sets; the shared reader reads both.
   2026-10-16 (Alexander: no news from openPMD, go on implementing): reference implementations on local
   branches `rectilinear-meshes` (NOT yet public: no forks of openPMD-api/-viewer/-validator under AlexMPukhov;
-  patches in docs/openpmd_patches/ of GEM-PIC-RZ? see below): openPMD-api (/home/claude/openpmd-src, off dev:
+  patch series in docs/openpmd_patches/): openPMD-api (/home/claude/openpmd-src, off dev:
   Iteration::gridCoordinates container at <basePath>gridCoordinates/, Mesh/MeshRecordComponent::
   setGridCoordinates, Iteration::gridCoordinatesPath/gridCoordinatesOf, Python bindings, openpmd-pipe copies
   coordinates, examples 3c_*, tests HDF5/JSON/ADIOS2 incl. variable-based; full SerialIOTests pass),
