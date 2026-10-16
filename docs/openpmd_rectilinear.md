@@ -98,7 +98,9 @@ Once 2.0 is out, the geometry becomes `thetaMode` and the files conform.
 
 ## Implementations
 
-Reference implementations, on branches `rectilinear-meshes` (pull requests to follow the standard PR):
+Reference implementations, as patch series in the QUARZ repository
+([`docs/openpmd_patches/`](https://github.com/AlexMPukhov/QUARZ/tree/main/docs/openpmd_patches); pull requests to
+follow the standard PR):
 - **openPMD-api** (C++ and Python, all backends):
   - `Iteration::gridCoordinates`, a container of 1D data sets in `<basePath>gridCoordinates/` (written if not
     empty, read if present; files without it are unchanged);
