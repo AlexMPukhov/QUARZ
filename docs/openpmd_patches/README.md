@@ -2,7 +2,11 @@
 
 Reference implementations of the proposal in [`../openpmd_rectilinear.md`](../openpmd_rectilinear.md)
 (openPMD-standard issue #142, pull request #299 against `upcoming-2.0.0`), kept here as `git format-patch`
-series until they are submitted as pull requests to the three projects.
+series and as branches `rectilinear-meshes` of the forks
+[AlexMPukhov/openpmd-api](https://github.com/AlexMPukhov/openpmd-api/tree/rectilinear-meshes),
+[AlexMPukhov/openpmd-viewer](https://github.com/AlexMPukhov/openpmd-viewer/tree/rectilinear-meshes) and
+[AlexMPukhov/openpmd-validator](https://github.com/AlexMPukhov/openpmd-validator/tree/rectilinear-meshes),
+until they are submitted as pull requests to the three projects.
 
 | project | base commit | apply |
 |---|---|---|
