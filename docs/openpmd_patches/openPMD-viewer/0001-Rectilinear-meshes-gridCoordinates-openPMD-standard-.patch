@@ -1,0 +1,903 @@
+From 6867f9cf74554c9b3b5c7d1c01fd17cb3dc8b5fe Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Fri, 16 Oct 2026 17:57:25 +0200
+Subject: [PATCH] Rectilinear meshes (gridCoordinates, openPMD-standard #142)
+
+Meshes with explicit, non-equidistant coordinates along some axes: the
+attribute gridCoordinates (on the component or the record) names a 1D
+coordinate data set per axis ('' = regular axis).
+
+- FieldMetaInformation: optional grid_coordinates; along such axes x (etc.)
+  are the positions of the data points, dx the smallest spacing; new
+  attribute rectilinear (list of axes) and get_edges(label) for plotting
+- both backends (h5py, openpmd-api if it supports grid coordinates) read
+  the coordinates, also the interim attributes gridCoordinates_<label> and
+  the interim marking geometry 'other' + geometryParameters 'thetaMode;...'
+- slicing along a rectilinear axis refers to the coordinate range
+- thetaMode 3D reconstruction interpolates between the explicit radial
+  nodes (construct_3d_from_circ_rectilinear)
+- grid ranges from the coordinates; 2D plots with pcolormesh
+- tests/test_rectilinear.py (files written with h5py, every backend)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DRiRr7s6YoyWRd6EM8Zzbz
+---
+ .../data_reader/h5py_reader/field_reader.py   |  62 +++++--
+ .../data_reader/h5py_reader/params_reader.py  |   6 +
+ .../data_reader/h5py_reader/utilities.py      |  48 +++++
+ .../data_reader/io_reader/field_reader.py     |  60 ++++--
+ .../data_reader/io_reader/params_reader.py    |   7 +
+ .../data_reader/io_reader/utilities.py        |  63 +++++++
+ .../openpmd_timeseries/field_metainfo.py      |  75 +++++++-
+ openpmd_viewer/openpmd_timeseries/plotter.py  |  10 +-
+ .../openpmd_timeseries/utilities.py           |  61 +++++++
+ tests/test_rectilinear.py                     | 171 ++++++++++++++++++
+ 10 files changed, 525 insertions(+), 38 deletions(-)
+ create mode 100644 tests/test_rectilinear.py
+
+diff --git a/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/field_reader.py b/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/field_reader.py
+index 66faaa4..bf6a07a 100644
+--- a/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/field_reader.py
++++ b/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/field_reader.py
+@@ -10,10 +10,12 @@ License: 3-Clause-BSD-LBNL
+ 
+ import h5py
+ import numpy as np
+-from .utilities import get_shape, get_data, join_infile_path
++from .utilities import get_shape, get_data, join_infile_path, \
++    get_grid_coordinates
+ from ...data_order import RZorder, order_error_msg
+ from openpmd_viewer.openpmd_timeseries.field_metainfo import FieldMetaInformation
+-from openpmd_viewer.openpmd_timeseries.utilities import construct_3d_from_circ
++from openpmd_viewer.openpmd_timeseries.utilities import construct_3d_from_circ, \
++    construct_3d_from_circ_rectilinear, slice_index
+ 
+ 
+ def read_field_cartesian( filename, iteration, field, coord, axis_labels,
+@@ -85,6 +87,8 @@ def read_field_cartesian( filename, iteration, field, coord, axis_labels,
+ 
+     # Current simulation time
+     time = (it.attrs['time'] + group.attrs['timeOffset']) * it.attrs['timeUnitSI']
++    # explicit coordinates of rectilinear axes {axis index: array}
++    grid_coords = get_grid_coordinates( dfile, group, dset )
+ 
+     # Slice selection
+     if slice_across is not None:
+@@ -97,9 +101,8 @@ def read_field_cartesian( filename, iteration, field, coord, axis_labels,
+             # Number of cells along the slicing direction
+             n_cells = shape[ slicing_index ]
+             # Index of the slice (prevent stepping out of the array)
+-            i_cell = int( 0.5 * (slice_relative_position[count] + 1.) * n_cells )
+-            i_cell = max( i_cell, 0 )
+-            i_cell = min( i_cell, n_cells - 1)
++            i_cell = slice_index( n_cells, slice_relative_position[count],
++                                  grid_coords.get(slicing_index) )
+             list_i_cell.append(i_cell)
+ 
+         # Remove metainformation relative to the slicing index
+@@ -112,6 +115,10 @@ def read_field_cartesian( filename, iteration, field, coord, axis_labels,
+                           if index not in list_slicing_index ]
+         axis_labels = [ x for index, x in enumerate(axis_labels)
+                          if index not in list_slicing_index ]
++        kept = [ index for index in range(len(axis_labels) +
++                 len(list_slicing_index)) if index not in list_slicing_index ]
++        grid_coords = { kept.index(i): c for i, c in grid_coords.items()
++                        if i in kept }
+ 
+         axes = { i: axis_labels[i] for i in range(len(axis_labels)) }
+         # Extract data
+@@ -119,7 +126,7 @@ def read_field_cartesian( filename, iteration, field, coord, axis_labels,
+         info = FieldMetaInformation( axes, shape, grid_spacing, global_offset,
+                 group.attrs['gridUnitSI'], grid_position,
+                 time, iteration, component_attrs=dict(dset.attrs),
+-                field_attrs=dict(group.attrs) )
++                field_attrs=dict(group.attrs), grid_coordinates=grid_coords )
+     else:
+         F = get_data( dset )
+         axes = { i: axis_labels[i] for i in range(len(axis_labels)) }
+@@ -127,7 +134,7 @@ def read_field_cartesian( filename, iteration, field, coord, axis_labels,
+             grid_spacing, global_offset,
+             group.attrs['gridUnitSI'], grid_position,
+             time, iteration, component_attrs=dict(dset.attrs),
+-            field_attrs=dict(group.attrs) )
++            field_attrs=dict(group.attrs), grid_coordinates=grid_coords )
+ 
+     # Close the file
+     dfile.close()
+@@ -220,11 +227,19 @@ def read_field_circ( filename, iteration, field, coord,
+     else:
+         raise Exception(order_error_msg)
+ 
++    # explicit coordinates of rectilinear axes {axis index: array}
++    grid_coords = get_grid_coordinates( dfile, group, dset )
++    i_r = 0 if coord_order is RZorder.mrz else 1
++    # radial nodes [m] of a rectilinear radial axis (for the 3D reconstruction)
++    r_nodes = None if i_r not in grid_coords else \
++        (group.attrs['gridGlobalOffset'][i_r] + grid_coords[i_r]) * \
++        group.attrs['gridUnitSI']
++
+     info = FieldMetaInformation( coord_labels, N_pair,
+         group.attrs['gridSpacing'], group.attrs['gridGlobalOffset'],
+         group.attrs['gridUnitSI'], dset.attrs['position'], time,
+         iteration, thetaMode=True, component_attrs=dict(dset.attrs),
+-        field_attrs=dict(group.attrs) )
++        field_attrs=dict(group.attrs), grid_coordinates=grid_coords )
+ 
+     # Convert to a 3D Cartesian array if theta is None
+     if theta is None:
+@@ -271,6 +286,9 @@ def read_field_circ( filename, iteration, field, coord,
+                 # Update info and necessary parameters accordingly
+                 info.r = info.r[::excess_r]
+                 info.dr = info.r[1] - info.r[0]
++                if r_nodes is not None:
++                    r_nodes = r_nodes[::excess_r]
++                    info.dr = np.diff(r_nodes).min()
+                 inv_dr = 1./info.dr
+                 # Update Nr after reducing radial resolution.
+                 if coord_order is RZorder.mrz:
+@@ -285,8 +303,13 @@ def read_field_circ( filename, iteration, field, coord,
+         info._convert_cylindrical_to_3Dcartesian()
+         nx, ny, nz = len(info.x), len(info.y), len(info.z)
+         F_total = np.zeros( (nx, ny, nz), dtype=dset.dtype )
+-        construct_3d_from_circ( F_total, Fcirc, info.x, info.y, modes,
+-            nx, ny, nz, Nr, nmodes, inv_dr, rmax, coord_order )
++        if r_nodes is not None:
++            # rectilinear radial axis: interpolate between the explicit nodes
++            construct_3d_from_circ_rectilinear( F_total, Fcirc, info.x,
++                info.y, modes, r_nodes, coord_order )
++        else:
++            construct_3d_from_circ( F_total, Fcirc, info.x, info.y, modes,
++                nx, ny, nz, Nr, nmodes, inv_dr, rmax, coord_order )
+ 
+     else:
+ 
+@@ -359,9 +382,8 @@ def read_field_circ( filename, iteration, field, coord,
+             # Number of cells along the slicing direction
+             n_cells = len(coord_array)
+             # Index of the slice (prevent stepping out of the array)
+-            i_cell = int( 0.5 * (slice_relative_position[count] + 1.) * n_cells )
+-            i_cell = max( i_cell, 0 )
+-            i_cell = min( i_cell, n_cells - 1)
++            i_cell = slice_index( n_cells, slice_relative_position[count],
++                coord_array if slice_across_item in info.rectilinear else None )
+             F_total = np.take( F_total, [i_cell], axis=slicing_index )
+         F_total = np.squeeze(F_total)
+         # Remove the sliced labels from the FieldMetaInformation
+@@ -475,14 +497,24 @@ def get_grid_parameters( filename, iteration, avail_fields, metadata ):
+         # corresponds to the number of modes
+         grid_size = dset.shape[1:]
+ 
++    # explicit coordinates of rectilinear axes (in the order of the array)
++    grid_coords = get_grid_coordinates( dfile, group, dset )
++    fortran = group.attrs['dataOrder'].decode() == 'F'
++
+     # Build the dictionaries grid_size_dict and grid_range_dict
+     grid_size_dict = {}
+     grid_range_dict = {}
+     for i in range(len(labels)):
+         coord = labels[i].decode()
+         grid_size_dict[coord] = grid_size[i]
+-        grid_range_dict[coord] = \
+-            [ grid_offset[i], grid_offset[i] + grid_size[i] * grid_spacing[i] ]
++        j = len(labels) - 1 - i if fortran else i
++        if j in grid_coords:
++            c = grid_coords[j] * group.attrs['gridUnitSI']
++            grid_range_dict[coord] = [ grid_offset[i] + c[0],
++                                       grid_offset[i] + c[-1] ]
++        else:
++            grid_range_dict[coord] = \
++                [ grid_offset[i], grid_offset[i] + grid_size[i] * grid_spacing[i] ]
+     # Close the file
+     dfile.close()
+     return( grid_size_dict, grid_range_dict )
+diff --git a/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/params_reader.py b/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/params_reader.py
+index 196d1a4..bc00f91 100644
+--- a/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/params_reader.py
++++ b/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/params_reader.py
+@@ -85,6 +85,12 @@ def read_openPMD_params(filename, iteration, extract_parameters=True):
+             field = bpath[join_infile_path(meshes_path, field_name)]
+             metadata = {}
+             metadata['geometry'] = field.attrs['geometry'].decode()
++            # interim marking of rectilinear thetaMode meshes in openPMD 1.1
++            # files: geometry "other", geometryParameters "thetaMode;..."
++            if metadata['geometry'] == 'other' and \
++                    field.attrs.get('geometryParameters', b'').decode() \
++                    .startswith('thetaMode'):
++                metadata['geometry'] = 'thetaMode'
+             metadata['axis_labels'] = [ coord.decode() for coord in
+                                         field.attrs['axisLabels'] ]
+             # Swap the order of the labels if the code that wrote the HDF5 file
+diff --git a/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/utilities.py b/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/utilities.py
+index 292507b..212fbb1 100644
+--- a/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/utilities.py
++++ b/openpmd_viewer/openpmd_timeseries/data_reader/h5py_reader/utilities.py
+@@ -200,3 +200,51 @@ def join_infile_path(*paths):
+     path = path.replace('//', '/')
+ 
+     return path
++
++
++def get_grid_coordinates( dfile, group, dset ):
++    """
++    Explicit coordinates of the rectilinear axes of a mesh record component
++    (attribute `gridCoordinates`: per axis, in the order of `axisLabels`,
++    an empty string for a regular axis or the absolute path of a 1D data set
++    with the positions of the data points; set on the component, or on the
++    record). Also reads the interim attributes `gridCoordinates_<label>`
++    (explicit positions stored in an attribute, e.g. older QUARZ files).
++
++    Parameters
++    ----------
++    dfile: an h5py.File object
++    group: an h5py.Group (the mesh record)
++    dset: an h5py.Dataset (the record component)
++
++    Returns
++    -------
++    A dictionary {axis index: 1darray}, the axis index in the order of the
++    array (i.e. after reverting the axes for Fortran data order), with the
++    positions in grid units, relative to gridGlobalOffset. Empty for a
++    regular mesh.
++    """
++    labels = [ x.decode() if isinstance(x, bytes) else str(x)
++               for x in group.attrs['axisLabels'] ]
++    paths = dset.attrs.get('gridCoordinates', group.attrs.get('gridCoordinates'))
++    coords = {}
++    for i, label in enumerate(labels):
++        c = None
++        if paths is not None:
++            path = paths[i]
++            path = path.decode() if isinstance(path, bytes) else str(path)
++            if path != '':
++                c = np.asarray( dfile[path][()], dtype=float )
++        if c is None:
++            interim = dset.attrs.get('gridCoordinates_' + label,
++                                     group.attrs.get('gridCoordinates_' + label))
++            if interim is not None:
++                c = np.asarray( interim, dtype=float )
++        if c is not None:
++            coords[i] = c
++    order = group.attrs['dataOrder']
++    order = order.decode() if isinstance(order, bytes) else str(order)
++    if order == 'F':
++        n = len(labels)
++        coords = { n - 1 - i: c for i, c in coords.items() }
++    return coords
+diff --git a/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/field_reader.py b/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/field_reader.py
+index bd168af..250a457 100644
+--- a/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/field_reader.py
++++ b/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/field_reader.py
+@@ -10,10 +10,11 @@ License: 3-Clause-BSD-LBNL
+ 
+ import numpy as np
+ 
+-from .utilities import get_data
++from .utilities import get_data, get_grid_coordinates
+ from ...data_order import RZorder, order_error_msg
+ from openpmd_viewer.openpmd_timeseries.field_metainfo import FieldMetaInformation
+-from openpmd_viewer.openpmd_timeseries.utilities import construct_3d_from_circ
++from openpmd_viewer.openpmd_timeseries.utilities import construct_3d_from_circ, \
++    construct_3d_from_circ_rectilinear, slice_index
+ 
+ 
+ def read_field_cartesian( series, iteration, field_name, component_name,
+@@ -86,6 +87,8 @@ def read_field_cartesian( series, iteration, field_name, component_name,
+ 
+     field_attrs = {a: field.get_attribute(a) for a in field.attributes}
+     component_attrs = {a: component.get_attribute(a) for a in component.attributes}
++    # explicit coordinates of rectilinear axes {axis index: array}
++    grid_coords = get_grid_coordinates( series, it, field, component )
+ 
+     # Slice selection
+     #   TODO put in general utilities
+@@ -99,9 +102,8 @@ def read_field_cartesian( series, iteration, field_name, component_name,
+             # Number of cells along the slicing direction
+             n_cells = shape[ slicing_index ]
+             # Index of the slice (prevent stepping out of the array)
+-            i_cell = int( 0.5 * (slice_relative_position[count] + 1.) * n_cells )
+-            i_cell = max( i_cell, 0 )
+-            i_cell = min( i_cell, n_cells - 1)
++            i_cell = slice_index( n_cells, slice_relative_position[count],
++                                  grid_coords.get(slicing_index) )
+             list_i_cell.append(i_cell)
+ 
+         # Remove metainformation relative to the slicing index
+@@ -114,6 +116,10 @@ def read_field_cartesian( series, iteration, field_name, component_name,
+                           if index not in list_slicing_index ]
+         axis_labels = [ x for index, x in enumerate(axis_labels)
+                          if index not in list_slicing_index ]
++        kept = [ index for index in range(len(axis_labels) +
++                 len(list_slicing_index)) if index not in list_slicing_index ]
++        grid_coords = { kept.index(i): c for i, c in grid_coords.items()
++                        if i in kept }
+ 
+         axes = { i: axis_labels[i] for i in range(len(axis_labels)) }
+         # Extract data
+@@ -121,7 +127,7 @@ def read_field_cartesian( series, iteration, field_name, component_name,
+         info = FieldMetaInformation( axes, shape, grid_spacing, global_offset,
+                 grid_unit_SI, grid_position,
+                 time, iteration, field_attrs=field_attrs,
+-                component_attrs=component_attrs )
++                component_attrs=component_attrs, grid_coordinates=grid_coords )
+     else:
+         F = get_data( series, component )
+         axes = { i: axis_labels[i] for i in range(len(axis_labels)) }
+@@ -129,7 +135,7 @@ def read_field_cartesian( series, iteration, field_name, component_name,
+             grid_spacing, global_offset,
+             grid_unit_SI, grid_position,
+             time, iteration, field_attrs=field_attrs,
+-            component_attrs=component_attrs )
++            component_attrs=component_attrs, grid_coordinates=grid_coords )
+ 
+     return F, info
+ 
+@@ -221,12 +227,19 @@ def read_field_circ( series, iteration, field_name, component_name,
+         raise Exception(order_error_msg)
+     time = (it.time + field.time_offset) * it.time_unit_SI
+ 
++    # explicit coordinates of rectilinear axes {axis index: array}
++    grid_coords = get_grid_coordinates( series, it, field, component )
++    i_r = 0 if coord_order is RZorder.mrz else 1
++    # radial nodes [m] of a rectilinear radial axis (for the 3D reconstruction)
++    r_nodes = None if i_r not in grid_coords else \
++        (field.grid_global_offset[i_r] + grid_coords[i_r]) * field.grid_unit_SI
++
+     # Nm, Nr, Nz = component.shape
+     info = FieldMetaInformation( coord_labels, N_pair,
+         field.grid_spacing, field.grid_global_offset,
+         field.grid_unit_SI, component.position, time, iteration,
+         thetaMode=True, field_attrs=field_attrs,
+-        component_attrs=component_attrs )
++        component_attrs=component_attrs, grid_coordinates=grid_coords )
+ 
+     # Convert to a 3D Cartesian array if theta is None
+     if theta is None:
+@@ -271,6 +284,9 @@ def read_field_circ( series, iteration, field_name, component_name,
+                 # Update info and necessary parameters accordingly
+                 info.r = info.r[::excess_r]
+                 info.dr = info.r[1] - info.r[0]
++                if r_nodes is not None:
++                    r_nodes = r_nodes[::excess_r]
++                    info.dr = np.diff(r_nodes).min()
+                 inv_dr = 1./info.dr
+                 # Update Nr after reducing radial resolution.
+                 if coord_order is RZorder.mrz:
+@@ -284,8 +300,13 @@ def read_field_circ( series, iteration, field_name, component_name,
+         info._convert_cylindrical_to_3Dcartesian()
+         nx, ny, nz = len(info.x), len(info.y), len(info.z)
+         F_total = np.zeros( (nx, ny, nz), dtype=component.dtype )
+-        construct_3d_from_circ( F_total, Fcirc, info.x, info.y, modes,
+-            nx, ny, nz, Nr, nmodes, inv_dr, rmax, coord_order)
++        if r_nodes is not None:
++            # rectilinear radial axis: interpolate between the explicit nodes
++            construct_3d_from_circ_rectilinear( F_total, Fcirc, info.x,
++                info.y, modes, r_nodes, coord_order )
++        else:
++            construct_3d_from_circ( F_total, Fcirc, info.x, info.y, modes,
++                nx, ny, nz, Nr, nmodes, inv_dr, rmax, coord_order)
+ 
+     else:
+ 
+@@ -359,9 +380,8 @@ def read_field_circ( series, iteration, field_name, component_name,
+             # Number of cells along the slicing direction
+             n_cells = len(coord_array)
+             # Index of the slice (prevent stepping out of the array)
+-            i_cell = int( 0.5 * (slice_relative_position[count] + 1.) * n_cells )
+-            i_cell = max( i_cell, 0 )
+-            i_cell = min( i_cell, n_cells - 1)
++            i_cell = slice_index( n_cells, slice_relative_position[count],
++                coord_array if slice_across_item in info.rectilinear else None )
+             F_total = np.take( F_total, [i_cell], axis=slicing_index )
+         F_total = np.squeeze(F_total)
+         # Remove the sliced labels from the FieldMetaInformation
+@@ -432,13 +452,23 @@ def get_grid_parameters( series, iteration, avail_fields, metadata ):
+         # corresponds to the number of modes
+         grid_size = component.shape[1:]
+ 
++    # explicit coordinates of rectilinear axes (in the order of the array)
++    grid_coords = get_grid_coordinates( series, it, field, component )
++    fortran = field.get_attribute('dataOrder') == 'F'
++
+     # Build the dictionaries grid_size_dict and grid_range_dict
+     grid_size_dict = {}
+     grid_range_dict = {}
+     for i in range(len(labels)):
+         coord = labels[i]
+         grid_size_dict[coord] = grid_size[i]
+-        grid_range_dict[coord] = \
+-            [ grid_offset[i], grid_offset[i] + grid_size[i] * grid_spacing[i] ]
++        j = len(labels) - 1 - i if fortran else i
++        if j in grid_coords:
++            c = grid_coords[j] * field.grid_unit_SI
++            grid_range_dict[coord] = [ grid_offset[i] + c[0],
++                                       grid_offset[i] + c[-1] ]
++        else:
++            grid_range_dict[coord] = \
++                [ grid_offset[i], grid_offset[i] + grid_size[i] * grid_spacing[i] ]
+ 
+     return grid_size_dict, grid_range_dict
+diff --git a/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/params_reader.py b/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/params_reader.py
+index 81ac248..da7283e 100644
+--- a/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/params_reader.py
++++ b/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/params_reader.py
+@@ -74,6 +74,13 @@ def read_openPMD_params(series, iteration, extract_parameters=True):
+         for field_name, field in it.meshes.items():
+             metadata = {}
+             metadata['geometry'] = field.get_attribute('geometry')
++            # interim marking of rectilinear thetaMode meshes in openPMD 1.1
++            # files: geometry "other", geometryParameters "thetaMode;..."
++            if metadata['geometry'] == 'other' and \
++                    'geometryParameters' in field.attributes and \
++                    field.get_attribute('geometryParameters') \
++                    .startswith('thetaMode'):
++                metadata['geometry'] = 'thetaMode'
+             metadata['axis_labels'] = field.axis_labels
+ 
+             # Swap the order of the labels if the code that wrote the HDF5 file
+diff --git a/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/utilities.py b/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/utilities.py
+index 8c5c04f..f42dcac 100644
+--- a/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/utilities.py
++++ b/openpmd_viewer/openpmd_timeseries/data_reader/io_reader/utilities.py
+@@ -182,3 +182,66 @@ def join_infile_path(*paths):
+     path = path.replace('//', '/')
+ 
+     return path
++
++
++def get_grid_coordinates(series, iteration, field, component):
++    """
++    Explicit coordinates of the rectilinear axes of a mesh record component
++    (attribute `gridCoordinates`: per axis, in the order of `axisLabels`,
++    an empty string for a regular axis or the absolute path of a coordinate
++    data set of the iteration; set on the component, or on the record).
++    Also reads the interim attributes `gridCoordinates_<label>` (explicit
++    positions stored in an attribute, e.g. older QUARZ files).
++
++    Parameters
++    ----------
++    series: openpmd_api.Series
++    iteration: openpmd_api.Iteration
++    field: openpmd_api.Mesh
++    component: openpmd_api.Mesh_Record_Component
++
++    Returns
++    -------
++    A dictionary {axis index: 1darray}, the axis index in the order of the
++    array (i.e. after reverting the axes for Fortran data order), with the
++    positions in grid units, relative to gridGlobalOffset. Empty for a
++    regular mesh.
++    """
++    labels = list(field.axis_labels)
++    if 'gridCoordinates' in component.attributes:
++        paths = component.get_attribute('gridCoordinates')
++    elif 'gridCoordinates' in field.attributes:
++        paths = field.get_attribute('gridCoordinates')
++    else:
++        paths = None
++    coords = {}
++    for i, label in enumerate(labels):
++        c = None
++        if paths is not None and paths[i] != '':
++            if not hasattr(iteration, 'grid_coordinates'):
++                raise RuntimeError(
++                    "This mesh has explicit coordinates (gridCoordinates), "
++                    "which this version of openPMD-api cannot read. Use "
++                    "backend='h5py' for HDF5 files, or a newer openPMD-api.")
++            prefix = iteration.grid_coordinates_path('')
++            key = paths[i][len(prefix):] if paths[i].startswith(prefix) \
++                else None
++            if key is None or key not in iteration.grid_coordinates:
++                raise RuntimeError("gridCoordinates: '%s' is not a coordinate "
++                                   "data set of this iteration" % paths[i])
++            rc = iteration.grid_coordinates[key]
++            c = rc.load_chunk()
++            series.flush()
++            c = np.asarray(c, dtype=float)
++        if c is None:
++            for owner in (component, field):
++                if 'gridCoordinates_' + label in owner.attributes:
++                    c = np.asarray(owner.get_attribute('gridCoordinates_' + label),
++                                   dtype=float)
++                    break
++        if c is not None:
++            coords[i] = c
++    if field.get_attribute('dataOrder') == 'F':
++        n = len(labels)
++        coords = {n - 1 - i: c for i, c in coords.items()}
++    return coords
+diff --git a/openpmd_viewer/openpmd_timeseries/field_metainfo.py b/openpmd_viewer/openpmd_timeseries/field_metainfo.py
+index 3d117c5..61f8911 100644
+--- a/openpmd_viewer/openpmd_timeseries/field_metainfo.py
++++ b/openpmd_viewer/openpmd_timeseries/field_metainfo.py
+@@ -76,27 +76,57 @@ class FieldMetaInformation(object):
+     - component_attrs: dict
+         All the attributes of the field component record in the openPMD file.
+ 
++    - rectilinear: list of strings
++        The axes with explicit, non-equidistant coordinates (rectilinear
++        meshes, attribute `gridCoordinates`). Along these axes, `x` (etc.)
++        holds the positions of the data points, `dx` the smallest spacing,
++        and the data should be plotted on the cell edges given by
++        `get_edges` (e.g. with matplotlib's pcolormesh) rather than with
++        imshow.
++
+     """
+ 
+     def __init__(self, axes, shape, grid_spacing,
+                  global_offset, grid_unitSI, position, t, iteration,
+-                 thetaMode=False, field_attrs=None, component_attrs=None):
++                 thetaMode=False, field_attrs=None, component_attrs=None,
++                 grid_coordinates=None):
+         """
+         Create a FieldMetaInformation object
+ 
+-        The input arguments correspond to their openPMD standard definition
++        The input arguments correspond to their openPMD standard definition.
++        `grid_coordinates` (optional) is a dictionary {axis index: 1darray}
++        with the explicit positions of the data points along rectilinear
++        axes, in grid units and relative to `global_offset` (the content of
++        the coordinate data sets referenced by `gridCoordinates`).
+         """
+         # Register important initial information
+         self.axes = axes
++        self.rectilinear = []
++        if grid_coordinates is None:
++            grid_coordinates = {}
+ 
+         # Create the elements
+         for axis in sorted(axes.keys()):
+             # Create the coordinates along this axis
+-            step = grid_spacing[axis] * grid_unitSI
+             n_points = shape[axis]
+-            start = global_offset[axis] * grid_unitSI + position[axis] * step
+-            end = start + (n_points - 1) * step
+-            axis_points = np.linspace(start, end, n_points, endpoint=True)
++            coords = grid_coordinates.get(axis)
++            if coords is not None:
++                # rectilinear axis: explicit positions of the data points
++                coords = np.asarray(coords, dtype=float)
++                if len(coords) != n_points:
++                    raise ValueError(
++                        'gridCoordinates along %s has %d values, the data %d'
++                        % (axes[axis], len(coords), n_points))
++                axis_points = (global_offset[axis] + coords) * grid_unitSI
++                step = np.diff(axis_points).min() if n_points > 1 \
++                    else grid_spacing[axis] * grid_unitSI
++                end = axis_points[-1]
++                self.rectilinear.append(axes[axis])
++            else:
++                step = grid_spacing[axis] * grid_unitSI
++                start = global_offset[axis] * grid_unitSI + position[axis] * step
++                end = start + (n_points - 1) * step
++                axis_points = np.linspace(start, end, n_points, endpoint=True)
+             # Create the points below the axis if thetaMode is true
+             if axes[axis] == 'r' and thetaMode:
+                 axis_points = np.concatenate((-axis_points[::-1], axis_points))
+@@ -138,6 +168,27 @@ class FieldMetaInformation(object):
+                 self._remove_axis(obsolete_axis)
+ 
+ 
++    def get_edges(self, label):
++        """
++        Return the edges of the cells around the data points along the
++        axis `label` (one more value than the points): the midpoints between
++        neighbouring points, and half a spacing beyond the first and last
++        point. Use them to plot data on rectilinear axes, e.g. with
++        matplotlib's pcolormesh.
++
++        Parameters
++        ----------
++        label: string
++            The axis (one of the values of the self.axes dictionary)
++        """
++        x = np.asarray(getattr(self, label), dtype=float)
++        if len(x) < 2:
++            d = getattr(self, 'd' + label)
++            return np.array([x[0] - 0.5 * d, x[0] + 0.5 * d])
++        mid = 0.5 * (x[1:] + x[:-1])
++        return np.concatenate(([x[0] - 0.5 * (x[1] - x[0])], mid,
++                               [x[-1] + 0.5 * (x[-1] - x[-2])]))
++
+     def _generate_imshow_extent(self):
+         """
+         Generate the list `imshow_extent`, which can be used directly
+@@ -146,6 +197,13 @@ class FieldMetaInformation(object):
+         if len(self.axes) == 2:
+             self.imshow_extent = []
+             for label in [self.axes[1], self.axes[0]]:
++                if label in self.rectilinear:
++                    # outer edges of the cells (imshow itself would show
++                    # the data on equal cells: use pcolormesh with
++                    # get_edges for rectilinear axes)
++                    edges = self.get_edges(label)
++                    self.imshow_extent += [edges[0], edges[-1]]
++                    continue
+                 coord_min = getattr( self, label+'min' )
+                 coord_max = getattr( self, label+'max' )
+                 coord_step = getattr( self, 'd'+label )
+@@ -164,6 +222,8 @@ class FieldMetaInformation(object):
+         delattr(self, obsolete_axis)
+         delattr(self, obsolete_axis + 'min')
+         delattr(self, obsolete_axis + 'max')
++        if obsolete_axis in self.rectilinear:
++            self.rectilinear.remove(obsolete_axis)
+         # Rebuild the dictionary `axes`, by including the axis
+         # label in the same order, but omitting obsolete_axis
+         ndim = len(self.axes)
+@@ -205,3 +265,6 @@ class FieldMetaInformation(object):
+ 
+         # Change axes
+         self.axes = {0:'x', 1:'y', 2:'z'}
++        if 'r' in self.rectilinear:
++            self.rectilinear.remove('r')
++            self.rectilinear += ['x', 'y']
+diff --git a/openpmd_viewer/openpmd_timeseries/plotter.py b/openpmd_viewer/openpmd_timeseries/plotter.py
+index ef09bec..9037c2c 100644
+--- a/openpmd_viewer/openpmd_timeseries/plotter.py
++++ b/openpmd_viewer/openpmd_timeseries/plotter.py
+@@ -370,8 +370,14 @@ class Plotter(object):
+         else:
+             plot_data = F
+             title = "%s" %field_label
+-        plt.imshow(plot_data, extent=info.imshow_extent, origin='lower',
+-                   interpolation='nearest', aspect='auto', **kw)
++        if getattr(info, 'rectilinear', []):
++            # explicit, non-equidistant coordinates: draw every cell with
++            # its true size
++            plt.pcolormesh(info.get_edges(info.axes[1]),
++                           info.get_edges(info.axes[0]), plot_data, **kw)
++        else:
++            plt.imshow(plot_data, extent=info.imshow_extent, origin='lower',
++                       interpolation='nearest', aspect='auto', **kw)
+         plt.colorbar()
+ 
+         # Get the title and labels
+diff --git a/openpmd_viewer/openpmd_timeseries/utilities.py b/openpmd_viewer/openpmd_timeseries/utilities.py
+index b933908..5a319a7 100644
+--- a/openpmd_viewer/openpmd_timeseries/utilities.py
++++ b/openpmd_viewer/openpmd_timeseries/utilities.py
+@@ -351,3 +351,64 @@ def construct_3d_from_circ( F3d, Fcirc, x_array, y_array, modes,
+                     sin = (expItheta**mode).imag
+                     F3d[ix, iy, :] += Fcirc_proj[2*mode-1,:]*cos + \
+                         Fcirc_proj[2*mode,:]*sin
++
++
++def slice_index(n_cells, slice_relative_position, coords=None):
++    """
++    Index of the data point at which to slice an axis.
++
++    `slice_relative_position` is between -1 (lower edge of the box) and 1
++    (upper edge). On a regular axis it is converted with the number of
++    cells; on a rectilinear axis (explicit coordinates `coords`, which are
++    not equidistant) it refers to the coordinate range, and the data point
++    nearest to that position is returned.
++    """
++    if coords is not None:
++        coords = np.asarray(coords, dtype=float)
++        target = coords[0] + 0.5 * (slice_relative_position + 1.) * \
++            (coords[-1] - coords[0])
++        return int(np.argmin(np.abs(coords - target)))
++    i_cell = int( 0.5 * (slice_relative_position + 1.) * n_cells )
++    i_cell = max( i_cell, 0 )
++    return min( i_cell, n_cells - 1 )
++
++
++def construct_3d_from_circ_rectilinear( F3d, Fcirc, x_array, y_array, modes,
++    r_nodes, coord_order ):
++    """
++    Reconstruct the field from a quasi-cylindrical simulation (`Fcirc`) on
++    the explicit radial nodes `r_nodes` (rectilinear radial axis), as a 3D
++    cartesian array (`F3d`): linear interpolation in r between the nodes,
++    constant beyond the last node (as `construct_3d_from_circ`).
++    """
++    r_nodes = np.asarray(r_nodes, dtype=float)
++    nr = len(r_nodes)
++    X, Y = np.meshgrid(x_array, y_array, indexing='ij')
++    R = np.sqrt(X**2 + Y**2)
++    # interpolation weights between the nodes ir - 1 and ir
++    ir = np.clip(np.searchsorted(r_nodes, R), 1, nr - 1) if nr > 1 \
++        else np.zeros(R.shape, dtype=int)
++    if nr > 1:
++        s1 = np.clip((R - r_nodes[ir - 1]) / (r_nodes[ir] - r_nodes[ir - 1]),
++                     0., 1.)
++    else:
++        s1 = np.ones(R.shape)
++    s0 = 1. - s1
++    with np.errstate(invalid='ignore', divide='ignore'):
++        expItheta = np.where(R > 0, (X + 1.j * Y) / np.where(R > 0, R, 1.),
++                             1. + 0.j)
++    if coord_order is RZorder.mrz:
++        F = np.moveaxis(Fcirc, 1, 0)   # (r, modes, z)
++    elif coord_order is RZorder.mzr:
++        F = np.moveaxis(Fcirc, 2, 0)   # (r, modes, z)
++    else:
++        raise Exception(order_error_msg)
++    lo = np.maximum(ir - 1, 0)
++    proj = s0[..., None, None] * F[lo] + s1[..., None, None] * F[ir]
++    for mode in modes:
++        if mode == 0:
++            F3d[:, :, :] += proj[:, :, 0, :]
++        else:
++            e = expItheta**mode
++            F3d[:, :, :] += proj[:, :, 2 * mode - 1, :] * e.real[..., None] \
++                + proj[:, :, 2 * mode, :] * e.imag[..., None]
+diff --git a/tests/test_rectilinear.py b/tests/test_rectilinear.py
+new file mode 100644
+index 0000000..1e63749
+--- /dev/null
++++ b/tests/test_rectilinear.py
+@@ -0,0 +1,171 @@
++"""
++This test file is part of the openPMD-viewer.
++
++It tests meshes with explicit, non-equidistant coordinates along some axes
++(rectilinear meshes: the attribute `gridCoordinates` names a 1D coordinate
++data set per axis, proposed for openPMD 2.0, openPMD-standard issue #142).
++The files are written with h5py, so that the test does not depend on the
++writer; they are read with every available backend.
++
++Copyright 2026, openPMD-viewer contributors
++Authors: Alexander Pukhov
++License: 3-Clause-BSD-LBNL
++"""
++import h5py
++import numpy as np
++import pytest
++
++from openpmd_viewer import OpenPMDTimeSeries
++from openpmd_viewer.openpmd_timeseries.data_reader import available_backends
++
++# stretched radial nodes (fine at the axis) and a regular z axis
++R_NODES = np.concatenate([[0.0], np.cumsum(0.1 * 1.25 ** np.arange(11))])
++NZ, DZ, Z0 = 16, 0.5, 3.0
++UNIT = 1e-6   # gridUnitSI
++
++
++def fields(r, z):
++    """modes m = 0, cos 1, sin 1 of a test field, (3, Nr, Nz)"""
++    rr, zz = np.meshgrid(r, z, indexing='ij')
++    f0 = np.exp(-rr**2) * np.cos(zz)
++    return np.array([f0, rr * np.exp(-rr**2), 0.5 * rr * np.sin(zz)])
++
++
++def write_file(path, form):
++    """thetaMode mesh E (component z) on R_NODES, and a 2D cartesian mesh rho
++    with a rectilinear x axis; `form` = "dataset" (openPMD 2.0 proposal) or
++    "attribute" (interim form, geometry "other" + "thetaMode;...")"""
++    z = Z0 + DZ * np.arange(NZ)
++    with h5py.File(path, 'w') as f:
++        f.attrs['openPMD'] = np.bytes_('1.1.0')
++        f.attrs['openPMDextension'] = np.uint32(0)
++        f.attrs['basePath'] = np.bytes_('/data/%T/')
++        f.attrs['meshesPath'] = np.bytes_('meshes/')
++        f.attrs['iterationEncoding'] = np.bytes_('fileBased')
++        f.attrs['iterationFormat'] = np.bytes_('data%T.h5')
++        it = f.create_group('/data/10')
++        it.attrs['time'] = 0.0
++        it.attrs['dt'] = 1.0
++        it.attrs['timeUnitSI'] = 1.0
++        if form == 'dataset':
++            it['gridCoordinates/r'] = R_NODES
++            it['gridCoordinates/x'] = R_NODES
++        E = it.create_group('meshes/E')
++        if form == 'dataset':
++            E.attrs['geometry'] = np.bytes_('thetaMode')
++            E.attrs['geometryParameters'] = np.bytes_('m=2;imag=+')
++            E.attrs['gridCoordinates'] = np.array(
++                [b'/data/10/gridCoordinates/r', b''])
++        else:
++            E.attrs['geometry'] = np.bytes_('other')
++            E.attrs['geometryParameters'] = np.bytes_('thetaMode;m=2;imag=+')
++            E.attrs['gridCoordinates_r'] = R_NODES
++        for key, val in [('axisLabels', np.array([b'r', b'z'])),
++                         ('dataOrder', np.bytes_('C')),
++                         ('gridSpacing', np.array([0.1, DZ])),
++                         ('gridGlobalOffset', np.array([0.0, Z0])),
++                         ('gridUnitSI', UNIT),
++                         ('unitDimension', np.zeros(7)),
++                         ('timeOffset', 0.0)]:
++            E.attrs[key] = val
++        Ez = E.create_dataset('z', data=fields(R_NODES, z))
++        Ez.attrs['position'] = np.array([0.0, 0.0])
++        Ez.attrs['unitSI'] = 1.0
++        if form == 'dataset':
++            rho = it.create_dataset(
++                'meshes/rho', data=fields(R_NODES, z)[0])
++            for key, val in [('geometry', np.bytes_('cartesian')),
++                             ('axisLabels', np.array([b'x', b'z'])),
++                             ('dataOrder', np.bytes_('C')),
++                             ('gridSpacing', np.array([0.1, DZ])),
++                             ('gridGlobalOffset', np.array([0.0, Z0])),
++                             ('gridUnitSI', UNIT),
++                             ('unitDimension', np.zeros(7)),
++                             ('timeOffset', 0.0),
++                             ('position', np.array([0.0, 0.0])),
++                             ('unitSI', 1.0),
++                             ('gridCoordinates',
++                              np.array([b'/data/10/gridCoordinates/x', b'']))]:
++                rho.attrs[key] = val
++
++
++def backends_for(form):
++    out = []
++    for b in available_backends:
++        if b == 'openpmd-api' and form == 'dataset':
++            import openpmd_api
++            if not hasattr(openpmd_api.Iteration, 'grid_coordinates'):
++                continue   # this openPMD-api cannot read coordinate data sets
++        out.append(b)
++    return out
++
++
++@pytest.mark.parametrize('form', ['dataset', 'attribute'])
++def test_rectilinear_thetamode(tmp_path, form):
++    write_file(str(tmp_path / 'data00000010.h5'), form)
++    z = Z0 + DZ * np.arange(NZ)
++    ref = fields(R_NODES, z)
++    r_mirror = np.concatenate([-R_NODES[::-1], R_NODES]) * UNIT
++    for backend in backends_for(form):
++        ts = OpenPMDTimeSeries(str(tmp_path), backend=backend)
++        assert ts.fields_metadata['E']['geometry'] == 'thetaMode'
++
++        # the plane theta = 0: m = 0 + cos 1, mirrored below the axis
++        F, info = ts.get_field('E', 'z', iteration=10, m='all', theta=0.)
++        assert info.rectilinear == ['r']
++        np.testing.assert_allclose(info.r, r_mirror)
++        np.testing.assert_allclose(info.z, z * UNIT)
++        assert np.isclose(info.dr, 0.1 * UNIT)
++        np.testing.assert_allclose(F[len(R_NODES):, :], ref[0] + ref[1])
++        np.testing.assert_allclose(F[:len(R_NODES), :],
++                                   (ref[0] - ref[1])[::-1, :])
++        edges = info.get_edges('r')
++        assert len(edges) == len(info.r) + 1
++        assert np.all(np.diff(edges) >= 0)
++
++        # slicing across r at the axis picks the node r = 0
++        F1, info1 = ts.get_field('E', 'z', iteration=10, m=0, theta=0.,
++                                 slice_across='r', slice_relative_position=0.)
++        np.testing.assert_allclose(F1, ref[0][0])
++        assert info1.rectilinear == []
++
++        # 3D reconstruction on the nodes: exact at y = 0, x = r_node
++        F3, info3 = ts.get_field('E', 'z', iteration=10, m='all', theta=None)
++        assert set(info3.rectilinear) == {'x', 'y'}
++        iy = len(R_NODES)          # y = +0
++        np.testing.assert_allclose(F3[len(R_NODES):, iy, :], ref[0] + ref[1])
++        # at x = 0, y = r_node: m = 0 + sin 1
++        ix = len(R_NODES)
++        np.testing.assert_allclose(F3[ix, len(R_NODES):, :], ref[0] + ref[2])
++
++        # the grid range follows the coordinates
++        grid_size, grid_range = ts.data_reader.get_grid_parameters(
++            10, ts.avail_fields, ts.fields_metadata)
++        assert np.isclose(grid_range['r'][1], R_NODES[-1] * UNIT)
++
++
++def test_rectilinear_cartesian(tmp_path):
++    write_file(str(tmp_path / 'data00000010.h5'), 'dataset')
++    z = Z0 + DZ * np.arange(NZ)
++    ref = fields(R_NODES, z)[0]
++    for backend in backends_for('dataset'):
++        ts = OpenPMDTimeSeries(str(tmp_path), backend=backend)
++        F, info = ts.get_field('rho', iteration=10)
++        assert info.rectilinear == ['x']
++        np.testing.assert_allclose(info.x, R_NODES * UNIT)
++        np.testing.assert_allclose(F, ref)
++        # slice in x at the middle of the coordinate range, not of the index
++        F1, info1 = ts.get_field('rho', iteration=10, slice_across='x',
++                                 slice_relative_position=0.)
++        i_mid = np.argmin(np.abs(R_NODES - 0.5 * R_NODES[-1]))
++        np.testing.assert_allclose(F1, ref[i_mid])
++        assert info1.rectilinear == []
++
++
++def test_rectilinear_plot(tmp_path):
++    matplotlib = pytest.importorskip('matplotlib')
++    matplotlib.use('Agg')
++    write_file(str(tmp_path / 'data00000010.h5'), 'dataset')
++    ts = OpenPMDTimeSeries(str(tmp_path), backend='h5py')
++    ts.get_field('E', 'z', iteration=10, plot=True)
++    ts.get_field('rho', iteration=10, plot=True)
+-- 
+2.43.0
+

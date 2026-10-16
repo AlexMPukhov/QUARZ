@@ -39,11 +39,14 @@ for n, it in S.iterations.items():
             from openpmd_rectilinear import read_mesh
             mm = read_mesh(f'{d}/openpmd/data_{n:06d}.h5', 'E', 'z', iteration=n)
             gU = it.meshes['E'].grid_unit_SI
-            assert mm.geometry == 'thetaMode' and it.meshes['E'].get_attribute('gridType') == 'rectilinear'
+            E = it.meshes['E']
+            form = 'data set' if 'gridCoordinates' in E.attributes else 'attribute'   # openPMD 2.0 / interim form
+            assert mm.geometry == 'thetaMode'
+            assert form == 'data set' or E.get_attribute('gridType') == 'rectilinear'
             e_r = np.abs(mm.axes['r'] - r * gU).max() / (r.max() * gU)
             a = it.meshes['E']['z'].load_chunk(); S.flush()
             e_d = np.abs(mm.data - a * it.meshes['E']['z'].unit_SI).max() / max(np.abs(mm.data).max(), 1e-300)
-            print(f'  rectilinear reader: radial nodes {e_r:.1e}, E_z data {e_d:.1e}')
+            print(f'  rectilinear reader ({form} form): radial nodes {e_r:.1e}, E_z data {e_d:.1e}')
             worst = max(worst, e_r, e_d)
     for sp_name, sp in it.particles.items():
         b = read_beam(f'{d}/beam_{sp_name}_{n:06d}.bin')

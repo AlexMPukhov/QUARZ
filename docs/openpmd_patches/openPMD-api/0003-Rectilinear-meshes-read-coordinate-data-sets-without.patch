@@ -1,0 +1,47 @@
+From 5f240dcb18a0e3efb473f2f6c4195312bf890676 Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Fri, 16 Oct 2026 17:57:15 +0200
+Subject: [PATCH 3/5] Rectilinear meshes: read coordinate data sets without the
+ record-component defaults (no unitSI needed)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DRiRr7s6YoyWRd6EM8Zzbz
+---
+ include/openPMD/Iteration.hpp | 4 +++-
+ src/Iteration.cpp             | 5 ++++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/include/openPMD/Iteration.hpp b/include/openPMD/Iteration.hpp
+index 12750455..3cb6a623 100644
+--- a/include/openPMD/Iteration.hpp
++++ b/include/openPMD/Iteration.hpp
+@@ -172,7 +172,9 @@ public:
+  * the mesh attribute <code>gridCoordinates</code>, see
+  * Mesh::setGridCoordinates(). Values are in grid units, i.e. multiplied by the
+  * gridUnitSI of the axis they belong to, and relative to its
+- * gridGlobalOffset. One data set may be referenced by several meshes.
++ * gridGlobalOffset; the unitSI attribute that the API writes for every record
++ * component is 1 and not used. One data set may be referenced by several
++ * meshes.
+  *
+  * @see https://github.com/openPMD/openPMD-standard/issues/142
+  */
+diff --git a/src/Iteration.cpp b/src/Iteration.cpp
+index 90f89a1e..6b832bc7 100644
+--- a/src/Iteration.cpp
++++ b/src/Iteration.cpp
+@@ -771,7 +771,10 @@ void Iteration::readGridCoordinates()
+         rc.setWritten(true, Attributable::EnqueueAsynchronously::No);
+         try
+         {
+-            rc.read();
++            // without the scientific defaults of a record component: the
++            // values are in the grid units of the axis, a unitSI is not
++            // needed (and is ignored if present)
++            rc.readBase();
+         }
+         catch (error::ReadError const &err)
+         {
+-- 
+2.43.0
+

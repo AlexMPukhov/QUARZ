@@ -10,9 +10,12 @@
 //   interpolated (piecewise linear, as the hat functions of the code) onto a uniform radial
 //   grid  r = 0, dr, 2dr, ... <= output.openpmd_rmax.  With output.openpmd_grid = native they
 //   are written on the native non-uniform nodes as rectilinear meshes (proposed openPMD extension,
-//   docs/openpmd_rectilinear.md, the same convention as GEM-PIC-RZ): gridType "rectilinear", radial
-//   node positions in "gridCoordinates_r" (also in the deprecated "quarz_r_nodes"), geometry "other"
-//   with geometryParameters "thetaMode;m=...;imag=+" until the extension is in the standard.
+//   docs/openpmd_rectilinear.md, the same convention as GEM-PIC-RZ): with an openPMD-api that has
+//   coordinate data sets (QUARZ_OPENPMD_GRID_COORDINATES, detected by CMake) the radial nodes are the
+//   data set <basePath>gridCoordinates/r, referenced by the mesh attribute gridCoordinates (openPMD 2.0
+//   form); otherwise they are in the attribute "gridCoordinates_r" with gridType "rectilinear" (interim
+//   form). Both carry the deprecated "quarz_r_nodes", geometry "other" and geometryParameters
+//   "thetaMode;m=...;imag=+" until the extension is in the standard.
 // Particles: every beam is a species with position (x, y, z = t - xi), positionOffset (0),
 //   momentum, weighting, charge and mass.
 // Units: SI (unitSI attributes) when the plasma density is given (units.n0_cm3); without it

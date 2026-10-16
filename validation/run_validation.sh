@@ -157,6 +157,8 @@ sec10() {
                 MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"
                 OMP_NUM_THREADS=1 $MPIRUN 2 $QS $H output.format=openpmd output.dir=out_opmd_p2 > /dev/null 2>&1
                 echo " 2 MPI ranks vs serial (expected 0):"; python3 cmp_openpmd.py out_opmd_uni out_opmd_p2
+                OMP_NUM_THREADS=1 $MPIRUN 2 $QS $H output.format=openpmd output.openpmd_grid=native output.dir=out_opmd_p2n > /dev/null 2>&1
+                echo " 2 MPI ranks vs serial, native nodes (expected 0):"; python3 cmp_openpmd.py out_opmd_nat out_opmd_p2n
             fi
         else
             echo " (this build has no openPMD support - skipped)"

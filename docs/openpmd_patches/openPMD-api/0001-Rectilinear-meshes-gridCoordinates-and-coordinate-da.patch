@@ -1,0 +1,1226 @@
+From d094b2b4abf77e49b1f6c460d3601634850ded3c Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Fri, 16 Oct 2026 17:30:03 +0200
+Subject: [PATCH 1/5] Rectilinear meshes: gridCoordinates and coordinate data
+ sets
+
+Support for meshes with explicit, non-equidistant coordinates along some
+axes (openPMD-standard issue #142, proposal for 2.0):
+
+- Iteration::gridCoordinates: container of 1D coordinate data sets in the
+  group <basePath>gridCoordinates/ of an iteration; written only if not
+  empty, read if present.
+- Mesh::gridCoordinates() / setGridCoordinates(): per axis an empty string
+  (regular axis) or the absolute path of a coordinate data set;
+  MeshRecordComponent::setGridCoordinates() for staggered components.
+- Iteration::gridCoordinatesPath(name) and gridCoordinatesOf(mesh[, comp])
+  to build and resolve the references.
+- Python bindings (Iteration.grid_coordinates, grid_coordinates_path,
+  grid_coordinates_of, Mesh.grid_coordinates, Mesh_Record_Component
+  .grid_coordinates), examples 3c_write_rectilinear_serial (C++, Python),
+  C++ test rectilinear_meshes (group- and file-based, staggered component,
+  regular mesh, dangling reference), Python round trip.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DRiRr7s6YoyWRd6EM8Zzbz
+---
+ CMakeLists.txt                                |   3 +
+ .../usage/3c_write_rectilinear_serial.cpp     |  91 +++++++++
+ .../usage/3c_write_rectilinear_serial.py      |   1 +
+ docs/source/usage/examples.rst                |   2 +
+ examples/3c_write_rectilinear_serial.cpp      |  91 +++++++++
+ examples/3c_write_rectilinear_serial.py       |  70 +++++++
+ include/openPMD/Iteration.hpp                 |  53 +++++
+ include/openPMD/Mesh.hpp                      |  24 +++
+ include/openPMD/backend/HierarchyVisitor.hpp  |   2 +
+ .../openPMD/backend/HierarchyVisitorImpl.hpp  |   4 +
+ .../openPMD/backend/MeshRecordComponent.hpp   |   8 +
+ src/Iteration.cpp                             | 154 ++++++++++++++
+ src/Mesh.cpp                                  |  15 ++
+ src/backend/Container.cpp                     |   1 +
+ src/backend/MeshRecordComponent.cpp           |   7 +
+ src/binding/python/Iteration.cpp              |  48 ++++-
+ src/binding/python/Mesh.cpp                   |   8 +
+ src/binding/python/MeshRecordComponent.cpp    |  11 +
+ test/Files_SerialIO/SerialIOTests.hpp         |   4 +
+ test/Files_SerialIO/rectilinear_meshes.cpp    | 193 ++++++++++++++++++
+ test/SerialIOTest.cpp                         |   8 +
+ test/python/unittest/API/APITest.py           |  43 ++++
+ 22 files changed, 840 insertions(+), 1 deletion(-)
+ create mode 100644 docs/source/usage/3c_write_rectilinear_serial.cpp
+ create mode 120000 docs/source/usage/3c_write_rectilinear_serial.py
+ create mode 100644 examples/3c_write_rectilinear_serial.cpp
+ create mode 100644 examples/3c_write_rectilinear_serial.py
+ create mode 100644 test/Files_SerialIO/rectilinear_meshes.cpp
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e6d3d8f5..63032e93 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -760,6 +760,7 @@ set(openPMD_EXAMPLE_NAMES
+     3_write_serial
+     3a_write_thetaMode_serial
+     3b_write_resizable_particles
++    3c_write_rectilinear_serial
+     4_read_parallel
+     5_write_parallel
+     6_dump_filebased_series
+@@ -780,6 +781,7 @@ set(openPMD_PYTHON_EXAMPLE_NAMES
+     3_write_serial
+     3a_write_thetaMode_serial
+     3b_write_resizable_particles
++    3c_write_rectilinear_serial
+     4_read_parallel
+     5_write_parallel
+     7_extended_write_serial
+@@ -857,6 +859,7 @@ if(openPMD_BUILD_TESTING)
+                 test/Files_SerialIO/issue_1744_unique_ptrs_at_close_time.cpp
+                 test/Files_SerialIO/components_without_extent.cpp
+                 test/Files_SerialIO/read_while_writing.cpp
++                test/Files_SerialIO/rectilinear_meshes.cpp
+             )
+         elseif(${test_name} STREQUAL "ParallelIO" AND openPMD_HAVE_MPI)
+             list(APPEND ${out_list}
+diff --git a/docs/source/usage/3c_write_rectilinear_serial.cpp b/docs/source/usage/3c_write_rectilinear_serial.cpp
+new file mode 100644
+index 00000000..3c169e8b
+--- /dev/null
++++ b/docs/source/usage/3c_write_rectilinear_serial.cpp
+@@ -0,0 +1,91 @@
++/* Copyright 2026 Alexander Pukhov
++ *
++ * This file is part of openPMD-api.
++ *
++ * openPMD-api is free software: you can redistribute it and/or modify
++ * it under the terms of of either the GNU General Public License or
++ * the GNU Lesser General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * openPMD-api is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License and the GNU Lesser General Public License
++ * for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * and the GNU Lesser General Public License along with openPMD-api.
++ * If not, see <http://www.gnu.org/licenses/>.
++ */
++#include <openPMD/openPMD.hpp>
++
++#include <cmath>
++#include <cstdlib>
++#include <iostream>
++#include <vector>
++
++using namespace openPMD;
++
++/* A rectilinear mesh: a thetaMode field on a stretched radial grid (fine at
++ * the axis, coarse outside) and a regular z grid. The radial positions of
++ * the data points are stored once per iteration as a coordinate data set and
++ * referenced by the mesh attribute gridCoordinates.
++ */
++int main()
++{
++    Series series = Series(
++        "../samples/3c_write_rectilinear_serial.h5", Access::CREATE_LINEAR);
++
++    unsigned int const num_modes = 2u;
++    unsigned int const num_fields = 1u + (num_modes - 1u) * 2u;
++    size_t const N_r = 40, N_z = 100;
++
++    // radial nodes: spacing 0.01 at the axis, growing geometrically by 10 %
++    std::vector<double> r(N_r);
++    double dr = 0.01;
++    for (size_t i = 1; i < N_r; ++i, dr *= 1.1)
++        r[i] = r[i - 1] + dr;
++
++    auto it = series.snapshots()[0];
++    auto r_nodes = it.gridCoordinates["r_nodes"];
++    r_nodes.resetDataset({determineDatatype<double>(), {N_r}});
++    r_nodes.storeChunk(r, {0}, {N_r});
++
++    auto E = it.meshes["E"];
++    E.setGeometry(Mesh::Geometry::thetaMode);
++    E.setGeometryParameters("m=" + std::to_string(num_modes) + ";imag=+");
++    E.setAxisLabels({"r", "z"});
++    // informative along r (the smallest spacing), regular along z
++    E.setGridSpacing(std::vector<double>{0.01, 0.05});
++    E.setGridGlobalOffset({0.0, 0.0});
++    E.setGridUnitSI(1e-6);
++    E.setGridCoordinates({it.gridCoordinatesPath("r_nodes"), ""});
++
++    // all components on the same nodes: position 0 along r
++    std::vector<double> E_z_data(num_fields * N_r * N_z);
++    for (size_t m = 0; m < num_fields; ++m)
++        for (size_t i = 0; i < N_r; ++i)
++            for (size_t k = 0; k < N_z; ++k)
++                E_z_data[(m * N_r + i) * N_z + k] =
++                    std::exp(-r[i] * r[i]) * std::cos(0.3 * k + m);
++    auto E_z = E["z"];
++    E_z.setPosition(std::vector<double>{0.0, 0.5});
++    E_z.resetDataset({determineDatatype<double>(), {num_fields, N_r, N_z}});
++    E_z.storeChunk(E_z_data, {0, 0, 0}, {num_fields, N_r, N_z});
++
++    it.close();
++    series.close();
++
++    // read back: the coordinates of each axis, or nothing for a regular axis
++    Series read("../samples/3c_write_rectilinear_serial.h5", Access::READ_ONLY);
++    auto rit = read.snapshots()[0];
++    auto coords = rit.gridCoordinatesOf(rit.meshes["E"]);
++    auto r_read = coords.at(0)->loadChunk<double>();
++    read.flush();
++    std::cout << "E: " << coords.size() << " axes, r has explicit coordinates "
++              << r_read.get()[0] << " ... " << r_read.get()[N_r - 1]
++              << ", z is regular: " << !coords.at(1).has_value() << std::endl;
++    read.close();
++    return 0;
++}
+diff --git a/docs/source/usage/3c_write_rectilinear_serial.py b/docs/source/usage/3c_write_rectilinear_serial.py
+new file mode 120000
+index 00000000..97f6992a
+--- /dev/null
++++ b/docs/source/usage/3c_write_rectilinear_serial.py
+@@ -0,0 +1 @@
++../../../examples/3c_write_rectilinear_serial.py
+\ No newline at end of file
+diff --git a/docs/source/usage/examples.rst b/docs/source/usage/examples.rst
+index 29e4af96..fa1719b9 100644
+--- a/docs/source/usage/examples.rst
++++ b/docs/source/usage/examples.rst
+@@ -17,6 +17,7 @@ C++
+ - :download:`3_write_serial.cpp <3_write_serial.cpp>`: writing a mesh
+ - :download:`3a_write_thetaMode_serial.cpp <3a_write_thetaMode_serial.cpp>`: write an azimuthally decomposed mesh
+ - :download:`3b_write_resizable_particles.cpp <3b_write_resizable_particles.cpp>`: write particles in a resizeable dataset
++- :download:`3c_write_rectilinear_serial.cpp <3c_write_rectilinear_serial.cpp>`: write a rectilinear mesh (explicit, non-equidistant coordinates along an axis)
+ - :download:`4_read_parallel.cpp <4_read_parallel.cpp>`: MPI-parallel mesh read
+ - :download:`5_write_parallel.cpp <5_write_parallel.cpp>`: MPI-parallel mesh write
+ - :download:`6_dump_filebased_series.cpp <6_dump_filebased_series.cpp>`: detailed reading with a file-based series
+@@ -39,6 +40,7 @@ Python
+ - :download:`3_write_serial.py <3_write_serial.py>`: writing a mesh
+ - :download:`3a_write_thetaMode_serial.py <3a_write_thetaMode_serial.py>`: write an azimuthally decomposed mesh
+ - :download:`3b_write_resizable_particles.py <3b_write_resizable_particles.py>`: write particles in a resizeable dataset
++- :download:`3c_write_rectilinear_serial.py <3c_write_rectilinear_serial.py>`: write a rectilinear mesh (explicit, non-equidistant coordinates along an axis)
+ - :download:`4_read_parallel.py <4_read_parallel.py>`: MPI-parallel mesh read
+ - :download:`5_write_parallel.py <5_write_parallel.py>`: MPI-parallel mesh write
+ - :download:`7_extended_write_serial.py <7_extended_write_serial.py>`: particle writing with patches and constant records
+diff --git a/examples/3c_write_rectilinear_serial.cpp b/examples/3c_write_rectilinear_serial.cpp
+new file mode 100644
+index 00000000..3c169e8b
+--- /dev/null
++++ b/examples/3c_write_rectilinear_serial.cpp
+@@ -0,0 +1,91 @@
++/* Copyright 2026 Alexander Pukhov
++ *
++ * This file is part of openPMD-api.
++ *
++ * openPMD-api is free software: you can redistribute it and/or modify
++ * it under the terms of of either the GNU General Public License or
++ * the GNU Lesser General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * openPMD-api is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License and the GNU Lesser General Public License
++ * for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * and the GNU Lesser General Public License along with openPMD-api.
++ * If not, see <http://www.gnu.org/licenses/>.
++ */
++#include <openPMD/openPMD.hpp>
++
++#include <cmath>
++#include <cstdlib>
++#include <iostream>
++#include <vector>
++
++using namespace openPMD;
++
++/* A rectilinear mesh: a thetaMode field on a stretched radial grid (fine at
++ * the axis, coarse outside) and a regular z grid. The radial positions of
++ * the data points are stored once per iteration as a coordinate data set and
++ * referenced by the mesh attribute gridCoordinates.
++ */
++int main()
++{
++    Series series = Series(
++        "../samples/3c_write_rectilinear_serial.h5", Access::CREATE_LINEAR);
++
++    unsigned int const num_modes = 2u;
++    unsigned int const num_fields = 1u + (num_modes - 1u) * 2u;
++    size_t const N_r = 40, N_z = 100;
++
++    // radial nodes: spacing 0.01 at the axis, growing geometrically by 10 %
++    std::vector<double> r(N_r);
++    double dr = 0.01;
++    for (size_t i = 1; i < N_r; ++i, dr *= 1.1)
++        r[i] = r[i - 1] + dr;
++
++    auto it = series.snapshots()[0];
++    auto r_nodes = it.gridCoordinates["r_nodes"];
++    r_nodes.resetDataset({determineDatatype<double>(), {N_r}});
++    r_nodes.storeChunk(r, {0}, {N_r});
++
++    auto E = it.meshes["E"];
++    E.setGeometry(Mesh::Geometry::thetaMode);
++    E.setGeometryParameters("m=" + std::to_string(num_modes) + ";imag=+");
++    E.setAxisLabels({"r", "z"});
++    // informative along r (the smallest spacing), regular along z
++    E.setGridSpacing(std::vector<double>{0.01, 0.05});
++    E.setGridGlobalOffset({0.0, 0.0});
++    E.setGridUnitSI(1e-6);
++    E.setGridCoordinates({it.gridCoordinatesPath("r_nodes"), ""});
++
++    // all components on the same nodes: position 0 along r
++    std::vector<double> E_z_data(num_fields * N_r * N_z);
++    for (size_t m = 0; m < num_fields; ++m)
++        for (size_t i = 0; i < N_r; ++i)
++            for (size_t k = 0; k < N_z; ++k)
++                E_z_data[(m * N_r + i) * N_z + k] =
++                    std::exp(-r[i] * r[i]) * std::cos(0.3 * k + m);
++    auto E_z = E["z"];
++    E_z.setPosition(std::vector<double>{0.0, 0.5});
++    E_z.resetDataset({determineDatatype<double>(), {num_fields, N_r, N_z}});
++    E_z.storeChunk(E_z_data, {0, 0, 0}, {num_fields, N_r, N_z});
++
++    it.close();
++    series.close();
++
++    // read back: the coordinates of each axis, or nothing for a regular axis
++    Series read("../samples/3c_write_rectilinear_serial.h5", Access::READ_ONLY);
++    auto rit = read.snapshots()[0];
++    auto coords = rit.gridCoordinatesOf(rit.meshes["E"]);
++    auto r_read = coords.at(0)->loadChunk<double>();
++    read.flush();
++    std::cout << "E: " << coords.size() << " axes, r has explicit coordinates "
++              << r_read.get()[0] << " ... " << r_read.get()[N_r - 1]
++              << ", z is regular: " << !coords.at(1).has_value() << std::endl;
++    read.close();
++    return 0;
++}
+diff --git a/examples/3c_write_rectilinear_serial.py b/examples/3c_write_rectilinear_serial.py
+new file mode 100644
+index 00000000..692e53d0
+--- /dev/null
++++ b/examples/3c_write_rectilinear_serial.py
+@@ -0,0 +1,70 @@
++#!/usr/bin/env python
++"""
++This file is part of the openPMD-api.
++
++A rectilinear mesh: a thetaMode field on a stretched radial grid (fine at the
++axis, coarse outside) and a regular z grid. The radial positions of the data
++points are stored once per iteration as a coordinate data set and referenced
++by the mesh attribute gridCoordinates.
++
++Copyright 2026 openPMD contributors
++Authors: Alexander Pukhov
++License: LGPLv3+
++"""
++
++import numpy as np
++import openpmd_api as io
++
++if __name__ == "__main__":
++    series = io.Series(
++        "../samples/3c_write_rectilinear_serial_py.h5", io.Access.create_linear
++    )
++
++    num_modes = 2
++    num_fields = 1 + (num_modes - 1) * 2
++    N_r, N_z = 40, 100
++
++    # radial nodes: spacing 0.01 at the axis, growing geometrically by 10 %
++    r = np.concatenate([[0.0], np.cumsum(0.01 * 1.1 ** np.arange(N_r - 1))])
++
++    it = series.snapshots()[0]
++    r_nodes = it.grid_coordinates["r_nodes"]
++    r_nodes.reset_dataset(io.Dataset(r.dtype, r.shape))
++    r_nodes.store_chunk(r)
++
++    E = it.meshes["E"]
++    E.geometry = io.Geometry.thetaMode
++    E.geometry_parameters = "m={0};imag=+".format(num_modes)
++    E.axis_labels = ["r", "z"]
++    # informative along r (the smallest spacing), regular along z
++    E.grid_spacing = [0.01, 0.05]
++    E.grid_global_offset = [0.0, 0.0]
++    E.grid_unit_SI = 1e-6
++    E.grid_coordinates = [it.grid_coordinates_path("r_nodes"), ""]
++
++    # all components on the same nodes: position 0 along r
++    E_z_data = np.exp(-(r[None, :, None] ** 2)) * np.cos(
++        0.3 * np.arange(N_z)[None, None, :] + np.arange(num_fields)[:, None, None]
++    )
++    E_z = E["z"]
++    E_z.position = [0.0, 0.5]
++    E_z.reset_dataset(io.Dataset(E_z_data.dtype, E_z_data.shape))
++    E_z.store_chunk(E_z_data)
++
++    it.close()
++    series.close()
++
++    # read back: the coordinates of each axis, or None for a regular axis
++    read = io.Series(
++        "../samples/3c_write_rectilinear_serial_py.h5", io.Access.read_only
++    )
++    rit = read.snapshots()[0]
++    r_coords, z_coords = rit.grid_coordinates_of(rit.meshes["E"])
++    r_read = r_coords.load_chunk()
++    read.flush()
++    print(
++        "E: r has explicit coordinates {0:g} ... {1:g}, z is regular: {2}".format(
++            r_read[0], r_read[-1], z_coords is None
++        )
++    )
++    read.close()
+diff --git a/include/openPMD/Iteration.hpp b/include/openPMD/Iteration.hpp
+index f1a4fd43..12750455 100644
+--- a/include/openPMD/Iteration.hpp
++++ b/include/openPMD/Iteration.hpp
+@@ -163,6 +163,25 @@ public:
+     void visitHierarchy(HierarchyVisitor &v, bool recursive) override;
+ };
+ 
++/** @brief  Coordinate data sets of rectilinear meshes.
++ *
++ * One-dimensional data sets with the positions of the data points along an
++ * axis of a mesh with explicit (non-equidistant) coordinates. They live in the
++ * group <code>gridCoordinates/</code> of an iteration
++ * (<code>basePath + "gridCoordinates/" + name</code>) and are referenced by
++ * the mesh attribute <code>gridCoordinates</code>, see
++ * Mesh::setGridCoordinates(). Values are in grid units, i.e. multiplied by the
++ * gridUnitSI of the axis they belong to, and relative to its
++ * gridGlobalOffset. One data set may be referenced by several meshes.
++ *
++ * @see https://github.com/openPMD/openPMD-standard/issues/142
++ */
++class GridCoordinates : public Container<RecordComponent>
++{
++public:
++    void visitHierarchy(HierarchyVisitor &v, bool recursive) override;
++};
++
+ /** @brief  Logical compilation of data from one snapshot (e.g. a single
+  * simulation cycle).
+  *
+@@ -305,6 +324,39 @@ public:
+ 
+     Meshes meshes{};
+     Particles particles{};
++    /** Coordinate data sets of rectilinear meshes, see GridCoordinates.
++     *  The group is only written if it is not empty.
++     */
++    GridCoordinates gridCoordinates{};
++
++    /**
++     * @brief Absolute path of a coordinate data set of this iteration, as
++     *        referenced by the mesh attribute gridCoordinates.
++     *
++     * @param name  Key of the data set in Iteration::gridCoordinates.
++     * @return      E.g. "/data/100/gridCoordinates/r" for iteration 100 and
++     *              the default basePath "/data/%T/".
++     */
++    std::string gridCoordinatesPath(std::string const &name) const;
++
++    /**
++     * @brief Coordinate data sets of a rectilinear mesh, one per axis in the
++     *        order of axisLabels.
++     *
++     * Resolves the paths of the mesh attribute gridCoordinates (of the mesh,
++     * or of one of its components if given) to entries of
++     * Iteration::gridCoordinates.
++     *
++     * @param mesh      A mesh of this iteration.
++     * @param component Name of a mesh component whose own gridCoordinates
++     *                  take precedence (staggered data), or empty.
++     * @return          For each axis the coordinate data set, or an empty
++     *                  optional for a regularly spaced axis.
++     * @throws          error::ReadError if a path does not name a data set
++     *                  of this iteration.
++     */
++    std::vector<std::optional<RecordComponent>>
++    gridCoordinatesOf(Mesh const &mesh, std::string const &component = "");
+ 
+     virtual ~Iteration() = default;
+ 
+@@ -381,6 +433,7 @@ private:
+     void read_impl(std::string const &groupPath);
+     void readMeshes(std::string const &meshesPath);
+     void readParticles(std::string const &particlesPath);
++    void readGridCoordinates();
+ 
+     /**
+      * Status after beginning an IO step. Currently includes:
+diff --git a/include/openPMD/Mesh.hpp b/include/openPMD/Mesh.hpp
+index bf8ad794..6d19e174 100644
+--- a/include/openPMD/Mesh.hpp
++++ b/include/openPMD/Mesh.hpp
+@@ -179,6 +179,30 @@ public:
+      */
+     Mesh &setGridGlobalOffset(std::vector<double> const &gridGlobalOffset);
+ 
++    /**
++     * @return  Vector of N (string), one per axis in the order of axisLabels:
++     *          empty for a regularly spaced axis, otherwise the absolute path
++     *          of the 1D data set with the coordinates of the data points
++     *          along that axis (rectilinear mesh).
++     * @see     Iteration::gridCoordinates, Iteration::gridCoordinatesOf()
++     */
++    std::vector<std::string> gridCoordinates() const;
++    /** Declare explicit, non-equidistant coordinates along some axes of the
++     * mesh (rectilinear mesh).
++     *
++     * The coordinate data sets are stored in Iteration::gridCoordinates;
++     * Iteration::gridCoordinatesPath() gives the path to pass here. Along an
++     * axis with explicit coordinates, gridSpacing is informative (by
++     * convention the smallest spacing) and the position of the components
++     * should be 0.
++     *
++     * @param   gridCoordinates  vector of N (string), one per axis in the
++     *          order of axisLabels: empty string for a regularly spaced axis,
++     *          otherwise the absolute path of a 1D coordinate data set.
++     * @return  Reference to modified mesh.
++     */
++    Mesh &setGridCoordinates(std::vector<std::string> const &gridCoordinates);
++
+     /**
+      * @return  Unit-conversion factor to multiply each value in
+      * Mesh::gridSpacing and Mesh::gridGlobalOffset, in order to convert from
+diff --git a/include/openPMD/backend/HierarchyVisitor.hpp b/include/openPMD/backend/HierarchyVisitor.hpp
+index 389974bb..b7a69c6c 100644
+--- a/include/openPMD/backend/HierarchyVisitor.hpp
++++ b/include/openPMD/backend/HierarchyVisitor.hpp
+@@ -2,6 +2,7 @@
+ 
+ namespace openPMD
+ {
++class GridCoordinates;
+ class Iteration;
+ class Iterations;
+ class Mesh;
+@@ -19,6 +20,7 @@ class Series;
+ class HierarchyVisitor
+ {
+ public:
++    virtual void operator()(GridCoordinates &) = 0;
+     virtual void operator()(Iteration &) = 0;
+     virtual void operator()(Iterations &) = 0;
+     virtual void operator()(Mesh &) = 0;
+diff --git a/include/openPMD/backend/HierarchyVisitorImpl.hpp b/include/openPMD/backend/HierarchyVisitorImpl.hpp
+index 91ba0765..122bb1a6 100644
+--- a/include/openPMD/backend/HierarchyVisitorImpl.hpp
++++ b/include/openPMD/backend/HierarchyVisitorImpl.hpp
+@@ -23,6 +23,10 @@ class HierarchyVisitorFromLambda : public HierarchyVisitor
+     friend auto makeHierarchyVisitorFromLambda(Lambda_in &&lambda);
+ 
+ public:
++    void operator()(GridCoordinates &obj) override
++    {
++        lambda(obj);
++    }
+     void operator()(Iteration &obj) override
+     {
+         lambda(obj);
+diff --git a/include/openPMD/backend/MeshRecordComponent.hpp b/include/openPMD/backend/MeshRecordComponent.hpp
+index f359d590..0bc61e9d 100644
+--- a/include/openPMD/backend/MeshRecordComponent.hpp
++++ b/include/openPMD/backend/MeshRecordComponent.hpp
+@@ -82,6 +82,14 @@ public:
+     template <typename T>
+     MeshRecordComponent &setPosition(std::vector<T> pos);
+ 
++    /** Coordinate data sets of this component (staggered rectilinear meshes).
++     *
++     * Same convention as Mesh::setGridCoordinates(); if set, it takes
++     * precedence over the attribute of the mesh for this component.
++     */
++    MeshRecordComponent &
++    setGridCoordinates(std::vector<std::string> const &gridCoordinates);
++
+     /** Create a dataset with regular extent and constant value
+      *
+      * In a constant record component, the value for each date in its extent is
+diff --git a/src/Iteration.cpp b/src/Iteration.cpp
+index 7e708ca4..90f89a1e 100644
+--- a/src/Iteration.cpp
++++ b/src/Iteration.cpp
+@@ -64,11 +64,17 @@ void Particles::visitHierarchy(HierarchyVisitor &v, bool recursive)
+     visitHierarchyImpl<Particles>(v, recursive);
+ }
+ 
++void GridCoordinates::visitHierarchy(HierarchyVisitor &v, bool recursive)
++{
++    visitHierarchyImpl<GridCoordinates>(v, recursive);
++}
++
+ Iteration::Iteration() : Attributable(NoInit())
+ {
+     setData(std::make_shared<Data_t>());
+     meshes.writable().ownKeyWithinParent = "meshes";
+     particles.writable().ownKeyWithinParent = "particles";
++    gridCoordinates.writable().ownKeyWithinParent = "gridCoordinates";
+ }
+ 
+ uint64_t Iteration::getCachedIterationIndex() const
+@@ -260,6 +266,7 @@ void Iteration::visitHierarchy(HierarchyVisitor &v, bool recursive)
+     {
+         meshes.visitHierarchy(v, recursive);
+         particles.visitHierarchy(v, recursive);
++        gridCoordinates.visitHierarchy(v, recursive);
+     }
+     v(*this);
+ }
+@@ -376,6 +383,8 @@ void Iteration::flush(internal::FlushParams const &flushParams)
+             m.second.flush(m.first, flushParams);
+         for (auto &species : particles)
+             species.second.flush(species.first, flushParams);
++        for (auto &coords : gridCoordinates)
++            coords.second.flush(coords.first, flushParams);
+         determineUnsetDirty(flushParams.flushLevel);
+     }
+     else
+@@ -435,6 +444,24 @@ void Iteration::flush(internal::FlushParams const &flushParams)
+             particles.setDirty(false);
+         }
+ 
++        /* coordinate data sets of rectilinear meshes (optional group,
++         * referenced by the mesh attribute gridCoordinates) */
++        if (!gridCoordinates.empty())
++        {
++            if (gridCoordinates.dirtyRecursive())
++            {
++                gridCoordinates.flush("gridCoordinates/", flushParams);
++                for (auto &coords : gridCoordinates)
++                {
++                    coords.second.flush(coords.first, flushParams);
++                }
++            }
++        }
++        else
++        {
++            gridCoordinates.setDirty(false);
++        }
++
+         flushAttributes(flushParams);
+     }
+     if (flushParams.flushLevel != FlushLevel::SkeletonOnly)
+@@ -442,6 +469,7 @@ void Iteration::flush(internal::FlushParams const &flushParams)
+         determineUnsetDirty(flushParams.flushLevel);
+         meshes.determineUnsetDirty(flushParams.flushLevel);
+         particles.determineUnsetDirty(flushParams.flushLevel);
++        gridCoordinates.determineUnsetDirty(flushParams.flushLevel);
+     }
+ }
+ 
+@@ -588,6 +616,32 @@ void Iteration::read_impl(std::string const &groupPath)
+     }
+     particles.setDirty(false);
+ 
++    /* coordinate data sets of rectilinear meshes (optional group) */
++    {
++        Parameter<Operation::LIST_PATHS> gList;
++        IOHandler()->enqueue(IOTask(this, gList));
++        IOHandler()->flush(internal::defaultFlushParams);
++        if (std::count(
++                gList.paths->begin(), gList.paths->end(), "gridCoordinates") ==
++            1)
++        {
++            try
++            {
++                readGridCoordinates();
++            }
++            catch (error::ReadError const &err)
++            {
++                std::cerr << "Cannot read the coordinate data sets in "
++                             "iteration "
++                          << groupPath
++                          << " and will skip them due to read error:\n"
++                          << err.what() << std::endl;
++                gridCoordinates.container().clear();
++            }
++        }
++    }
++    gridCoordinates.setDirty(false);
++
+     readAttributes(ReadMode::FullyReread);
+     internal::ScientificDefaults::readDefaults(*this, IOHandler()->m_standard);
+ 
+@@ -692,6 +746,105 @@ void Iteration::readMeshes(std::string const &meshesPath)
+     }
+ }
+ 
++void Iteration::readGridCoordinates()
++{
++    Parameter<Operation::OPEN_PATH> pOpen;
++    pOpen.path = "gridCoordinates";
++    IOHandler()->enqueue(IOTask(&gridCoordinates, pOpen));
++    gridCoordinates.readAttributes(ReadMode::FullyReread);
++
++    internal::EraseStaleEntries<decltype(gridCoordinates)> map{gridCoordinates};
++
++    Parameter<Operation::LIST_DATASETS> dList;
++    IOHandler()->enqueue(IOTask(&gridCoordinates, dList));
++    IOHandler()->flush(internal::defaultFlushParams);
++
++    Parameter<Operation::OPEN_DATASET> dOpen;
++    for (auto const &name : *dList.datasets)
++    {
++        RecordComponent &rc = map[name];
++        dOpen.name = name;
++        IOHandler()->enqueue(IOTask(&rc, dOpen));
++        IOHandler()->flush(internal::defaultFlushParams);
++        rc.setWritten(false, Attributable::EnqueueAsynchronously::No);
++        rc.resetDataset(Dataset(*dOpen.dtype, *dOpen.extent));
++        rc.setWritten(true, Attributable::EnqueueAsynchronously::No);
++        try
++        {
++            rc.read();
++        }
++        catch (error::ReadError const &err)
++        {
++            std::cerr << "Cannot read coordinate data set '" << name
++                      << "' and will skip it due to read error:\n"
++                      << err.what() << std::endl;
++            map.forget(name);
++        }
++    }
++}
++
++std::string Iteration::gridCoordinatesPath(std::string const &name) const
++{
++    Series s = retrieveSeries();
++    std::string base = s.basePath();
++    if (s.iterationEncoding() == IterationEncoding::variableBased)
++    {
++        base = auxiliary::replace_first(base, "%T/", "");
++    }
++    else
++    {
++        base = auxiliary::replace_first(
++            base, "%T", std::to_string(getCachedIterationIndex()));
++    }
++    return base + "gridCoordinates/" + name;
++}
++
++std::vector<std::optional<RecordComponent>>
++Iteration::gridCoordinatesOf(Mesh const &mesh, std::string const &component)
++{
++    std::vector<std::string> paths;
++    if (!component.empty() && mesh.contains(component) &&
++        mesh.at(component).containsAttribute("gridCoordinates"))
++    {
++        paths = mesh.at(component)
++                    .getAttribute("gridCoordinates")
++                    .get<std::vector<std::string>>();
++    }
++    else if (mesh.containsAttribute("gridCoordinates"))
++    {
++        paths = mesh.gridCoordinates();
++    }
++    else
++    {
++        return std::vector<std::optional<RecordComponent>>(
++            mesh.axisLabels().size());
++    }
++    std::string const prefix = gridCoordinatesPath("");
++    std::vector<std::optional<RecordComponent>> res;
++    res.reserve(paths.size());
++    for (auto const &path : paths)
++    {
++        if (path.empty())
++        {
++            res.emplace_back(std::nullopt);
++            continue;
++        }
++        if (!auxiliary::starts_with(path, prefix) ||
++            !gridCoordinates.contains(path.substr(prefix.size())))
++        {
++            throw error::ReadError(
++                error::AffectedObject::Attribute,
++                error::Reason::NotFound,
++                std::nullopt,
++                "gridCoordinates: '" + path +
++                    "' is not a coordinate data set of this iteration (" +
++                    prefix + "...).");
++        }
++        res.emplace_back(gridCoordinates.at(path.substr(prefix.size())));
++    }
++    return res;
++}
++
+ void Iteration::readParticles(std::string const &particlesPath)
+ {
+     Parameter<Operation::OPEN_PATH> pOpen;
+@@ -910,6 +1063,7 @@ void Iteration::linkHierarchy(Writable &w)
+     Attributable::linkHierarchy(w);
+     meshes.linkHierarchy(this->writable());
+     particles.linkHierarchy(this->writable());
++    gridCoordinates.linkHierarchy(this->writable());
+     get().m_perIterationData.m_rankTableAttributable.linkHierarchy(*w.parent);
+ }
+ 
+diff --git a/src/Mesh.cpp b/src/Mesh.cpp
+index 8d8227f2..608d14c8 100644
+--- a/src/Mesh.cpp
++++ b/src/Mesh.cpp
+@@ -175,6 +175,21 @@ Mesh &Mesh::setGridGlobalOffset(std::vector<double> const &ggo)
+     return *this;
+ }
+ 
++std::vector<std::string> Mesh::gridCoordinates() const
++{
++    if (!containsAttribute("gridCoordinates"))
++    {
++        return std::vector<std::string>(axisLabels().size());
++    }
++    return getAttribute("gridCoordinates").get<std::vector<std::string>>();
++}
++
++Mesh &Mesh::setGridCoordinates(std::vector<std::string> const &gc)
++{
++    setAttribute("gridCoordinates", gc);
++    return *this;
++}
++
+ double Mesh::gridUnitSI() const
+ {
+     return getAttribute("gridUnitSI").get<double>();
+diff --git a/src/backend/Container.cpp b/src/backend/Container.cpp
+index fc0785d2..ee197f6f 100644
+--- a/src/backend/Container.cpp
++++ b/src/backend/Container.cpp
+@@ -52,6 +52,7 @@ namespace internal
+     template class EraseStaleEntries<ParticleSpecies>;
+     template class EraseStaleEntries<Meshes>;
+     template class EraseStaleEntries<Particles>;
++    template class EraseStaleEntries<GridCoordinates>;
+ } // namespace internal
+ 
+ } // namespace openPMD
+diff --git a/src/backend/MeshRecordComponent.cpp b/src/backend/MeshRecordComponent.cpp
+index 2b297f27..0a68b5c9 100644
+--- a/src/backend/MeshRecordComponent.cpp
++++ b/src/backend/MeshRecordComponent.cpp
+@@ -66,6 +66,13 @@ MeshRecordComponent &MeshRecordComponent::setPosition(std::vector<T> pos)
+     return *this;
+ }
+ 
++MeshRecordComponent &
++MeshRecordComponent::setGridCoordinates(std::vector<std::string> const &gc)
++{
++    setAttribute("gridCoordinates", gc);
++    return *this;
++}
++
+ void MeshRecordComponent::visitHierarchy(HierarchyVisitor &v, bool)
+ {
+     v(*this);
+diff --git a/src/binding/python/Iteration.cpp b/src/binding/python/Iteration.cpp
+index 496389ef..c271d845 100644
+--- a/src/binding/python/Iteration.cpp
++++ b/src/binding/python/Iteration.cpp
+@@ -37,8 +37,11 @@ void init_Iteration(py::module &m)
+     py::class_<Meshes, Container<Mesh>, Attributable> meshes(m, "Meshes");
+     py::class_<Particles, Container<ParticleSpecies>, Attributable> particles(
+         m, "Particles");
++    py::class_<GridCoordinates, Container<RecordComponent>, Attributable>
++        grid_coordinates(m, "Grid_Coordinates");
+     (void)meshes;
+     (void)particles;
++    (void)grid_coordinates;
+ 
+     // `clang-format on/off` doesn't help here.
+     // Writing this without a macro would lead to a huge diff due to
+@@ -114,7 +117,50 @@ void init_Iteration(py::module &m)
+                 py::return_value_policy::copy,
+                 // garbage collection: return value must be freed before
+                 // Iteration
+-                py::keep_alive<0, 1>()));
++                py::keep_alive<0, 1>()))
++        .def_property_readonly(
++            "grid_coordinates",
++            py::cpp_function(
++                [](Iteration &i) { return i.gridCoordinates; },
++                py::return_value_policy::copy,
++                // garbage collection: return value must be freed before
++                // Iteration
++                py::keep_alive<0, 1>()),
++            "Coordinate data sets of rectilinear meshes "
++            "(group gridCoordinates/ of the iteration).")
++        .def(
++            "grid_coordinates_path",
++            &Iteration::gridCoordinatesPath,
++            py::arg("name"),
++            "Absolute path of a coordinate data set of this iteration, as "
++            "referenced by Mesh.grid_coordinates.")
++        .def(
++            "grid_coordinates_of",
++            [](py::object self, Mesh const &mesh, std::string const &comp) {
++                auto coords =
++                    self.cast<Iteration &>().gridCoordinatesOf(mesh, comp);
++                py::list res;
++                for (auto &c : coords)
++                {
++                    if (c.has_value())
++                    {
++                        py::object o = py::cast(*c);
++                        // garbage collection: the Iteration must outlive the
++                        // returned components
++                        py::detail::keep_alive_impl(o, self);
++                        res.append(o);
++                    }
++                    else
++                    {
++                        res.append(py::none());
++                    }
++                }
++                return res;
++            },
++            py::arg("mesh"),
++            py::arg("component") = "",
++            "Coordinate data sets of a rectilinear mesh, one per axis "
++            "(None for a regularly spaced axis).");
+ 
+     add_pickle(
+         cl,
+diff --git a/src/binding/python/Mesh.cpp b/src/binding/python/Mesh.cpp
+index 272f2daa..8fe6bf82 100644
+--- a/src/binding/python/Mesh.cpp
++++ b/src/binding/python/Mesh.cpp
+@@ -123,6 +123,13 @@ void init_Mesh(py::module &m)
+             "grid_global_offset",
+             &Mesh::gridGlobalOffset,
+             &Mesh::setGridGlobalOffset)
++        .def_property(
++            "grid_coordinates",
++            &Mesh::gridCoordinates,
++            &Mesh::setGridCoordinates,
++            "Per axis: empty for a regularly spaced axis, else the absolute "
++            "path of its coordinate data set (rectilinear mesh), see "
++            "Iteration.grid_coordinates_path.")
+         .def_property(
+             "grid_unit_SI",
+             /*
+@@ -192,6 +199,7 @@ Ref.: https://github.com/openPMD/openPMD-standard/pull/193)"[1])
+         .def("set_grid_spacing", &Mesh::setGridSpacing<double>)
+         .def("set_grid_spacing", &Mesh::setGridSpacing<long double>)
+         .def("set_grid_global_offset", &Mesh::setGridGlobalOffset)
++        .def("set_grid_coordinates", &Mesh::setGridCoordinates)
+         .def(
+             "set_grid_unit_SI",
+             py::overload_cast<double>(&Mesh::setGridUnitSI));
+diff --git a/src/binding/python/MeshRecordComponent.cpp b/src/binding/python/MeshRecordComponent.cpp
+index cae244c1..679da329 100644
+--- a/src/binding/python/MeshRecordComponent.cpp
++++ b/src/binding/python/MeshRecordComponent.cpp
+@@ -63,6 +63,17 @@ void init_MeshRecordComponent(py::module &m)
+               return stream.str();
+           })
+ 
++        .def_property(
++            "grid_coordinates",
++            [](MeshRecordComponent const &mrc) {
++                return mrc.containsAttribute("gridCoordinates")
++                    ? mrc.getAttribute("gridCoordinates")
++                          .get<std::vector<std::string>>()
++                    : std::vector<std::string>{};
++            },
++            &MeshRecordComponent::setGridCoordinates,
++            "Coordinate data sets of this component (staggered rectilinear "
++            "meshes); takes precedence over Mesh.grid_coordinates.")
+         .def_property(
+             "position",
+             &MeshRecordComponent::position<float>,
+diff --git a/test/Files_SerialIO/SerialIOTests.hpp b/test/Files_SerialIO/SerialIOTests.hpp
+index 86fed4be..d690a884 100644
+--- a/test/Files_SerialIO/SerialIOTests.hpp
++++ b/test/Files_SerialIO/SerialIOTests.hpp
+@@ -40,3 +40,7 @@ namespace read_while_writing
+ {
+ auto read_while_writing() -> void;
+ }
++namespace rectilinear_meshes
++{
++auto rectilinear_meshes(std::string const &extension) -> void;
++}
+diff --git a/test/Files_SerialIO/rectilinear_meshes.cpp b/test/Files_SerialIO/rectilinear_meshes.cpp
+new file mode 100644
+index 00000000..dada2f64
+--- /dev/null
++++ b/test/Files_SerialIO/rectilinear_meshes.cpp
+@@ -0,0 +1,193 @@
++/* Copyright 2026 Alexander Pukhov
++ *
++ * This file is part of openPMD-api.
++ *
++ * openPMD-api is free software: you can redistribute it and/or modify
++ * it under the terms of of either the GNU General Public License or
++ * the GNU Lesser General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * openPMD-api is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License and the GNU Lesser General Public License
++ * for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * and the GNU Lesser General Public License along with openPMD-api.
++ * If not, see <http://www.gnu.org/licenses/>.
++ */
++#include "SerialIOTests.hpp"
++
++#include <catch2/catch_test_macros.hpp>
++
++#include <numeric>
++#include <optional>
++#include <string>
++#include <vector>
++
++namespace rectilinear_meshes
++{
++using namespace openPMD;
++
++namespace
++{
++    // a stretched radial grid: cell centres and faces, fine at the axis
++    std::vector<double> const r_centres{0.25, 0.75, 1.5, 3.0, 6.0};
++    // outer faces of the cells: the same extent as the centres, since all
++    // components of a record have the same extent
++    std::vector<double> const r_faces{0.5, 1.0, 2.0, 4.0, 8.0};
++    constexpr size_t nz = 4;
++
++    void write(std::string const &file, uint64_t index)
++    {
++        Series series(file, Access::CREATE);
++        auto it = series.iterations[index];
++
++        // coordinate data sets
++        std::vector<double> centres = r_centres, faces = r_faces;
++        auto rc = it.gridCoordinates["r_centres"];
++        rc.resetDataset({Datatype::DOUBLE, {centres.size()}});
++        rc.storeChunk(centres, {0}, {centres.size()});
++        auto rf = it.gridCoordinates["r_faces"];
++        rf.resetDataset({Datatype::DOUBLE, {faces.size()}});
++        rf.storeChunk(faces, {0}, {faces.size()});
++
++        // scalar mesh on the cell centres; z regular
++        std::vector<double> rho(r_centres.size() * nz);
++        std::iota(rho.begin(), rho.end(), 0.0);
++        auto m = it.meshes["rho"];
++        m.setAxisLabels({"r", "z"});
++        m.setGridSpacing(std::vector<double>{0.5, 1.0});
++        m.setGridGlobalOffset({0.0, 10.0});
++        m.setGridCoordinates({it.gridCoordinatesPath("r_centres"), ""});
++        auto &s = m[RecordComponent::SCALAR];
++        s.setPosition(std::vector<double>{0.0, 0.5});
++        s.resetDataset({Datatype::DOUBLE, {r_centres.size(), nz}});
++        s.storeChunk(rho, {0, 0}, {r_centres.size(), nz});
++
++        // vector mesh with a staggered component (E_r on the faces)
++        auto E = it.meshes["E"];
++        E.setAxisLabels({"r", "z"});
++        E.setGridSpacing(std::vector<double>{0.5, 1.0});
++        E.setGridGlobalOffset({0.0, 10.0});
++        E.setGridCoordinates({it.gridCoordinatesPath("r_centres"), ""});
++        std::vector<double> er(r_faces.size() * nz, 1.0);
++        std::vector<double> ez(r_centres.size() * nz, 2.0);
++        auto Er = E["r"];
++        Er.setGridCoordinates({it.gridCoordinatesPath("r_faces"), ""});
++        Er.setPosition(std::vector<double>{0.0, 0.0});
++        Er.resetDataset({Datatype::DOUBLE, {r_faces.size(), nz}});
++        Er.storeChunk(er, {0, 0}, {r_faces.size(), nz});
++        auto Ez = E["z"];
++        Ez.setPosition(std::vector<double>{0.0, 0.5});
++        Ez.resetDataset({Datatype::DOUBLE, {r_centres.size(), nz}});
++        Ez.storeChunk(ez, {0, 0}, {r_centres.size(), nz});
++
++        // a regular mesh in the same iteration
++        auto B = it.meshes["B"];
++        B.setAxisLabels({"r", "z"});
++        B.setGridSpacing(std::vector<double>{0.5, 1.0});
++        B.setGridGlobalOffset({0.0, 10.0});
++        auto &b = B[RecordComponent::SCALAR];
++        b.setPosition(std::vector<double>{0.5, 0.5});
++        b.resetDataset({Datatype::DOUBLE, {r_centres.size(), nz}});
++        b.makeConstant(3.0);
++
++        it.close();
++    }
++
++    void read(std::string const &file, uint64_t index)
++    {
++        Series series(file, Access::READ_ONLY);
++        auto it = series.iterations[index];
++        std::string const prefix =
++            "/data/" + std::to_string(index) + "/gridCoordinates/";
++        REQUIRE(it.gridCoordinatesPath("r_faces") == prefix + "r_faces");
++
++        REQUIRE(it.gridCoordinates.size() == 2);
++        REQUIRE(it.gridCoordinates.contains("r_centres"));
++        REQUIRE(it.gridCoordinates.contains("r_faces"));
++        auto rc = it.gridCoordinates["r_centres"];
++        REQUIRE(rc.getExtent() == Extent{r_centres.size()});
++        auto rc_data = rc.loadChunk<double>();
++        auto rf_data = it.gridCoordinates["r_faces"].loadChunk<double>();
++        series.flush();
++        for (size_t i = 0; i < r_centres.size(); ++i)
++        {
++            REQUIRE(rc_data.get()[i] == r_centres[i]);
++        }
++        for (size_t i = 0; i < r_faces.size(); ++i)
++        {
++            REQUIRE(rf_data.get()[i] == r_faces[i]);
++        }
++
++        // the meshes are still read as before
++        REQUIRE(it.meshes.size() == 3);
++        auto m = it.meshes["rho"];
++        auto gc = m.gridCoordinates();
++        REQUIRE(gc.size() == 2);
++        REQUIRE(gc[0] == prefix + "r_centres");
++        REQUIRE(gc[1].empty());
++
++        auto coords = it.gridCoordinatesOf(m);
++        REQUIRE(coords.size() == 2);
++        REQUIRE(coords[0].has_value());
++        REQUIRE(!coords[1].has_value());
++        REQUIRE(coords[0]->getExtent()[0] == m.getExtent()[0]);
++
++        // staggered component: its own coordinates take precedence
++        auto E = it.meshes["E"];
++        auto cr = it.gridCoordinatesOf(E, "r");
++        REQUIRE(cr[0].has_value());
++        REQUIRE(cr[0]->getExtent()[0] == r_faces.size());
++        auto cz = it.gridCoordinatesOf(E, "z");
++        REQUIRE(cz[0]->getExtent()[0] == r_centres.size());
++
++        // regular mesh: no explicit coordinates
++        auto B = it.meshes["B"];
++        REQUIRE(!B.containsAttribute("gridCoordinates"));
++        REQUIRE(B.gridCoordinates() == std::vector<std::string>(2));
++        auto cb = it.gridCoordinatesOf(B);
++        REQUIRE(cb.size() == 2);
++        REQUIRE((!cb[0].has_value() && !cb[1].has_value()));
++        series.close();
++    }
++
++    void write_dangling(std::string const &file)
++    {
++        Series series(file, Access::CREATE);
++        auto it = series.iterations[0];
++        auto m = it.meshes["rho"];
++        m.setAxisLabels({"r"});
++        m.setGridSpacing(std::vector<double>{1.0});
++        m.setGridGlobalOffset({0.0});
++        m.setGridCoordinates({"/data/0/gridCoordinates/missing"});
++        auto &s = m[RecordComponent::SCALAR];
++        s.resetDataset({Datatype::DOUBLE, {3}});
++        s.makeConstant(1.0);
++        it.close();
++    }
++} // namespace
++
++auto rectilinear_meshes(std::string const &extension) -> void
++{
++    for (auto const &[name, index] :
++         {std::pair<std::string, uint64_t>{"rectilinear_groupbased", 100},
++          {"rectilinear_filebased_%T", 7}})
++    {
++        std::string const file = "../samples/" + name + "." + extension;
++        write(file, index);
++        read(file, index);
++    }
++
++    // a reference to a data set that does not exist is reported on reading
++    std::string const file = "../samples/rectilinear_dangling." + extension;
++    write_dangling(file);
++    Series series(file, Access::READ_ONLY);
++    auto it = series.iterations[0];
++    REQUIRE(it.gridCoordinates.empty());
++    REQUIRE_THROWS_AS(it.gridCoordinatesOf(it.meshes["rho"]), error::ReadError);
++}
++} // namespace rectilinear_meshes
+diff --git a/test/SerialIOTest.cpp b/test/SerialIOTest.cpp
+index 22e94a68..18724c5d 100644
+--- a/test/SerialIOTest.cpp
++++ b/test/SerialIOTest.cpp
+@@ -798,6 +798,14 @@ TEST_CASE("components_without_extent", "[serial]")
+     components_without_extent::components_without_extent();
+ }
+ 
++TEST_CASE("rectilinear_meshes", "[serial]")
++{
++    for (auto const &t : testedFileExtensions())
++    {
++        rectilinear_meshes::rectilinear_meshes(t);
++    }
++}
++
+ #if openPMD_HAVE_ADIOS2
+ TEST_CASE("close_and_reopen_test", "[serial]")
+ {
+diff --git a/test/python/unittest/API/APITest.py b/test/python/unittest/API/APITest.py
+index 304b6527..6d1c5fb2 100644
+--- a/test/python/unittest/API/APITest.py
++++ b/test/python/unittest/API/APITest.py
+@@ -825,6 +825,49 @@ class APITest(unittest.TestCase):
+                     np.clongdouble(1.23456789 + 2.34567890j),
+                 )
+ 
++    def makeRectilinearRoundTrip(self, file_ending):
++        if not found_numpy:
++            return
++        r_nodes = np.array([0.0, 0.1, 0.25, 0.5, 1.0, 2.0])
++        name = "unittest_py_rectilinear_API." + file_ending
++
++        series = io.Series(name, io.Access.create)
++        it = series.iterations[3]
++        coords = it.grid_coordinates["r_nodes"]
++        coords.reset_dataset(io.Dataset(r_nodes.dtype, r_nodes.shape))
++        coords.store_chunk(r_nodes)
++        E = it.meshes["E_z"]
++        E.axis_labels = ["r", "z"]
++        E.grid_spacing = [0.1, 0.5]
++        E.grid_global_offset = [0.0, 0.0]
++        E.grid_coordinates = [it.grid_coordinates_path("r_nodes"), ""]
++        Ez = E[io.Mesh_Record_Component.SCALAR]
++        data = np.outer(r_nodes, np.ones(8))
++        Ez.reset_dataset(io.Dataset(data.dtype, data.shape))
++        Ez.position = [0.0, 0.0]
++        Ez.store_chunk(data)
++        series.close()
++
++        series = io.Series(name, io.Access.read_only)
++        it = series.iterations[3]
++        self.assertEqual(list(it.grid_coordinates), ["r_nodes"])
++        E = it.meshes["E_z"]
++        self.assertEqual(
++            E.grid_coordinates, ["/data/3/gridCoordinates/r_nodes", ""])
++        r, z = it.grid_coordinates_of(E)
++        self.assertIsNone(z)
++        self.assertEqual(r.shape, [len(r_nodes)])
++        r_read = r.load_chunk()
++        Ez_read = E[io.Mesh_Record_Component.SCALAR].load_chunk()
++        series.flush()
++        np.testing.assert_array_equal(r_read, r_nodes)
++        np.testing.assert_array_equal(Ez_read[:, 0], r_nodes)
++        series.close()
++
++    def testRectilinearMeshes(self):
++        for ext in tested_file_extensions:
++            self.makeRectilinearRoundTrip(ext)
++
+     def testConstantRecords(self):
+         for ext in tested_file_extensions:
+             self.makeConstantRoundTrip(ext)
+-- 
+2.43.0
+

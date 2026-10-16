@@ -85,6 +85,22 @@ Done and validated (README §7, `validation/reference_full.txt`):
   2026-10-15: A. Huebl (openPMD) invited a PR against upcoming-2.0.0; the 2.0 form stores coordinates
   as DATA SETS referenced by the mesh attribute `gridCoordinates` (HDF5 attribute size limit, issue #142).
   QUARZ keeps the attribute form until openPMD-api can write such data sets; the shared reader reads both.
+  2026-10-16 (Alexander: no news from openPMD, go on implementing): reference implementations on local
+  branches `rectilinear-meshes` (NOT yet public: no forks of openPMD-api/-viewer/-validator under AlexMPukhov;
+  patches in docs/openpmd_patches/ of GEM-PIC-RZ? see below): openPMD-api (/home/claude/openpmd-src, off dev:
+  Iteration::gridCoordinates container at <basePath>gridCoordinates/, Mesh/MeshRecordComponent::
+  setGridCoordinates, Iteration::gridCoordinatesPath/gridCoordinatesOf, Python bindings, openpmd-pipe copies
+  coordinates, examples 3c_*, tests HDF5/JSON/ADIOS2 incl. variable-based; full SerialIOTests pass),
+  openPMD-viewer (/home/claude/deps/openPMD-viewer: both backends, slicing, 3D thetaMode, pcolormesh, interim
+  forms; tests/test_rectilinear.py), openPMD-validator (/home/claude/deps/openPMD-validator: path/length/
+  monotonic/position checks). QUARZ: CMake detects the API (QUARZ_OPENPMD_GRID_COORDINATES) and then writes
+  the data-set form (<basePath>gridCoordinates/r, rank 0 stores it); otherwise the interim form; native
+  gridSpacing is now the smallest spacing. Section 10 checks native output with 2 MPI ranks too (both forms
+  bit-identical to serial). Builds: build-mpi (released API + MPI, interim form), build-gc-mpi
+  (/home/claude/openpmd-install-rect-mpi, data-set form; needs LD_LIBRARY_PATH incl. hdf5-par/lib).
+  Section 10 needs an openPMD-api with MPI: with the default `build` (openpmd-install, no MPI) its MPI lines fail.
+  openPMD-api requires equal extents for all components of a record: staggered data with different extents
+  go into separate records (proposal text updated).
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a
   Xeon E5620; no systematic benchmark and no GPU-vs-CPU file comparison yet);

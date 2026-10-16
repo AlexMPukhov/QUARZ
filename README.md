@@ -982,15 +982,18 @@ frequent small dumps and rare full dumps can be combined (§6):
     uniform radial grid. The default spacing is h_min, which can make the files much
     larger than the native ones; the code prints the size per output and a hint.
     `output.openpmd_grid = native` writes the exact data on the non-uniform nodes
-    instead, as *rectilinear meshes*: `gridType = "rectilinear"`, radial node positions
-    in the mesh attribute `gridCoordinates_r` (the ξ axis stays regular). This is the
-    interim form of the rectilinear meshes proposed for openPMD 2.0
-    ([`docs/openpmd_rectilinear.md`](docs/openpmd_rectilinear.md)), where the coordinates
-    become data sets referenced by the attribute `gridCoordinates` (as GEM-PIC-RZ
-    already writes); QUARZ switches when openPMD-api can write them. Until it is part of the standard the meshes carry
+    instead, as *rectilinear meshes* proposed for openPMD 2.0
+    ([`docs/openpmd_rectilinear.md`](docs/openpmd_rectilinear.md)); the ξ axis stays regular.
+    Built against an openPMD-api with coordinate data sets (our proposed extension of
+    openPMD-api, see the same document; CMake detects it and says so), the radial nodes are the data set
+    `<basePath>gridCoordinates/r`, referenced by the mesh attribute `gridCoordinates`,
+    as GEM-PIC-RZ writes them. With a released openPMD-api QUARZ writes the interim
+    form: `gridType = "rectilinear"` and the nodes in the mesh attribute
+    `gridCoordinates_r`. Until the extension is part of the standard the meshes carry
     geometry `other` with geometryParameters `thetaMode;m=…;imag=+`, so readers of
     regular grids skip them. `tools/openpmd_rectilinear.py` (shared with GEM-PIC-RZ)
-    reads them (`read_mesh`, `theta_slice`). The old attribute `quarz_r_nodes` is still
+    reads both forms (`read_mesh`, `theta_slice`), and so does our proposed extension of
+    openPMD-viewer. The old attribute `quarz_r_nodes` is still
     written (deprecated).
   - **Particles:** every beam is a species with `position` (x, y, z = t − ξ),
     `positionOffset` (0), `momentum` (per physical particle), `weighting`

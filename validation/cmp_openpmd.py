@@ -16,4 +16,22 @@ for n, ia in A.iterations.items():
             for c, rc in sp[rn].items():
                 a = rc.load_chunk(); b = ib.particles[name][rn][c].load_chunk(); A.flush(); B.flush()
                 worst = max(worst, np.abs(np.sort(a) - np.sort(b)).max() / (np.abs(a).max() or 1))
+# coordinate data sets of rectilinear meshes (docs/openpmd_rectilinear.md) and their references, through h5py
+# so that it works with any openPMD-api
+import glob, h5py
+ncoord = 0
+for fa in sorted(glob.glob(sys.argv[1] + '/openpmd/data_*.h5')):
+    fb = sys.argv[2] + '/openpmd/' + fa.rsplit('/', 1)[1]
+    with h5py.File(fa, 'r') as ha, h5py.File(fb, 'r') as hb:
+        for n in ha['data']:
+            g = f'/data/{n}/gridCoordinates'
+            assert (g in ha) == (g in hb), g
+            if g in ha:
+                for k in ha[g]:
+                    worst = max(worst, np.abs(ha[g][k][()] - hb[g][k][()]).max() / (np.abs(ha[g][k][()]).max() or 1))
+                    ncoord += 1
+            for name in (ha[f'/data/{n}/meshes'] if f'/data/{n}/meshes' in ha else []):
+                ra, rb = ha[f'/data/{n}/meshes/{name}'], hb[f'/data/{n}/meshes/{name}']
+                assert list(ra.attrs.get('gridCoordinates', [])) == list(rb.attrs.get('gridCoordinates', [])), name
+# (the number of coordinate data sets, ncoord, is not printed: it depends on the openPMD-api the code was built with)
 print(f'{sys.argv[1]} vs {sys.argv[2]}: iterations {list(A.iterations)}, max rel diff {worst:.2e}')

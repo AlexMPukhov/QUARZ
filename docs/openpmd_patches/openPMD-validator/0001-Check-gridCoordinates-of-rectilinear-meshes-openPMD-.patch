@@ -1,0 +1,150 @@
+From e65793e24b57a578bc6d3facc1b4052a1a9549f7 Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Fri, 16 Oct 2026 17:41:41 +0200
+Subject: [PATCH] Check gridCoordinates of rectilinear meshes (openPMD-standard
+ #142)
+
+For every mesh record component with the attribute gridCoordinates (on the
+component or on the record): one entry per axisLabel; each non-empty entry
+an absolute path of a 1D floating-point data set in the file, with one value
+per data point along the axis (thetaMode: modes in front), strictly
+increasing; warning if the position along such an axis is not 0.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DRiRr7s6YoyWRd6EM8Zzbz
+---
+ openpmd_validator/check_h5.py | 104 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 104 insertions(+)
+
+diff --git a/openpmd_validator/check_h5.py b/openpmd_validator/check_h5.py
+index 1871ee8..a0cc551 100755
+--- a/openpmd_validator/check_h5.py
++++ b/openpmd_validator/check_h5.py
+@@ -379,6 +379,108 @@ def test_component(c, v) :
+     return(result_array)
+ 
+ 
++def test_grid_coordinates(f, field, component, v):
++    """
++    Check the optional attribute `gridCoordinates` of a mesh record
++    component (rectilinear meshes, proposed for openPMD 2.0, issue #142):
++    one string per axis, empty for a regularly spaced axis, otherwise the
++    absolute path of a 1D floating-point data set with one strictly
++    increasing value per data point along that axis. Along such an axis the
++    `position` of the component should be 0.
++
++    Parameters
++    ----------
++    f : an h5py.File object
++        The file, to resolve the absolute paths
++
++    field : an h5py.Group or h5py.Dataset
++        The mesh record
++
++    component : an h5py.Dataset or h5py.Group
++        The record component (the record itself for a scalar record)
++
++    v : bool
++        Verbose option
++
++    Returns
++    -------
++    An array with 2 elements :
++    - The first element is the number of errors encountered
++    - The second element is the number of warnings encountered
++    """
++    result_array = np.array([0, 0])
++    if "gridCoordinates" in component.attrs:
++        owner = component
++    elif "gridCoordinates" in field.attrs:
++        owner = field
++    else:
++        return result_array
++    name = component.name
++    paths = owner.attrs["gridCoordinates"]
++    if isinstance(paths, (bytes, str)):
++        paths = [paths]
++    paths = [p.decode() if isinstance(p, bytes) else str(p) for p in paths]
++    labels = field.attrs.get("axisLabels")
++    if labels is None or len(labels) != len(paths):
++        print("Error: `gridCoordinates` of %s has %d entries, `axisLabels` %s"
++              % (name, len(paths), "is missing" if labels is None
++                 else "%d" % len(labels)))
++        return np.array([1, 0])
++    # extent along the axes: the last len(axisLabels) dimensions (thetaMode
++    # data have the modes in front)
++    if isinstance(component, h5.Dataset):
++        shape = component.shape
++    elif "shape" in component.attrs:  # constant component
++        shape = tuple(component.attrs["shape"])
++    else:
++        shape = None
++    order = field.attrs.get("dataOrder", b"C")
++    order = order.decode() if isinstance(order, bytes) else str(order)
++    position = component.attrs.get("position")
++    for d, path in enumerate(paths):
++        if path == "":
++            continue
++        if not path.startswith("/") or path not in f:
++            print("Error: `gridCoordinates` of %s refers to '%s', which is "
++                  "not an absolute path in the file" % (name, path))
++            result_array += np.array([1, 0])
++            continue
++        coords = f[path]
++        if not isinstance(coords, h5.Dataset) or len(coords.shape) != 1:
++            print("Error: the coordinates '%s' of %s are not a 1D data set"
++                  % (path, name))
++            result_array += np.array([1, 0])
++            continue
++        if not np.issubdtype(coords.dtype, np.floating):
++            print("Error: the coordinates '%s' of %s are of type %s, not "
++                  "floating point" % (path, name, coords.dtype))
++            result_array += np.array([1, 0])
++        x = coords[()]
++        if shape is not None:
++            # axis d of axisLabels is axis d of the data (C order) or axis
++            # n - 1 - d (Fortran order), counted from the end of the shape
++            n = len(paths)
++            k = d if order == "C" else n - 1 - d
++            extent = shape[len(shape) - n + k]
++            if len(x) != extent:
++                print("Error: the coordinates '%s' of %s have %d values, "
++                      "the data %d along axis %d" % (path, name, len(x),
++                                                    extent, d))
++                result_array += np.array([1, 0])
++        if len(x) > 1 and not np.all(np.diff(x) > 0):
++            print("Error: the coordinates '%s' of %s are not strictly "
++                  "increasing" % (path, name))
++            result_array += np.array([1, 0])
++        if position is not None and len(position) > d and position[d] != 0:
++            print("Warning: %s has position %g along axis %d, which has "
++                  "explicit coordinates (should be 0)" % (name, position[d], d))
++            result_array += np.array([0, 1])
++        elif v:
++            print("Rectilinear axis %d of %s: %d coordinates in '%s'"
++                  % (d, name, len(x), path))
++    return result_array
++
++
+ def check_root_attr(f, v):
+     """
+     Scan the root of the file and make sure that all the attributes are present
+@@ -634,6 +736,7 @@ def check_meshes(f, iteration, v, extensionStates):
+             result_array += test_component(field, v)
+             result_array += test_attr(field, v,
+                                 "required", "position", np.ndarray, [np.single, np.double, np.longdouble])
++            result_array += test_grid_coordinates(f, field, field, v)
+         else:                          # If the record is a vector field
+             # Loop over the components
+             for component_name in list(field.keys()) :
+@@ -641,6 +744,7 @@ def check_meshes(f, iteration, v, extensionStates):
+                 result_array += test_component(component, v)
+                 result_array += test_attr(component, v,
+                                 "required", "position", np.ndarray, [np.single, np.double, np.longdouble])
++                result_array += test_grid_coordinates(f, field, component, v)
+ 
+     # Check for the attributes of the PIC extension,
+     # if asked to do so by the user 
+-- 
+2.43.0
+

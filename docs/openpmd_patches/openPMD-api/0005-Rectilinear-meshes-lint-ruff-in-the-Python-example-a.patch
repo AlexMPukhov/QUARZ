@@ -1,0 +1,56 @@
+From 989b1ddc6cbaebc624c4a9866e80d5e9cba9f9eb Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Fri, 16 Oct 2026 18:03:31 +0200
+Subject: [PATCH 5/5] Rectilinear meshes: lint (ruff) in the Python example and
+ openpmd-pipe
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DRiRr7s6YoyWRd6EM8Zzbz
+---
+ examples/3c_write_rectilinear_serial.py         | 7 +++----
+ src/binding/python/openpmd_api/pipe/__main__.py | 5 +++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/examples/3c_write_rectilinear_serial.py b/examples/3c_write_rectilinear_serial.py
+index 692e53d0..30e5045b 100644
+--- a/examples/3c_write_rectilinear_serial.py
++++ b/examples/3c_write_rectilinear_serial.py
+@@ -34,7 +34,7 @@ if __name__ == "__main__":
+ 
+     E = it.meshes["E"]
+     E.geometry = io.Geometry.thetaMode
+-    E.geometry_parameters = "m={0};imag=+".format(num_modes)
++    E.geometry_parameters = f"m={num_modes};imag=+"
+     E.axis_labels = ["r", "z"]
+     # informative along r (the smallest spacing), regular along z
+     E.grid_spacing = [0.01, 0.05]
+@@ -63,8 +63,7 @@ if __name__ == "__main__":
+     r_read = r_coords.load_chunk()
+     read.flush()
+     print(
+-        "E: r has explicit coordinates {0:g} ... {1:g}, z is regular: {2}".format(
+-            r_read[0], r_read[-1], z_coords is None
+-        )
++        f"E: r has explicit coordinates {r_read[0]:g} ... {r_read[-1]:g}, "
++        f"z is regular: {z_coords is None}"
+     )
+     read.close()
+diff --git a/src/binding/python/openpmd_api/pipe/__main__.py b/src/binding/python/openpmd_api/pipe/__main__.py
+index 893741d6..304ff364 100644
+--- a/src/binding/python/openpmd_api/pipe/__main__.py
++++ b/src/binding/python/openpmd_api/pipe/__main__.py
+@@ -493,8 +493,9 @@ class pipe:
+                 old = src.grid_coordinates_path("")
+                 new = dest.grid_coordinates_path("")
+                 if old != new:
+-                    for _, mesh in dest.meshes.items():
+-                        for obj in [mesh] + [c for _, c in mesh.items()]:
++                    for name in dest.meshes:
++                        mesh = dest.meshes[name]
++                        for obj in [mesh] + [mesh[c] for c in mesh]:
+                             if "gridCoordinates" in obj.attributes:
+                                 obj.set_attribute(
+                                     "gridCoordinates",
+-- 
+2.43.0
+

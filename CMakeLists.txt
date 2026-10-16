@@ -82,6 +82,28 @@ if(QUARZ_ENABLE_OPENPMD)
     target_link_libraries(quarz_core PUBLIC openPMD::openPMD)
     target_compile_definitions(quarz_core PUBLIC QUARZ_USE_OPENPMD)
     message(STATUS "QUARZ: openPMD output enabled (openPMD-api ${openPMD_VERSION}, MPI: ${openPMD_HAVE_MPI})")
+    # rectilinear meshes (docs/openpmd_rectilinear.md): coordinate data sets referenced by the mesh
+    # attribute gridCoordinates, if this openPMD-api supports them (Iteration::gridCoordinates)
+    include(CheckCXXSourceCompiles)
+    set(CMAKE_REQUIRED_LIBRARIES openPMD::openPMD)
+    set(CMAKE_REQUIRED_FLAGS "-std=c++17")
+    check_cxx_source_compiles("
+      #include <openPMD/openPMD.hpp>
+      int main() {
+        openPMD::Iteration* it = nullptr;
+        if (it) { it->gridCoordinates[\"r\"]; (void)it->gridCoordinatesPath(\"r\"); }
+        openPMD::Mesh* m = nullptr;
+        if (m) m->setGridCoordinates({\"\", \"\"});
+        return 0;
+      }" QUARZ_OPENPMD_HAS_GRID_COORDINATES)
+    unset(CMAKE_REQUIRED_LIBRARIES)
+    unset(CMAKE_REQUIRED_FLAGS)
+    if(QUARZ_OPENPMD_HAS_GRID_COORDINATES)
+      target_compile_definitions(quarz_core PUBLIC QUARZ_OPENPMD_GRID_COORDINATES)
+      message(STATUS "QUARZ: openPMD-api writes coordinate data sets: native grid in the openPMD 2.0 form")
+    else()
+      message(STATUS "QUARZ: openPMD-api without coordinate data sets: native grid in the interim attribute form")
+    endif()
     if(MPI_CXX_FOUND AND NOT openPMD_HAVE_MPI)
       message(WARNING "QUARZ: openPMD-api has no MPI support: openPMD output only for single-rank runs")
     endif()

@@ -43,6 +43,8 @@ max relative difference openPMD vs native: 0.00e+00
 max relative difference openPMD vs native: 4.27e-16
  2 MPI ranks vs serial (expected 0):
 out_opmd_uni vs out_opmd_p2: iterations [0, 2], max rel diff 0.00e+00
+ 2 MPI ranks vs serial, native nodes (expected 0):
+out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
 == 11. laser envelope solver ==
  diffraction in vacuum (k0 = 20, w0 = 2, through the focus):
   spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)

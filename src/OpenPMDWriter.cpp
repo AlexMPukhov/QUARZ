@@ -235,9 +235,24 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
         const Extent ext{static_cast<uint64_t>(nm), NR, static_cast<uint64_t>(K)};
         const Offset off{0, 0, static_cast<uint64_t>(K - k0 - KL)};
         const Extent cext{static_cast<uint64_t>(nm), NR, static_cast<uint64_t>(KL)};
-        std::vector<double> rspacing;
         double dr = I.rout.size() > 1 ? I.rout[1] - I.rout[0] : 1.0;
-        if (I.native) dr = I.rout.back() / static_cast<double>(I.rout.size() - 1);   // mean spacing (not uniform)
+        if (I.native)   // informative on a rectilinear axis: the smallest spacing (docs/openpmd_rectilinear.md)
+            for (size_t i = 1; i < I.rout.size(); ++i) dr = std::min(dr, I.rout[i] - I.rout[i - 1]);
+#ifdef QUARZ_OPENPMD_GRID_COORDINATES
+        std::string rpath;
+        if (I.native) {
+            // radial node positions: one coordinate data set per iteration, <basePath>gridCoordinates/r,
+            // referenced by every mesh (collective with parallel HDF5; rank 0 writes the values)
+            auto rc = it.gridCoordinates["r"];
+            rc.resetDataset(Dataset(Datatype::DOUBLE, {static_cast<uint64_t>(I.rout.size())}));
+            if (I.box.k0 == 0) {
+                std::shared_ptr<double> buf(new double[I.rout.size()], std::default_delete<double[]>());
+                std::copy(I.rout.begin(), I.rout.end(), buf.get());
+                rc.storeChunk(buf, {0}, {static_cast<uint64_t>(I.rout.size())});
+            }
+            rpath = it.gridCoordinatesPath("r");
+        }
+#endif
 
         auto setup_mesh = [&](Mesh& m, const UD& ud) {
             if (I.native) {
@@ -247,9 +262,13 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
                 // is part of the standard, so that readers of regular grids skip these meshes.
                 m.setGeometry("other");
                 m.setGeometryParameters(std::string("thetaMode;m=") + (I.m1 ? "2" : "1") + ";imag=+");
-                m.setAttribute("gridType", std::string("rectilinear"));
+#ifdef QUARZ_OPENPMD_GRID_COORDINATES
+                m.setGridCoordinates({rpath, ""});   // openPMD 2.0 form: coordinate data set
+#else
+                m.setAttribute("gridType", std::string("rectilinear"));   // interim form: attribute
                 m.setAttribute("gridCoordinates_r", I.rout);
-                m.setAttribute("quarz_r_nodes", I.rout);   // deprecated name of gridCoordinates_r
+#endif
+                m.setAttribute("quarz_r_nodes", I.rout);   // deprecated, for older QUARZ readers
             } else {
                 m.setGeometry(Mesh::Geometry::thetaMode);
                 m.setGeometryParameters(std::string("m=") + (I.m1 ? "2" : "1") + ";imag=+");

@@ -1,0 +1,80 @@
+From 5d35b5907583026283aa8abb67532f73432e5f55 Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Fri, 16 Oct 2026 17:49:26 +0200
+Subject: [PATCH 2/5] Rectilinear meshes: variable-based (ADIOS2) test with
+ coordinates that change between steps
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DRiRr7s6YoyWRd6EM8Zzbz
+---
+ test/Files_SerialIO/rectilinear_meshes.cpp | 52 ++++++++++++++++++++++
+ 1 file changed, 52 insertions(+)
+
+diff --git a/test/Files_SerialIO/rectilinear_meshes.cpp b/test/Files_SerialIO/rectilinear_meshes.cpp
+index dada2f64..32e83fc5 100644
+--- a/test/Files_SerialIO/rectilinear_meshes.cpp
++++ b/test/Files_SerialIO/rectilinear_meshes.cpp
+@@ -171,8 +171,60 @@ namespace
+     }
+ } // namespace
+ 
++namespace
++{
++    // variable-based encoding (ADIOS2): one group /data/ for all steps; the
++    // coordinates may change from step to step (e.g. a moving refinement)
++    void variable_based(std::string const &file)
++    {
++        {
++            Series series(file, Access::CREATE_LINEAR);
++            series.setIterationEncoding(IterationEncoding::variableBased);
++            for (uint64_t step = 0; step < 3; ++step)
++            {
++                auto it = series.snapshots()[step];
++                REQUIRE(
++                    it.gridCoordinatesPath("r") == "/data/gridCoordinates/r");
++                std::vector<double> r{0.0, 1.0, 2.0 + double(step), 10.0};
++                auto rc = it.gridCoordinates["r"];
++                rc.resetDataset({Datatype::DOUBLE, {r.size()}});
++                rc.storeChunk(r, {0}, {r.size()});
++                auto m = it.meshes["rho"];
++                m.setAxisLabels({"r"});
++                m.setGridSpacing(std::vector<double>{1.0});
++                m.setGridGlobalOffset({0.0});
++                m.setGridCoordinates({it.gridCoordinatesPath("r")});
++                auto &c = m[RecordComponent::SCALAR];
++                c.setPosition(std::vector<double>{0.0});
++                std::vector<double> data(r.size(), double(step));
++                c.resetDataset({Datatype::DOUBLE, {r.size()}});
++                c.storeChunk(data, {0}, {r.size()});
++                it.close();
++            }
++        }
++        Series series(file, Access::READ_LINEAR);
++        uint64_t n = 0;
++        for (auto &[index, it] : series.snapshots())
++        {
++            auto coords = it.gridCoordinatesOf(it.meshes["rho"]);
++            REQUIRE(coords.size() == 1);
++            REQUIRE(coords[0].has_value());
++            auto r = coords[0]->loadChunk<double>();
++            series.flush();
++            REQUIRE(r.get()[2] == 2.0 + double(index));
++            it.close();
++            ++n;
++        }
++        REQUIRE(n == 3);
++    }
++} // namespace
++
+ auto rectilinear_meshes(std::string const &extension) -> void
+ {
++    if (extension == "bp" || extension == "bp4" || extension == "bp5")
++    {
++        variable_based("../samples/rectilinear_variablebased." + extension);
++    }
+     for (auto const &[name, index] :
+          {std::pair<std::string, uint64_t>{"rectilinear_groupbased", 100},
+           {"rectilinear_filebased_%T", 7}})
+-- 
+2.43.0
+

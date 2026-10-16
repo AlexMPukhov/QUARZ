@@ -35,7 +35,8 @@ must resolve the finest cell everywhere. Codes therefore invent private conventi
   the data points along that axis.
 - **Staggering:** the attribute may also be set on a component of a vector record, and then takes precedence.
   Staggered components (e.g. on cell faces and cell centres of a non-uniform grid) can so have different
-  coordinates and extents.
+  coordinates. All components of a record keep the same extent, as now (openPMD-api checks it on reading);
+  staggered data with different extents (e.g. N + 1 faces and N centres) go into separate records.
 
 **Coordinate data sets**
 - One value per data point: the length equals the extent of the record (component) along the axis.
@@ -45,6 +46,8 @@ must resolve the finest cell everywhere. Codes therefore invent private conventi
 - Recommended location: per iteration, `<basePath>gridCoordinates/<free name>`. For grids constant in time,
   `/data/gridCoordinates/<free name>`, repeated in every file with `fileBased` encoding.
 - A data set may be referenced by any number of records and components.
+- A `unitSI` attribute of a coordinate data set, if present (openPMD-api writes `unitSI = 1` for every data
+  set), is ignored: the unit is the `gridUnitSI` of the axis.
 
 **Changes to existing attributes**
 - `gridSpacing`: informative for axes with explicit coordinates. Writers should store the smallest spacing.
@@ -85,21 +88,35 @@ them with `geometry = "other"` and the intended geometry in `geometryParameters`
 Once 2.0 is out, the geometry becomes `thetaMode` and the files conform.
 - **GEM-PIC-RZ** (`output.openpmd_grid = native | both`, records `native_*`) already writes the coordinates
   as data sets referenced by `gridCoordinates`, exactly as proposed.
-- **QUARZ** (`output.openpmd_grid = native`) writes through openPMD-api, which cannot yet write data sets
-  outside records. It keeps the radial nodes in the mesh attribute `gridCoordinates_r` (and the older
-  `quarz_r_nodes`), with `gridType = "rectilinear"`. Its ξ axis is regular. It will switch to the data-set
-  form when openPMD-api supports it.
+- **QUARZ** (`output.openpmd_grid = native`) writes through openPMD-api. Built against an openPMD-api with
+  coordinate data sets (branch below; detected by CMake), it writes the data-set form: the radial nodes in
+  `<basePath>gridCoordinates/r`, referenced by every mesh. With a released openPMD-api it keeps the interim
+  form: the nodes in the mesh attribute `gridCoordinates_r`, with `gridType = "rectilinear"`. Both forms
+  also carry the older `quarz_r_nodes`. Its ξ axis is regular.
 - **Readers:** `tools/openpmd_rectilinear.py` (Python, in both repositories) reads both forms, and so does
   GEM-PIC-RZ's `h5_extract`.
 
-## Needed in the ecosystem
+## Implementations
 
-- **openPMD-api:** read and write `gridCoordinates` and coordinate data sets (e.g.
-  `Mesh::setGridCoordinates(axis, std::vector<double>)`, which writes the data set and the reference).
-- **openPMD-viewer:**
-  - build `FieldMetaInformation` from the coordinates;
-  - plot with `pcolormesh` on the nodes.
-- **openPMD-validator:**
-  - check the paths, lengths and monotonicity;
-  - check `position = 0` along explicit axes.
-- **ParaView, VisIt:** map to rectilinear grids, which they already support.
+Reference implementations, on branches `rectilinear-meshes` (pull requests to follow the standard PR):
+- **openPMD-api** (C++ and Python, all backends):
+  - `Iteration::gridCoordinates`, a container of 1D data sets in `<basePath>gridCoordinates/` (written if not
+    empty, read if present; files without it are unchanged);
+  - `Mesh::setGridCoordinates()` / `gridCoordinates()`, and `MeshRecordComponent::setGridCoordinates()` for
+    staggered components;
+  - `Iteration::gridCoordinatesPath(name)` builds the reference, `Iteration::gridCoordinatesOf(mesh[, comp])`
+    resolves it (one optional data set per axis);
+  - Python: `Iteration.grid_coordinates`, `.grid_coordinates_path()`, `.grid_coordinates_of()`,
+    `Mesh.grid_coordinates`;
+  - tests for HDF5, JSON, ADIOS2 (file-, group- and variable-based, coordinates that change between steps),
+    examples `3c_write_rectilinear_serial` (C++, Python). Released openPMD-api versions read the files and
+    ignore the coordinates.
+- **openPMD-viewer:** `FieldMetaInformation` takes the coordinates (positions of the data points; `dx` the
+  smallest spacing; `rectilinear`, `get_edges()`); both backends; slicing in coordinate space; the thetaMode
+  3D reconstruction interpolates between the radial nodes; 2D plots with `pcolormesh`. Also reads the interim
+  forms of our codes.
+- **openPMD-validator:** checks the references (absolute paths in the file), 1D floating-point data sets, one
+  value per data point along the axis, strictly increasing values, and warns if `position` is not 0 along an
+  explicit axis.
+- **Still needed:** ParaView and VisIt readers (both support rectilinear grids), openPMD-api's `openpmd-pipe`
+  copies the coordinate data sets only after a small change (not yet done).

@@ -1,0 +1,132 @@
+From c303b4b5a8ce3a0e21b8584c28b4004cf7147f36 Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Fri, 16 Oct 2026 18:02:55 +0200
+Subject: [PATCH 4/5] Rectilinear meshes: openpmd-pipe copies the coordinate
+ data sets (and rewrites the references when the base path changes); base path
+ of variable-based series without %T
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DRiRr7s6YoyWRd6EM8Zzbz
+---
+ src/Iteration.cpp                             |  7 ++++++
+ .../python/openpmd_api/pipe/__main__.py       | 22 +++++++++++++++++++
+ test/Files_SerialIO/rectilinear_meshes.cpp    | 21 ++++++++++++++----
+ test/python/unittest/API/APITest.py           |  3 +--
+ 4 files changed, 47 insertions(+), 6 deletions(-)
+
+diff --git a/src/Iteration.cpp b/src/Iteration.cpp
+index 6b832bc7..c0af7804 100644
+--- a/src/Iteration.cpp
++++ b/src/Iteration.cpp
+@@ -792,13 +792,20 @@ std::string Iteration::gridCoordinatesPath(std::string const &name) const
+     std::string base = s.basePath();
+     if (s.iterationEncoding() == IterationEncoding::variableBased)
+     {
++        // e.g. "/data/%T/" or, as written by default for variable-based
++        // series, "/data": the iteration is the group itself
+         base = auxiliary::replace_first(base, "%T/", "");
++        base = auxiliary::replace_first(base, "%T", "");
+     }
+     else
+     {
+         base = auxiliary::replace_first(
+             base, "%T", std::to_string(getCachedIterationIndex()));
+     }
++    if (base.empty() || base.back() != '/')
++    {
++        base += '/';
++    }
+     return base + "gridCoordinates/" + name;
+ }
+ 
+diff --git a/src/binding/python/openpmd_api/pipe/__main__.py b/src/binding/python/openpmd_api/pipe/__main__.py
+index df7a42bb..893741d6 100644
+--- a/src/binding/python/openpmd_api/pipe/__main__.py
++++ b/src/binding/python/openpmd_api/pipe/__main__.py
+@@ -481,6 +481,28 @@ class pipe:
+         elif isinstance(src, io.Iteration):
+             self.__copy(src.meshes, dest.meshes, current_path + "meshes/")
+             self.__copy(src.particles, dest.particles, current_path + "particles/")
++            # coordinate data sets of rectilinear meshes, and their references
++            # (absolute paths, which differ e.g. in variable-based output)
++            if hasattr(src, "grid_coordinates") and len(src.grid_coordinates) > 0:
++                for key in src.grid_coordinates:
++                    self.__copy(
++                        src.grid_coordinates[key],
++                        dest.grid_coordinates[key],
++                        current_path + "gridCoordinates/" + key + "/",
++                    )
++                old = src.grid_coordinates_path("")
++                new = dest.grid_coordinates_path("")
++                if old != new:
++                    for _, mesh in dest.meshes.items():
++                        for obj in [mesh] + [c for _, c in mesh.items()]:
++                            if "gridCoordinates" in obj.attributes:
++                                obj.set_attribute(
++                                    "gridCoordinates",
++                                    [
++                                        new + p[len(old) :] if p.startswith(old) else p
++                                        for p in obj.get_attribute("gridCoordinates")
++                                    ],
++                                )
+         elif is_container:
+             for key in src:
+                 self.__copy(src[key], dest[key], current_path + key + "/")
+diff --git a/test/Files_SerialIO/rectilinear_meshes.cpp b/test/Files_SerialIO/rectilinear_meshes.cpp
+index 32e83fc5..e2c25c64 100644
+--- a/test/Files_SerialIO/rectilinear_meshes.cpp
++++ b/test/Files_SerialIO/rectilinear_meshes.cpp
+@@ -175,11 +175,21 @@ namespace
+ {
+     // variable-based encoding (ADIOS2): one group /data/ for all steps; the
+     // coordinates may change from step to step (e.g. a moving refinement)
+-    void variable_based(std::string const &file)
++    void variable_based(std::string const &file, bool by_config)
+     {
+         {
+-            Series series(file, Access::CREATE_LINEAR);
+-            series.setIterationEncoding(IterationEncoding::variableBased);
++            // set after creation (basePath "/data/%T/"), or in the
++            // configuration (basePath "/data")
++            Series series = by_config
++                ? Series(
++                      file,
++                      Access::CREATE_LINEAR,
++                      R"({"iteration_encoding": "variable_based"})")
++                : Series(file, Access::CREATE_LINEAR);
++            if (!by_config)
++            {
++                series.setIterationEncoding(IterationEncoding::variableBased);
++            }
+             for (uint64_t step = 0; step < 3; ++step)
+             {
+                 auto it = series.snapshots()[step];
+@@ -223,7 +233,10 @@ auto rectilinear_meshes(std::string const &extension) -> void
+ {
+     if (extension == "bp" || extension == "bp4" || extension == "bp5")
+     {
+-        variable_based("../samples/rectilinear_variablebased." + extension);
++        variable_based(
++            "../samples/rectilinear_variablebased." + extension, false);
++        variable_based(
++            "../samples/rectilinear_variablebased_config." + extension, true);
+     }
+     for (auto const &[name, index] :
+          {std::pair<std::string, uint64_t>{"rectilinear_groupbased", 100},
+diff --git a/test/python/unittest/API/APITest.py b/test/python/unittest/API/APITest.py
+index 6d1c5fb2..44bb069f 100644
+--- a/test/python/unittest/API/APITest.py
++++ b/test/python/unittest/API/APITest.py
+@@ -852,8 +852,7 @@ class APITest(unittest.TestCase):
+         it = series.iterations[3]
+         self.assertEqual(list(it.grid_coordinates), ["r_nodes"])
+         E = it.meshes["E_z"]
+-        self.assertEqual(
+-            E.grid_coordinates, ["/data/3/gridCoordinates/r_nodes", ""])
++        self.assertEqual(E.grid_coordinates, ["/data/3/gridCoordinates/r_nodes", ""])
+         r, z = it.grid_coordinates_of(E)
+         self.assertIsNone(z)
+         self.assertEqual(r.shape, [len(r_nodes)])
+-- 
+2.43.0
+
