@@ -114,8 +114,10 @@ Done and validated (README §7, `validation/reference_full.txt`):
   openPMD-api rebuilt in /home/claude/openpmd-rect-install (MPI+HDF5, python; system json/toml11).
   NOT tested in the ParaView GUI (decorator XML, two output ports) - Alexander to try.
   Release v1.0.0 (2026-10-18, Alexander: "usable right now"): CMake project VERSION 1.0.0 -> QUARZ_VERSION
-  (banner, openPMD software version); GitHub release with assets openPMDRectilinearReader.py and
-  quarz_paraview_samples.zip. Zenodo DOI: Alexander must enable the repo on zenodo.org (not doable here).
+  (banner, openPMD software version). This session can neither push tags nor create releases (proxy /
+  HTTP 403): Alexander creates the GitHub release v1.0.0 on main (text docs/releases/v1.0.0.md, assets
+  openPMDRectilinearReader.py, quarz_paraview_samples.zip). Zenodo DOI: Alexander enables the repo on
+  zenodo.org BEFORE creating the release.
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a
   Xeon E5620; no systematic benchmark and no GPU-vs-CPU file comparison yet);
