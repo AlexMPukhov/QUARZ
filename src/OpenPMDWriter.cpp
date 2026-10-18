@@ -1,3 +1,6 @@
+#ifndef QUARZ_VERSION
+#define QUARZ_VERSION "unknown"
+#endif
 #include "OpenPMDWriter.hpp"
 
 #include "Beam.hpp"
@@ -173,7 +176,7 @@ void OpenPMDWriter::Impl::open() {
     I.series = std::make_unique<openPMD::Series>(I.filename, openPMD::Access::CREATE, options);
 #endif
     openPMD::Series& S = *I.series;
-    S.setSoftware("QUARZ", "1.0");
+    S.setSoftware("QUARZ", QUARZ_VERSION);
     S.setMeshesPath("fields/");
     S.setParticlesPath("particles/");
     S.setAttribute("quarz_units", I.si ? std::string("SI") : std::string("normalised: c/omega_p, 1/omega_p, n0, m_e c omega_p/e"));

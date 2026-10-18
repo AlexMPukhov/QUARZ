@@ -1,3 +1,6 @@
+#ifndef QUARZ_VERSION
+#define QUARZ_VERSION "unknown"
+#endif
 #include "Simulation.hpp"
 
 #include <algorithm>
@@ -162,7 +165,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
     bguard = View2D("bguard", M, B_NC1);
 
     if (comm_.root()) {
-        std::cout << "QUARZ - Quasistatic Arbitrary-resolution RZ code, Kokkos execution space: " << ExecSpace::name() << "\n";
+        std::cout << "QUARZ " QUARZ_VERSION " - Quasistatic Arbitrary-resolution RZ code, Kokkos execution space: " << ExecSpace::name() << "\n";
         if (P > 1)
             std::cout << "MPI: " << P << " ranks, xi decomposition with time pipelining, " << K / P
                       << "-" << (K + P - 1) / P << " slices per rank\n";

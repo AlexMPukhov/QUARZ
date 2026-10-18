@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(QUARZ LANGUAGES C CXX)
+project(QUARZ VERSION 1.0.0 LANGUAGES C CXX)
 
 # Backward compatibility: options were called QSRZ_* before the code was renamed QUARZ.
 foreach(_opt FETCH_KOKKOS ENABLE_MPI ENABLE_OPENPMD BUILD_TESTS)
@@ -59,6 +59,7 @@ add_library(quarz_core
   src/Laser.cpp
   src/Ionization.cpp)
 target_include_directories(quarz_core PUBLIC src)
+target_compile_definitions(quarz_core PUBLIC QUARZ_VERSION="${PROJECT_VERSION}")
 target_link_libraries(quarz_core PUBLIC Kokkos::kokkos)
 
 # MPI: domain decomposition along xi with time pipelining (optional)
