@@ -1,0 +1,319 @@
+From e3edaaf706206f1ae6ea9c79f72767960e9bae34 Mon Sep 17 00:00:00 2001
+From: Alexander Pukhov <alex.m.pukhov@gmail.com>
+Date: Sun, 18 Oct 2026 18:23:27 +0200
+Subject: [PATCH] openPMD reader: rectilinear meshes (explicit grid
+ coordinates)
+
+Meshes with explicit, non-equidistant coordinates along some axes, as proposed
+for openPMD 2.0 (openPMD-standard issue #142, PR #299: mesh attribute
+gridCoordinates naming one 1D coordinate data set per axis, '' for a regular
+axis), are read as vtkRectilinearGrid (cartesian), and thetaMode meshes use the
+explicit radial and longitudinal node positions in their vtkStructuredGrid.
+
+- coordinate data sets are read with openPMD-api if it supports them
+  (Iteration.grid_coordinates), otherwise from HDF5 files with h5py; if neither
+  is available the reader warns and falls back to gridSpacing
+- also reads the interim form of openPMD 1.1 files (attribute
+  gridCoordinates_<axis label>, written by QUARZ) and thetaMode meshes marked
+  as geometry 'other' with geometryParameters 'thetaMode;...'
+- regular meshes are unchanged (vtkImageData)
+- piece requests slice the coordinates with the extent
+
+Tested with the vtk Python package (no ParaView GUI): QUARZ native output,
+synthetic cartesian 3D/2D files (both axis orders) and thetaMode files, with
+released openPMD-api + h5py and with openPMD-api with coordinate data sets;
+point coordinates and values agree with an independent h5py reader to
+round-off; regular files unchanged.
+---
+ .../Python/paraview/algorithms/openpmd.py     | 199 ++++++++++++++++--
+ 1 file changed, 185 insertions(+), 14 deletions(-)
+
+diff --git a/Wrapping/Python/paraview/algorithms/openpmd.py b/Wrapping/Python/paraview/algorithms/openpmd.py
+index 6a9ec37..eb4c496 100644
+--- a/Wrapping/Python/paraview/algorithms/openpmd.py
++++ b/Wrapping/Python/paraview/algorithms/openpmd.py
+@@ -93,6 +93,47 @@ def _parse_theta_mode_parameters(mesh, stored_modes):
+ 
+     return num_modes, imag_sign
+ 
++def _get_attribute(obj, name, default=None):
++    """Attribute of an openPMD-api object, or default if it is not set."""
++    try:
++        if name in obj.attributes:
++            return obj.get_attribute(name)
++    except Exception:
++        pass
++    return default
++
++
++def _geometry_parameters(mesh):
++    params = getattr(mesh, "geometry_parameters", "")
++    if callable(params):
++        params = params()
++    return _string_attribute(params)
++
++
++def _is_theta_mode(mesh):
++    """thetaMode mesh, also in the interim marking of rectilinear thetaMode
++    meshes in openPMD 1.1 files: geometry "other" with geometryParameters
++    "thetaMode;..." (written by QUARZ and GEM-PIC-RZ)."""
++    if mesh.geometry == io.Geometry.thetaMode:
++        return True
++    if mesh.geometry == io.Geometry.other:
++        return _geometry_parameters(mesh).strip().startswith("thetaMode")
++    return False
++
++
++def _expand_iteration_pattern(pattern, index):
++    """File name of iteration `index` in a file-based series pattern
++    (%T or %0<n>T); the pattern itself for a group- or variable-based series."""
++    import re
++
++    match = re.search(r"%(0\d+)?T", pattern)
++    if match is None:
++        return pattern
++    width = match.group(1)
++    number = ("%" + width + "d") % index if width else str(index)
++    return pattern[: match.start()] + number + pattern[match.end() :]
++
++
+ class openPMDReader(VTKPythonAlgorithmBase):
+     """A reader that reads openPMD format.
+ 
+@@ -125,6 +166,9 @@ class openPMDReader(VTKPythonAlgorithmBase):
+         self._timemap = {}  # maps time steps (int) in _series to physical time (float)
+         self._timevalues = None  # the float values in _timemap (TODO: deduplicate, get on the fly from _timemap)
+         self._numthetas = 12
++        self._pattern = None  # file name pattern of the series (from the ".pmd" file)
++        self._current_iteration = None  # iteration being read (for h5py fallback)
++        self._warned_coordinates = False
+ 
+         # instructs ParaView what data sources to expect
+         # this registers observers and callbacks
+@@ -380,6 +424,7 @@ class openPMDReader(VTKPythonAlgorithmBase):
+         mfile = open(self._filename, "r")
+         pattern = mfile.readlines()[0][0:-1]
+         del mfile
++        self._pattern = pattern
+ 
+         import os
+ 
+@@ -563,7 +608,7 @@ class openPMDReader(VTKPythonAlgorithmBase):
+         else:
+             return arrays[0].flatten(order="F"), in_grid_offsets
+ 
+-    def _theta_mode_info(self, var, shape, spacing, grid_offset):
++    def _theta_mode_info(self, var, shape, spacing, grid_offset, coords=None):
+         axis_labels = [_string_attribute(label) for label in var.axis_labels]
+         if len(axis_labels) != 2 or "r" not in axis_labels or "z" not in axis_labels:
+             raise ValueError(
+@@ -595,6 +640,9 @@ class openPMDReader(VTKPythonAlgorithmBase):
+             "z_spacing": spacing[z_axis],
+             "r_offset": grid_offset[r_axis],
+             "z_offset": grid_offset[z_axis],
++            # rectilinear thetaMode meshes: explicit node positions (SI, absolute)
++            "r_coords": None if not coords or coords[r_axis] is None else tuple(coords[r_axis].tolist()),
++            "z_coords": None if not coords or coords[z_axis] is None else tuple(coords[z_axis].tolist()),
+         }
+ 
+     def _reconstruct_theta_mode_component(self, values, theta_info, thetas):
+@@ -651,13 +699,93 @@ class openPMDReader(VTKPythonAlgorithmBase):
+ 
+         return vector.reshape((-1, vector.shape[-1]), order="C")
+ 
++    def _coordinate_data_set(self, itr, path):
++        """Load a coordinate data set referenced by the gridCoordinates
++        attribute (absolute path in the file). Uses openPMD-api if it supports
++        coordinate data sets (Iteration.grid_coordinates), otherwise reads HDF5
++        files directly with h5py. Returns None if neither is possible."""
++        if hasattr(itr, "grid_coordinates"):
++            prefix = itr.grid_coordinates_path("")
++            if path.startswith(prefix) and path[len(prefix) :] in itr.grid_coordinates:
++                rc = itr.grid_coordinates[path[len(prefix) :]]
++                values = rc.load_chunk()
++                self._series.flush()
++                return np.asarray(values, dtype=np.float64)
++            return None
++        import os
++
++        filename = os.path.join(
++            os.path.dirname(self._filename),
++            _expand_iteration_pattern(self._pattern, self._current_iteration),
++        )
++        if not filename.endswith((".h5", ".hdf5")):
++            return None
++        try:
++            import h5py
++        except ImportError:
++            return None
++        try:
++            with h5py.File(filename, "r") as f:
++                return np.asarray(f[path][...], dtype=np.float64)
++        except (OSError, KeyError):
++            return None
++
++    def _grid_coordinates(self, itr, var):
++        """Explicit positions of the data points along the axes of a
++        rectilinear mesh (openPMD 2.0: attribute gridCoordinates, one path of a
++        1D coordinate data set per axis, "" for a regular axis; set on the
++        record or on a component). Also reads the interim attributes
++        gridCoordinates_<axis label> of openPMD 1.1 files (QUARZ).
++
++        Returns a list with one entry per axis (in the order of axisLabels):
++        None for a regular axis, else the positions in grid units relative to
++        gridGlobalOffset."""
++        labels = [_string_attribute(label) for label in var.axis_labels]
++        first = None
++        for _, component in var.items():  # scalar records have one component
++            first = component
++            break
++        paths = None
++        for owner in (first, var):
++            if owner is not None and paths is None:
++                paths = _get_attribute(owner, "gridCoordinates")
++        coords = []
++        for i, label in enumerate(labels):
++            c = None
++            if paths is not None and i < len(paths) and _string_attribute(paths[i]) != "":
++                c = self._coordinate_data_set(itr, _string_attribute(paths[i]))
++                if c is None and not self._warned_coordinates:
++                    print_error(
++                        "openPMD mesh with explicit grid coordinates (gridCoordinates): "
++                        "they need an openPMD-api with coordinate data sets, or h5py for "
++                        "HDF5 files. Falling back to the regular gridSpacing."
++                    )
++                    self._warned_coordinates = True
++            if c is None:
++                for owner in (first, var):
++                    if owner is None:
++                        continue
++                    value = _get_attribute(owner, "gridCoordinates_" + label)
++                    if value is not None:
++                        c = np.asarray(value, dtype=np.float64)
++                        break
++            coords.append(c)
++        return coords
++
+     def _find_array(self, itr, name):
+         var = itr.meshes[name]
++        unit = var.grid_unit_SI
++        offset = np.array(var.grid_global_offset) * unit
++        coords = [
++            None if c is None else offset[i] + c * unit
++            for i, c in enumerate(self._grid_coordinates(itr, var))
++        ]
+         return (
+             var,
+-            np.array(var.grid_spacing) * var.grid_unit_SI,
+-            np.array(var.grid_global_offset) * var.grid_unit_SI,
+-            var.geometry == io.Geometry.thetaMode,
++            np.array(var.grid_spacing) * unit,
++            offset,
++            _is_theta_mode(var),
++            coords,
+         )
+ 
+     def _get_num_particles(self, itr, species):
+@@ -765,6 +893,7 @@ class openPMDReader(VTKPythonAlgorithmBase):
+         data_time = self._get_update_time(timeInfo)
+         idx = self._timemap[data_time]
+         itr = self._series.iterations[idx]
++        self._current_iteration = idx
+ 
+         arrays = []
+         narrays = self._arrayselection.GetNumberOfArrays()
+@@ -778,6 +907,7 @@ class openPMDReader(VTKPythonAlgorithmBase):
+         theta_mode = None
+         theta_info = None
+         grid_offset = None
++        coords = None
+         for _, ary in arrays:
+             var = ary[0]
+             for name, scalar in var.items():
+@@ -801,9 +931,15 @@ class openPMDReader(VTKPythonAlgorithmBase):
+                 theta_mode = ary[3]
+             elif theta_mode != ary[3]:
+                 return 0
++            # rectilinear meshes: all meshes need the same explicit coordinates
++            crd = [None if c is None else tuple(c.tolist()) for c in ary[4]]
++            if coords is None:
++                coords = crd
++            elif coords != crd:
++                return 0
+             if ary[3]:
+                 try:
+-                    info = self._theta_mode_info(var, shape, ary[1], ary[2])
++                    info = self._theta_mode_info(var, shape, ary[1], ary[2], ary[4])
+                 except ValueError as e:
+                     print_error(str(e))
+                     return 0
+@@ -845,12 +981,18 @@ class openPMDReader(VTKPythonAlgorithmBase):
+ 
+             all_thetas = np.linspace(0.0, 2.0 * np.pi, nthetas)
+             t_coord = all_thetas[theta_start : theta_start + theta_count]
+-            r_coord = theta_info["r_offset"] + (
+-                np.arange(r_start, r_start + r_count) * theta_info["r_spacing"]
+-            )
+-            z_coord = theta_info["z_offset"] + (
+-                np.arange(z_start, z_start + z_count) * theta_info["z_spacing"]
+-            )
++            if theta_info["r_coords"] is not None:  # rectilinear: explicit radial nodes
++                r_coord = np.array(theta_info["r_coords"][r_start : r_start + r_count])
++            else:
++                r_coord = theta_info["r_offset"] + (
++                    np.arange(r_start, r_start + r_count) * theta_info["r_spacing"]
++                )
++            if theta_info["z_coords"] is not None:
++                z_coord = np.array(theta_info["z_coords"][z_start : z_start + z_count])
++            else:
++                z_coord = theta_info["z_offset"] + (
++                    np.arange(z_start, z_start + z_count) * theta_info["z_spacing"]
++                )
+ 
+             data = []
+             for name, var in arrays:
+@@ -943,9 +1085,38 @@ class openPMDReader(VTKPythonAlgorithmBase):
+             #        an improved approach could interpolate vector/tensor components to the same point first, e.g., the voxel center.
+             in_grid_offset = np.array(in_grid_offsets_first_component) * np.array(spacing)
+ 
+-            img.SetExtent(ext[0], ext[1], ext[2], ext[3], ext[4], ext[5])
+-            img.SetSpacing(spacing)
+-            img.SetOrigin(grid_offset + in_grid_offset)
++            if coords is not None and any(c is not None for c in coords):
++                # rectilinear mesh: explicit positions along some axes
++                from vtkmodules.util.numpy_support import numpy_to_vtk
++                from vtkmodules.vtkCommonDataModel import vtkRectilinearGrid
++
++                if mesh_needs_transpose(var[0]):
++                    if len(shp) == 3:
++                        source_axis = list(_3d)
++                    elif len(shp) == 2:
++                        source_axis = list(_2d)
++                    else:
++                        source_axis = list(_1d)
++                else:
++                    source_axis = [0, 1, 2]
++                img = vtkRectilinearGrid()
++                img.SetExtent(ext[0], ext[1], ext[2], ext[3], ext[4], ext[5])
++                axis_coords = []
++                for a in range(3):
++                    lo, hi = ext[2 * a], ext[2 * a + 1]
++                    src = source_axis[a]
++                    if src < len(shp) and coords[src] is not None:
++                        x = np.array(coords[src][lo : hi + 1], dtype=np.float64)
++                    else:
++                        x = grid_offset[a] + in_grid_offset[a] + np.arange(lo, hi + 1) * spacing[a]
++                    axis_coords.append(numpy_to_vtk(x, deep=1))
++                img.SetXCoordinates(axis_coords[0])
++                img.SetYCoordinates(axis_coords[1])
++                img.SetZCoordinates(axis_coords[2])
++            else:
++                img.SetExtent(ext[0], ext[1], ext[2], ext[3], ext[4], ext[5])
++                img.SetSpacing(spacing)
++                img.SetOrigin(grid_offset + in_grid_offset)
+ 
+             img.GenerateGhostArray(ext)
+             imgw = dsa.WrapDataObject(img)
+-- 
+2.43.0
+

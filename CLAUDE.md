@@ -102,6 +102,17 @@ Done and validated (README §7, `validation/reference_full.txt`):
   Section 10 needs an openPMD-api with MPI: with the default `build` (openpmd-install, no MPI) its MPI lines fail.
   openPMD-api requires equal extents for all components of a record: staggered data with different extents
   go into separate records (proposal text updated).
+  2026-10-18 (Alexander: teach ParaView the rectilinear grids): ParaView's openPMD reader
+  (Wrapping/Python/paraview/algorithms/openpmd.py, master 1e98e01; sparse clone /home/claude/kitware/paraview,
+  branch openpmd-rectilinear) -> vtkRectilinearGrid for cartesian meshes with coordinates, explicit r/z nodes
+  in the thetaMode vtkStructuredGrid; coordinate data sets via openPMD-api (Iteration.grid_coordinates) or
+  h5py fallback (HDF5); interim forms; geometry other + thetaMode params. Patch docs/openpmd_patches/ParaView/
+  (MR on gitlab.kitware.com: Alexander, not reachable from here); plugin tools/paraview/
+  openPMDRectilinearReader.py (generated from the patched module + decorators). Tests without ParaView (no
+  binary reachable here): tools/paraview/test_openpmd_reader.py with pip vtk 9.7.1 and stubbed paraview
+  package, synthetic files make_rectilinear_testfiles.py; in section 10 when vtk is importable. Patched
+  openPMD-api rebuilt in /home/claude/openpmd-rect-install (MPI+HDF5, python; system json/toml11).
+  NOT tested in the ParaView GUI (decorator XML, two output ports) - Alexander to try.
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a
   Xeon E5620; no systematic benchmark and no GPU-vs-CPU file comparison yet);

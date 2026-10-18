@@ -39,6 +39,14 @@ analytic driver: built-in vs parsed          psi 4.4e-15  ez 1.4e-14  er 6.9e-14
 == 10. openPMD output (needs openPMD-api in the build and the openpmd-api Python module) ==
  native-node openPMD vs native files (expected 0):
 max relative difference openPMD vs native: 0.00e+00
+ ParaView openPMD reader with rectilinear meshes (tools/paraview, vtk module; expected PASS):
+  StructuredGrid, 368 radial nodes (h 8.38e-08..6.7e-07), 401 z nodes; max rel. error: r 0.0e+00, z 2.0e-16, psi 1.6e-16  PASS
+  RectilinearGrid, labels ['x', 'y', 'z'], dims [7, 5, 9]; max rel. error: coordinates 2.0e-16, rho 0.0e+00  PASS
+  RectilinearGrid, labels ['z', 'y', 'x'], dims [7, 5, 9]; max rel. error: coordinates 2.0e-16, rho 0.0e+00  PASS
+  RectilinearGrid, labels ['x', 'z'], dims [7, 9, 1]; max rel. error: coordinates 3.5e-16, rho 0.0e+00  PASS
+  StructuredGrid, 12 radial nodes (h 2e-08..1.86e-07), 10 z nodes; max rel. error: r 0.0e+00, z 2.5e-16, rho 1.7e-16  PASS
+  ImageData (regular), origin error 0.0e+00, rho 0.0e+00  PASS
+ALL PASS
  uniform openPMD grid vs interpolated native data (expected round-off):
 max relative difference openPMD vs native: 4.27e-16
  2 MPI ranks vs serial (expected 0):

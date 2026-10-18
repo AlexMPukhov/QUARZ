@@ -151,6 +151,14 @@ sec10() {
     H="../examples/hosing.in time.steps=$(q 4 2) output.every=2 output.beam_every=2 driver.nparticles=$(q 40000 8000) xi.max=$(q 6 4) beams.xi_shape=ngp output.format=both units.n0_cm3=1e17"
         if $QS $H output.openpmd_grid=native output.dir=out_opmd_nat > out_opmd.log 2>&1; then
             echo " native-node openPMD vs native files (expected 0):"; python3 check_openpmd.py out_opmd_nat native | tail -1
+            if python3 -c "import vtk" 2> /dev/null; then
+                python3 ../tools/paraview/make_rectilinear_testfiles.py out_opmd_pv > /dev/null
+                F=$(ls out_opmd_nat/openpmd/*.h5 | head -1)
+                echo " ParaView openPMD reader with rectilinear meshes (tools/paraview, vtk module; expected PASS):"
+                python3 ../tools/paraview/test_openpmd_reader.py ../tools/paraview/openPMDRectilinearReader.py \
+                    "quarz:$F" cart:out_opmd_pv/cart3d_xyz.h5 cart:out_opmd_pv/cart3d_zyx.h5 cart:out_opmd_pv/cart2d_xz.h5 \
+                    theta:out_opmd_pv/theta_dataset.h5 regular:out_opmd_pv/cart3d_regular.h5 2> /dev/null | grep -E "PASS|FAIL"
+            fi
             $QS $H output.dir=out_opmd_uni > /dev/null 2>&1
             echo " uniform openPMD grid vs interpolated native data (expected round-off):"; python3 check_openpmd.py out_opmd_uni uniform | tail -1
             if command -v mpirun > /dev/null 2>&1; then

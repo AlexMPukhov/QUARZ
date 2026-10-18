@@ -120,5 +120,9 @@ follow the standard PR):
 - **openPMD-validator:** checks the references (absolute paths in the file), 1D floating-point data sets, one
   value per data point along the axis, strictly increasing values, and warns if `position` is not 0 along an
   explicit axis.
-- **Still needed:** ParaView and VisIt readers (both support rectilinear grids), openPMD-api's `openpmd-pipe`
-  copies the coordinate data sets only after a small change (not yet done).
+- **ParaView:** the openPMD reader (`paraview/algorithms/openpmd.py`) makes `vtkRectilinearGrid`s of cartesian
+  meshes with explicit coordinates and uses the explicit nodes in its thetaMode `vtkStructuredGrid`; coordinate
+  data sets through openPMD-api or, with released versions, h5py (HDF5); also the interim forms. Patch in
+  [`docs/openpmd_patches/ParaView/`](openpmd_patches/ParaView/), and a plugin for current ParaView versions in
+  [`tools/paraview/`](../tools/paraview/) (tested with the vtk Python package, not yet in the GUI).
+- **Still needed:** a VisIt reader (VisIt supports rectilinear grids).

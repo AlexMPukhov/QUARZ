@@ -993,8 +993,10 @@ frequent small dumps and rare full dumps can be combined (§6):
     geometry `other` with geometryParameters `thetaMode;m=…;imag=+`, so readers of
     regular grids skip them. `tools/openpmd_rectilinear.py` (shared with GEM-PIC-RZ)
     reads both forms (`read_mesh`, `theta_slice`), and so does our proposed extension of
-    openPMD-viewer. The old attribute `quarz_r_nodes` is still
-    written (deprecated).
+    openPMD-viewer. **ParaView:** load the plugin `tools/paraview/openPMDRectilinearReader.py`
+    (Tools → Manage Plugins) and open a `.pmd` file with the reader "openPMD Reader (rectilinear
+    meshes)": the fields appear on the true non-uniform nodes (see `tools/paraview/README.md`).
+    The old attribute `quarz_r_nodes` is still written (deprecated).
   - **Particles:** every beam is a species with `position` (x, y, z = t − ξ),
     `positionOffset` (0), `momentum` (per physical particle), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.

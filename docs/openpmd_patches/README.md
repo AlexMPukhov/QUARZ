@@ -1,4 +1,4 @@
-# Rectilinear meshes: patches for openPMD-api, openPMD-viewer and openPMD-validator
+# Rectilinear meshes: patches for openPMD-api, openPMD-viewer, openPMD-validator and ParaView
 
 Reference implementations of the proposal in [`../openpmd_rectilinear.md`](../openpmd_rectilinear.md)
 (openPMD-standard issue #142, pull request #299 against `upcoming-2.0.0`), kept here as `git format-patch`
@@ -13,6 +13,7 @@ until they are submitted as pull requests to the three projects.
 | openPMD-api | `ecaa0943` (dev, 2026-10-15) | `git checkout -b rectilinear-meshes ecaa0943 && git am openPMD-api/*.patch` |
 | openPMD-viewer | `a80f6e1` | `git checkout -b rectilinear-meshes a80f6e1 && git am openPMD-viewer/*.patch` |
 | openPMD-validator | `3988dbf` (1.1.0.6) | `git checkout -b rectilinear-meshes 3988dbf && git am openPMD-validator/*.patch` |
+| ParaView | `1e98e01` (master, 2026-10-18) | `git checkout -b openpmd-rectilinear 1e98e01 && git am ParaView/*.patch` (merge request on gitlab.kitware.com; a standalone plugin for current ParaView versions is in [`tools/paraview/`](../../tools/paraview/)) |
 
 Tested (2026-10-16):
 - openPMD-api: the full `SerialIOTests` (64 test cases), `CoreTests`, `JSONTests`, `AuxiliaryTests` with HDF5,
