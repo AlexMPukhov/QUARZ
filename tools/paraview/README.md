@@ -10,6 +10,12 @@ teach it the rectilinear (non-uniform) meshes of the openPMD 2.0 proposal
   file (tick *Auto Load* to keep it). Then open a `.pmd` file — one text line with the file name pattern of
   the series, e.g. `data_%06T.h5` next to the data files — and pick **openPMD Reader (rectilinear
   meshes)**.
+  - **Two outputs**: *Output-0* = the meshes (fields), *Output-1* = the particles (empty unless
+    *Species* are ticked). ParaView may show a 3D structured grid only as its **outline** (for thetaMode:
+    two circles and a rectangle). To see a field: click *Output-0* in the Pipeline Browser, set the
+    representation to *Surface* and the colouring from *Solid Color* to a field (e.g. `E`, component Z,
+    or `n_e`); for the r–z map apply *Filters → Slice* with normal Y (plane θ = 0, π). The plugin asks
+    for *Surface* by default (a representation hint; not yet confirmed in every ParaView version).
   - Cartesian meshes with explicit coordinates become `vtkRectilinearGrid`s.
   - thetaMode meshes (also the interim marking `geometry = other`, `geometryParameters = thetaMode;…`)
     become a 3D `vtkStructuredGrid` on the true radial and longitudinal nodes; the property *Thetas* sets

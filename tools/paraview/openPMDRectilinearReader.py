@@ -1227,6 +1227,7 @@ from paraview.util.vtkAlgorithm import smproxy, smproperty, smdomain, smhint  # 
 
 @smproxy.reader(name="openPMDRectilinearReader", label="openPMD Reader (rectilinear meshes)",
                 extensions="pmd", file_description="openPMD files (rectilinear meshes)")
+@smhint.xml('<RepresentationType view="RenderView" type="Surface" port="0" />')
 class openPMDRectilinearReader(openPMDReader):
     """openPMD reader that also reads rectilinear (non-uniform) meshes."""
 
