@@ -118,8 +118,8 @@ Done and validated (README §7, `validation/reference_full.txt`):
   HTTP 403): Alexander creates the GitHub release v1.0.0 on main (text docs/releases/v1.0.0.md, assets
   openPMDRectilinearReader.py, quarz_paraview_samples.zip). Zenodo DOI: Alexander enables the repo on
   zenodo.org BEFORE creating the release.
-  2026-10-19: Zenodo enabled and release v1.0.0 published by Alexander (GitHub API shows NO assets
-  attached; DOI not yet known here - zenodo.org not reachable from this container). ParaView GUI test of
+  2026-10-19: Zenodo enabled and release v1.0.0 published by Alexander (assets plugin + samples
+  attached and verified identical 2026-10-19; DOI not yet known here - zenodo.org not reachable from this container). ParaView GUI test of
   the plugin: Oliver (pending).
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a
