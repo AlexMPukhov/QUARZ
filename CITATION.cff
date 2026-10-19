@@ -6,6 +6,15 @@ authors:
     given-names: Alexander
   - family-names: Wilson
     given-names: Thomas C.
+version: "1.0.0"
+doi: "10.5281/zenodo.23472095"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23472094"
+    description: "Concept DOI: all versions of QUARZ"
+  - type: doi
+    value: "10.5281/zenodo.23472095"
+    description: "QUARZ 1.0.0"
 repository-code: "https://github.com/AlexMPukhov/QUARZ"
 license: BSD-3-Clause
 preferred-citation:

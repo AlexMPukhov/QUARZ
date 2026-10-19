@@ -119,7 +119,8 @@ Done and validated (README §7, `validation/reference_full.txt`):
   openPMDRectilinearReader.py, quarz_paraview_samples.zip). Zenodo DOI: Alexander enables the repo on
   zenodo.org BEFORE creating the release.
   2026-10-19: Zenodo enabled and release v1.0.0 published by Alexander (assets plugin + samples
-  attached and verified identical 2026-10-19; DOI not yet known here - zenodo.org not reachable from this container). ParaView GUI test of
+  attached and verified identical 2026-10-19). Zenodo: concept DOI 10.5281/zenodo.23472094 (badge target),
+  v1.0.0 DOI 10.5281/zenodo.23472095; in README badge + Citing, CITATION.cff, paper ref [QUARZ]. ParaView GUI test of
   the plugin: Oliver (pending).
 - core solver, non-uniform grid, m = 1 mode, mobile ions, parsed profiles, MPI, openPMD,
   CUDA compiles and runs on a Blackwell GB202 GPU (Thomas, 2026-10-06: ~50x vs one thread of a

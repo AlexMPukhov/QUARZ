@@ -7,13 +7,18 @@
 
 # QUARZ — Quasistatic Arbitrary-resolution RZ code
 
+[![DOI](https://zenodo.org/badge/1405360222.svg)](https://doi.org/10.5281/zenodo.23472094)
+[![arXiv](https://img.shields.io/badge/arXiv-2610.16910-b31b1b.svg)](https://arxiv.org/abs/2610.16910)
+
 *Quasi-static PIC code in (r, θ, ξ) with azimuthal modes m = 0, 1 and a flexible non-uniform radial grid.*
 (Formerly QSRZ; renamed in October 2026. Input files and output formats are unchanged.)
 Nickname: **Q**, after the Q ring of its logo.
 
 **Paper:** A. Pukhov and T. C. Wilson, *QUARZ: a quasi-static particle-in-cell code with non-uniform
 radial grids for plasma wakefields*, [arXiv:2610.16910](https://arxiv.org/abs/2610.16910) (2026).
-Please cite it if you use QUARZ (BibTeX at the end of this file). License: BSD 3-Clause (`LICENSE`).
+Please cite it if you use QUARZ (BibTeX at the end of this file). **Software:** archived on Zenodo,
+DOI [10.5281/zenodo.23472094](https://doi.org/10.5281/zenodo.23472094) (all versions; v1.0.0:
+[10.5281/zenodo.23472095](https://doi.org/10.5281/zenodo.23472095)). License: BSD 3-Clause (`LICENSE`).
 
 QUARZ is a quasi-static particle-in-cell code for plasma wakefield
 acceleration in the spirit of LCODE-2D, written in C++17 on top of
@@ -1456,7 +1461,20 @@ comparison, the blowout on the stretched grid, and the SMI run.
   archivePrefix = {arXiv},
   url           = {https://arxiv.org/abs/2610.16910}
 }
+
+@software{QUARZ_software,
+  author    = {Pukhov, Alexander and Wilson, Thomas C.},
+  title     = {{QUARZ}: Quasistatic Arbitrary-resolution {RZ} code},
+  year      = {2026},
+  version   = {1.0.0},
+  publisher = {Zenodo},
+  doi       = {10.5281/zenodo.23472095},
+  url       = {https://doi.org/10.5281/zenodo.23472095}
+}
 ```
+
+The concept DOI [10.5281/zenodo.23472094](https://doi.org/10.5281/zenodo.23472094) always resolves to the
+latest version; cite the version DOI of the release you used.
 
 QUARZ is a zero-touch code: all of its source code, tests and documentation were written by the AI
 agent Claude (Anthropic), directed by A. Pukhov, who did not write a line of the code (see the paper).
