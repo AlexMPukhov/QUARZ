@@ -1084,6 +1084,29 @@ frequent small dumps and rare full dumps can be combined (§6):
     along ξ at any r and a radial cut at any ξ (click on the map to set both), a frame slider with
     playback, and the beam evolution from `beams.txt` (⟨γ⟩, σ_γ, r_rms, ε_n, …). With `modes = 1`
     the fields are shown in the plane θ = 0. *Browse output* shows a finished run.
+  - *Machines*: the run can also go to a cluster or another computer. The usual setup: the GUI
+    runs on the head (login) node, the browser on the desktop via an ssh tunnel
+    (`ssh -L 9000:127.0.0.1:9000 headnode`, then `python3 tools/quarz_gui.py run.in --no-browser
+    --port 9000` there and open the printed URL). Machines are described in a JSON file
+    (`--machines FILE`, else `$QUARZ_GUI_MACHINES`, else `~/.config/quarz/machines.json`; template
+    `tools/quarz_machines.example.json`); `local` always exists. Two types:
+    - `slurm`: the run is submitted with `sbatch` (keys `exe`, `partition`, `account`, `time`,
+      `nodes`, `ranks`, `threads`, `gpus_per_node`, `ntasks_per_node`, `mem`, `setup` = shell lines
+      such as `module load …`, `launcher` (default `srun --cpus-per-task={threads}`), `sbatch` =
+      extra `#SBATCH` options, `env`). The GUI shows the queue state (pending/running), follows the
+      job's output file and the live frames on the shared file system; Stop = `scancel`. Partition,
+      account, time, nodes and GPUs can be changed in the GUI; *Job script* shows the script
+      without submitting it (it is also saved next to the deck as `quarz_gui_job.sh`).
+    - `ssh`: the run is started on another computer (e.g. a GPU workstation) with ssh (key login,
+      no password prompt; `host`, `exe`, `setup`, `launcher`, `launcher_mpi` (default
+      `mpirun -np {ranks}`), `env`, `ssh_options`). Default: the run directory is on a shared file
+      system (`path_map: [local prefix, remote prefix]` if it is mounted elsewhere there). With
+      `remote_dir` there is no shared file system: the deck is copied to `remote_dir/<deck dir name>`
+      and the output is pulled back with rsync while the run goes on. The run survives a lost
+      connection (it is started with `setsid nohup`); Stop kills its process group.
+    The placeholders `{ranks}`, `{threads}`, `{nodes}` are filled in `setup`, `launcher`, `sbatch`
+    and `env`. The GUI itself does not need to stay up for the run to finish, but it follows only
+    runs it started (a restarted GUI can still *Browse output*).
   - The server listens on 127.0.0.1 only, and every request needs the random token of the URL.
 
 ## 7. Validation (OpenMP backend, 2 cores)
@@ -1271,7 +1294,11 @@ stage 2 from ξ = 5.01):
 **GUI server** (section 17, `gui_check.py`, no browser): a run started through the API finishes and
 writes its `gui` frames every 2nd step with the requested fields, r ≤ 1 and every 2nd slice; the
 on-axis cut served equals the field file exactly; the 2D map has the requested size and is finite;
-the beam log has every step; a request without the token is refused (HTTP 403).
+the beam log has every step; a request without the token is refused (HTTP 403). With
+`QUARZ_TEST_REMOTE=1` (needs Slurm and ssh key login to localhost; not in the references) the same
+deck also runs as a Slurm batch job, by ssh on the shared file system and by ssh with a separate
+remote directory + rsync: all three give the local frames bit for bit (checked with a single-node
+Slurm 23.11 installation and OpenSSH in the container), and Stop ends the job (`scancel`, process group).
 
 **MPI vs serial** (`validation/cmp_runs.py` compares every output file; serial runs with
 `beams.xi_shape = ngp`, one OpenMP thread per rank, 2 cores; P = 3, 4 oversubscribed):
@@ -1448,7 +1475,7 @@ comparison, the blowout on the stretched grid, and the SMI run.
 | `src/Profiles.*`, `src/Config.*` | density profiles, input parser |
 | `tests/test_solvers.cpp`, `tests/test_pushers.cpp`, `tests/test_parser.cpp`, `tests/test_profiles.cpp` | unit tests (run by `ctest`) |
 | `validation/` | physics validation inputs and scripts |
-| `tools/` | Python readers and plotting (optional); `quarz_gui.py` + `quarz_gui.html`: browser GUI |
+| `tools/` | Python readers and plotting (optional); `quarz_gui.py` + `quarz_gui.html`: browser GUI (`quarz_machines.example.json`: clusters / remote hosts) |
 
 ## Citing QUARZ
 

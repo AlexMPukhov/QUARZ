@@ -236,6 +236,14 @@ Done and validated (README §7, `validation/reference_full.txt`):
   127.0.0.1 only + token. MPI frames shown when rank-0 step >= frame + P. Checked with Playwright
   screenshots (serial, 2 ranks, error deck). Validation section 17 (gui_check.py, headless API).
   No tkinter in this container -> browser approach on purpose.
+  2026-10-19 (Alexander: GUI on the head node, run on a cluster / GPU machine): machines file
+  (--machines, $QUARZ_GUI_MACHINES, ~/.config/quarz/machines.json; tools/quarz_machines.example.json):
+  type slurm (sbatch script quarz_gui_job.sh, output quarz_gui_%j.out, squeue state, scancel; exit code
+  from an "[exit code N]" line echoed by the script, sacct only as fallback) and ssh (setsid nohup, kill -0,
+  kill process group; shared FS with path_map, or remote_dir + rsync pull). /api/script previews the script.
+  Tested here with a local Slurm 23.11 (slurmctld+slurmd on 'vm', no PMI -> test launcher mpirun) and sshd
+  on localhost: section 17 with QUARZ_TEST_REMOTE=1 (opt-in, not in the references). The container setup
+  (apt slurm-wlm munge openssh-server rsync, /etc/slurm/slurm.conf) is NOT persistent.
 - Multiple Coulomb scattering of beam particles (2026-10-10, Alexander): `<beam>.scattering`,
   scattering.Z / ion_charge / A / coulomb_log_ions / coulomb_log_electrons / factor / seed; needs
   units.n0_cm3. In Beam::advance after the Lorentz kick: Gaussian dp_x, dp_y with variance

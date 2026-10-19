@@ -76,6 +76,18 @@ details summary { cursor: pointer; font-size: 12px; color: var(--sub); }
     <div class="card">
       <h3>Run</h3>
       <div class="row">
+        <label title="where the run executes (machines file: --machines)">machine <select id="machine"><option value="local">local</option></select></label>
+        <span id="mdesc" style="color:var(--muted);font-size:12px"></span>
+      </div>
+      <div class="row" id="slurmrow" style="display:none">
+        <label title="Slurm nodes">nodes <input type="number" id="nodes" min="1" value="1"></label>
+        <label title="wall-clock limit, e.g. 01:00:00">time <input type="text" id="jtime" size="8"></label>
+        <label>partition <input type="text" id="jpart" size="10"></label>
+        <label>account <input type="text" id="jacct" size="10"></label>
+        <label title="GPUs per node">GPUs/node <input type="text" id="jgpus" size="3"></label>
+        <button id="bscript" title="show the job script without submitting it">Job script</button>
+      </div>
+      <div class="row">
         <label>threads <input type="number" id="threads" min="1" value="2"></label>
         <label>MPI ranks <input type="number" id="ranks" min="1" value="1"></label>
         <button class="primary" id="brun">▶ Run</button>
@@ -379,7 +391,8 @@ async function poll() {
     const s = await api("/api/status");
     S.running = s.running;
     const pill = $("pill");
-    if (s.running) { pill.className = "pill run"; pill.textContent = s.step >= 0 ? `running: step ${s.step}${s.steps ? " / " + s.steps : ""}   t = ${fmt(s.t)}` : "starting…"; }
+    if (s.running && s.state && s.step < 0 && s.state !== "RUNNING") { pill.className = "pill run"; pill.textContent = `job ${s.jobid}: ${s.state.toLowerCase()}`; }
+    else if (s.running) { pill.className = "pill run"; pill.textContent = s.step >= 0 ? `running: step ${s.step}${s.steps ? " / " + s.steps : ""}   t = ${fmt(s.t)}` : "starting…"; }
     else if (s.rc === null) { pill.className = "pill"; pill.textContent = "idle"; }
     else if (s.rc === 0) { pill.className = "pill done"; pill.textContent = `finished (${Math.round(s.elapsed)} s)`; }
     else { pill.className = "pill err"; pill.textContent = `stopped (exit code ${s.rc})`; }
@@ -402,9 +415,27 @@ async function openDeck(path) {
 $("bload").onclick = () => openDeck($("path").value);
 $("examples").onchange = e => { if (e.target.value) openDeck(e.target.value); e.target.value = ""; };
 $("bsave").onclick = async () => { try { const d = await api("/api/save", {}, { path: $("path").value, text: $("editor").value }); $("hdeck").textContent = d.path; } catch (e) { alert(e.message); } };
+function runBody() {
+  return { path: $("path").value, text: $("editor").value, threads: +$("threads").value, ranks: +$("ranks").value,
+    every: +$("every").value, rmax: +$("grmax").value, xi_stride: +$("stride").value, fields: $("gfields").value, extra: $("extra").value,
+    machine: $("machine").value, nodes: +$("nodes").value, time: $("jtime").value, partition: $("jpart").value,
+    account: $("jacct").value, gpus_per_node: $("jgpus").value };
+}
+function machineChanged() {
+  const m = S.machines[$("machine").value] || { type: "local" };
+  $("slurmrow").style.display = m.type === "local" ? "none" : "";
+  for (const id of ["nodes", "jtime", "jpart", "jacct", "jgpus"]) $(id).parentElement.style.display = m.type === "slurm" ? "" : "none";
+  $("bscript").textContent = m.type === "slurm" ? "Job script" : "Run script";
+  $("jtime").value = m.time || ""; $("jpart").value = m.partition || ""; $("jacct").value = m.account || "";
+  $("jgpus").value = m.gpus_per_node || ""; if (m.nodes) $("nodes").value = m.nodes;
+  if (m.threads) $("threads").value = m.threads; if (m.ranks) $("ranks").value = m.ranks;
+  $("ranks").disabled = m.type === "local" && !S.mpirun;
+  $("mdesc").textContent = [m.type !== "local" ? m.type : "", m.host || "", m.description || ""].filter(x => x).join(" · ");
+}
+$("machine").onchange = machineChanged;
+$("bscript").onclick = async () => { try { const d = await api("/api/script", {}, runBody()); $("log").textContent = d.script; } catch (e) { alert(e.message); } };
 $("brun").onclick = async () => {
-  const body = { path: $("path").value, text: $("editor").value, threads: +$("threads").value, ranks: +$("ranks").value,
-    every: +$("every").value, rmax: +$("grmax").value, xi_stride: +$("stride").value, fields: $("gfields").value, extra: $("extra").value };
+  const body = runBody();
   try { await api("/api/run", {}, body); S.cur = null; S.frames = []; S.fixed = null; S.beams = {}; $("hdeck").textContent = body.path; $("follow").checked = true; }
   catch (e) { alert(e.message); }
 };
@@ -446,6 +477,11 @@ $("editor").addEventListener("keydown", e => {   // tab inserts spaces
     $("path").value = d.deck; $("editor").value = d.text; $("hdeck").textContent = d.deck;
     $("threads").value = Math.max(1, Math.min(8, d.cpus)); $("threads").max = d.cpus;
     if (!d.mpirun) { $("ranks").disabled = true; $("ranks").title = "mpirun not found"; }
+    S.mpirun = d.mpirun; S.machines = {};
+    for (const m of d.machines || []) S.machines[m.name] = m;
+    $("machine").innerHTML = (d.machines || [{ name: "local" }]).map(m => `<option value="${m.name}">${m.name}</option>`).join("");
+    $("machine").parentElement.parentElement.style.display = (d.machines || []).length > 1 ? "" : "none";
+    machineChanged();
     $("examples").innerHTML = '<option value="">examples…</option>' + d.examples.map(p => `<option value="${p}">${p.split("/").slice(-2).join("/")}</option>`).join("");
   } catch (e) { alert("GUI server: " + e.message); }
   poll();

@@ -355,8 +355,9 @@ sec16() {
 
 sec17() {
     echo "== 17. GUI server (tools/quarz_gui.py, no browser) =="
-    OMP_NUM_THREADS=1 python3 gui_check.py betatron.in $QS $(( 20000 + $$ % 20000 ))
-    rm -rf out_gui out_gui_deck.in
+    # QUARZ_TEST_REMOTE=1: also Slurm / ssh-to-localhost runs (not in the references)
+    OMP_NUM_THREADS=1 python3 gui_check.py betatron.in $QS $(( 20000 + $$ % 20000 )) ${QUARZ_TEST_REMOTE:+--remote}
+    rm -rf out_gui out_gui_* quarz_gui_*.out quarz_gui_job.sh quarz_gui_ssh.*
 }
 
 sec18() {

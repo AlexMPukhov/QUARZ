@@ -1,0 +1,48 @@
+{
+  "_comment": "Machines for quarz_gui.py: copy to ~/.config/quarz/machines.json (or pass --machines FILE) and edit. 'local' always exists. Placeholders in setup/launcher/sbatch/env: {ranks} {threads} {nodes}.",
+  "machines": {
+    "juwels": {
+      "type": "slurm",
+      "description": "JUWELS cluster, CPU nodes (GUI on the login node)",
+      "exe": "/p/project/myproj/quarz/build/quarz",
+      "partition": "batch",
+      "account": "myproj",
+      "time": "01:00:00",
+      "nodes": 1, "ranks": 48, "threads": 1,
+      "setup": ["module load GCC OpenMPI HDF5"],
+      "launcher": "srun --cpus-per-task={threads}",
+      "sbatch": []
+    },
+    "jupiter-gpu": {
+      "type": "slurm",
+      "description": "GH200 nodes, one rank per GPU",
+      "exe": "/p/project/myproj/quarz/build-cuda/quarz",
+      "partition": "booster",
+      "account": "myproj",
+      "time": "00:30:00",
+      "nodes": 1, "ranks": 4, "threads": 1,
+      "gpus_per_node": 4,
+      "ntasks_per_node": 4,
+      "setup": ["module load GCC OpenMPI CUDA"],
+      "launcher": "srun --cpus-per-task={threads} --gpus-per-task=1",
+      "sbatch": []
+    },
+    "gpubox": {
+      "type": "ssh",
+      "description": "GPU workstation, home directory mounted from the head node",
+      "host": "gpubox",
+      "exe": "/home/me/quarz/build-cuda/quarz",
+      "setup": [],
+      "launcher": "",
+      "launcher_mpi": "mpirun -np {ranks}",
+      "path_map": ["/home/me", "/home/me"]
+    },
+    "laptop-to-gpubox": {
+      "type": "ssh",
+      "description": "no shared file system: deck copied to remote_dir, output pulled back with rsync",
+      "host": "me@gpubox.example.org",
+      "exe": "/home/me/quarz/build-cuda/quarz",
+      "remote_dir": "/scratch/me/quarz_gui_runs"
+    }
+  }
+}
