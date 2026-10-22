@@ -51,9 +51,17 @@ add_library(quarz_core
   src/Profiles.cpp
   src/Parser.cpp
   src/PlasmaSpecies.cpp
+  src/PlasmaPush.cpp
+  src/PlasmaIonization.cpp
   src/Beam.cpp
+  src/BeamPush.cpp
+  src/BeamDiag.cpp
   src/Simulation.cpp
+  src/SimulationFields.cpp
+  src/SimulationOutput.cpp
   src/SimulationIO.cpp
+  src/SimulationCheckpoint.cpp
+  src/SimulationBoundary.cpp
   src/Parallel.cpp
   src/OpenPMDWriter.cpp
   src/Laser.cpp
