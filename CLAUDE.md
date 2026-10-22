@@ -13,7 +13,8 @@ Development rules for Claude sessions working on QUARZ. README.md is the user do
 - **At every milestone** (a feature works, a bug is fixed, validation passes): commit with a
   descriptive message and push (`git push origin main`); update the private notes in the same turn.
 - Never report a feature as done without running the relevant validation section.
-- This repository is PUBLIC: no unpublished results, collaborator data or plans here.
+- This repository is PUBLIC: no unpublished results, collaborator data or plans here. Unsubmitted
+  papers that are not directly about the code go to the private repository CLAUDE-notes.
 
 ## Project
 **Name:** QUARZ = Quasistatic Arbitrary-resolution RZ code (formerly QSRZ), nickname "Q".
