@@ -6,7 +6,9 @@ user documentation (physics, numerics, inputs, outputs, validation); this file i
 working state and the rules for developing.
 
 ## Workflow rules
-- **Start of a session:** read this file, then `git status` and `git log --oneline | head`.
+- **Start of a session:** read this file and `docs/claude/handbook.md` (how the work with Alexander
+  runs, decisions and their reasons, traps), then `git status` and `git log --oneline | head`.
+  Fresh container: `tools/dev/setup_container.sh` rebuilds Kokkos, openPMD-api and QUARZ.
   Uncommitted changes = an earlier session was interrupted: inspect them (`git diff`) and
   verify before building on them; tell Alexander what was found.
 - **At every milestone** (a feature works, a bug is fixed, validation passes): commit with a
