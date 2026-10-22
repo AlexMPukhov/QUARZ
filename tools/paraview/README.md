@@ -16,6 +16,10 @@ teach it the rectilinear (non-uniform) meshes of the openPMD 2.0 proposal
     representation to *Surface* and the colouring from *Solid Color* to a field (e.g. `E`, component Z,
     or `n_e`); for the r–z map apply *Filters → Slice* with normal Y (plane θ = 0, π). The plugin asks
     for *Surface* by default (a representation hint; not yet confirmed in every ParaView version).
+  - **Tested** in the ParaView 6.0.1 GUI with QUARZ native output (`output.openpmd_grid = native`):
+    the fields appear on the non-uniform grid, `E` loads as a vector, |E| shows the wake. A new *Slice*
+    is placed at the centre of the data bounds, which can be off the axis: set its origin to x = 0 (or use
+    a Y-normal slice at y = 0) for on-axis cuts; for line-outs use *Plot Over Line* along the axis.
   - Cartesian meshes with explicit coordinates become `vtkRectilinearGrid`s.
   - thetaMode meshes (also the interim marking `geometry = other`, `geometryParameters = thetaMode;…`)
     become a 3D `vtkStructuredGrid` on the true radial and longitudinal nodes; the property *Thetas* sets
@@ -37,4 +41,4 @@ teach it the rectilinear (non-uniform) meshes of the openPMD 2.0 proposal
   installed. Results (2026-10-18, VTK 9.7.1): coordinates and values to round-off for QUARZ native output
   (m = 0 and m = 1), the synthetic files, with released openPMD-api + h5py and with openPMD-api with
   coordinate data sets (h5py blocked); regular files unchanged; piece requests (parallel reading) give
-  consistent coordinate slices. Not yet tried in the ParaView GUI.
+  consistent coordinate slices. GUI test (ParaView 6.0.1, 2026-10-19): works, see above.
