@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..22 (default: all)
+#   sections   numbers 1..23 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 22)}
+SECTIONS=${*:-$(seq 1 23)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -527,6 +527,43 @@ sec22() {
     fi
     unset OMP_NUM_THREADS
     rm -rf out_delta*
+}
+
+sec23() {
+    echo "== 23. electron-impact ionization by plasma electrons (<species>.ionization.electron_impact) =="
+    local E="eimpact.in xe.ppc=$(q 64 16) xe.ionization.born_dump=0"
+    echo " (a) dilute gas in mono-energetic electrons (u_z = +-u): ionized fraction vs 1 - exp(-n sigma v xi), Lotz formula"
+    echo "     implemented independently in Python:"
+    local u
+    for u in 0.010836 0.0198 0.06259; do
+        $QS $E ea.u_drift="0 0 $u" eb.u_drift="0 0 -$u" output.dir=out_eimp_$u > /dev/null
+        python3 eimpact_check.py rate out_eimp_$u 1e16 $u 0.0005 0.0005 Xe:1e-4:0
+    done
+    $QS $E xe.z0=1 output.dir=out_eimp_z1 > /dev/null
+    echo " (b) Xe+ -> Xe2+ (high-charge Lotz form, 5p^5):"
+    python3 eimpact_check.py rate out_eimp_z1 1e16 0.0198 0.0005 0.0005 Xe:1e-4:1
+    $QS $E xe.eimpact.table_0=eimpact_table.txt output.dir=out_eimp_tab > /dev/null
+    echo " (c) cross-section table (eimpact_table.txt):"
+    python3 eimpact_check.py rate out_eimp_tab 1e16 0.0198 0.0005 0.0005 Xe:1e-4:0:eimpact_table.txt
+    $QS eimpact.in xe.density=1 ea.density=1e-5 eb.density=1e-5 xe.ionization.nsplit=$(q 10000000 2000000) sec.tail_dump=1 \
+        output.dir=out_eimp_loss > /dev/null
+    echo " (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons: energy loss vs RK4 of dE/dxi = -n sigma (Ip + <W>) |u|/Delta,"
+    echo "     energy lost by all electrons vs sum of (Ip + W) over the electron-impact births:"
+    python3 eimpact_check.py loss out_eimp_loss 1e16 0.0198 Xe:1:0 ea eb
+    export OMP_NUM_THREADS=1
+    local M="eimpact.in xe.density=1 ea.density=1e-5 eb.density=1e-5 xe.ionization.nsplit=1000000 xe.ionization.born_dump=0"
+    M="$M ea.tail_dump=0 eb.tail_dump=0 xi.max=200 time.steps=4 output.every=2"
+    $QS $M checkpoint.every=2 checkpoint.keep=0 checkpoint.dir=out_eimp_chk output.dir=out_eimp_A > /dev/null
+    $QS $M restart.from=out_eimp_chk/chk_000002 output.dir=out_eimp_B > /dev/null
+    echo " (e) restart (expected: bit-identical):"
+    python3 restart_check.py out_eimp_A out_eimp_B 0 || true
+    if [ -n "$MPIRUN" ]; then
+        $MPIRUN 2 $QS $M output.dir=out_eimp_P > /dev/null
+        echo " 2 ranks vs serial (expected: bit-identical):"
+        python3 cmp_runs.py out_eimp_A out_eimp_P 1e-14 || true
+    fi
+    unset OMP_NUM_THREADS
+    rm -rf out_eimp*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

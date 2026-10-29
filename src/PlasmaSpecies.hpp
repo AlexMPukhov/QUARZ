@@ -69,7 +69,16 @@ public:
     void set_laser(Real k0, bool circular) { ion_.P.laser = true; ion_.P.k0 = k0; ion_.P.circular = circular; }
     // slice kl (global k) of time step `step`: ionization with the fields f of the slice, beam impact
     // sources imp(kl, node, 3) (empty: none); new electrons are appended to `prod`
-    IonizeResult ionize(const SliceFields& f, const View3D& imp, int kl, Real dxi, int k, int step, PlasmaSpecies& prod);
+    IonizeResult ionize(const SliceFields& f, const View3D& imp, int kl, Real dxi, int k, int step, PlasmaSpecies& prod,
+                        const View3D& eimp = View3D(), const EITargets& eit = EITargets());
+    // electron-impact ionization (Ionization.hpp): projectile electrons deposit their rates per target and
+    // energy bin; ionizable species deposit the density of every target level; projectiles lose energy
+    void deposit_eimpact(const View3D& eimp, const EITargets& eit) const;
+    void deposit_targets(const View2D& ntg) const;
+    void eloss(const View2D& ntg, const EITargets& eit, Real h);
+    IonSpeciesInfo& ion_info_mut() { return ion_; }
+    bool tail_dump() const { return tail_dump_; }
+    void write_state(const std::string& fn) const;   // x y px py Delta w of the live particles (text)
     // <name>.ionization.born_dump: electrons born in this sweep, 8 numbers each (see ionize)
     std::vector<double>& born_records() { return born_rec_; }
     // charge density sum z w (gamma/Delta) / V of the ions (m = 0) -> out(kl, node, comp)
@@ -118,6 +127,8 @@ private:
     int ppc_ = 4;
     int ntheta_ = 1;
     Parser uth_;          // thermal momentum spread uth(x,y,z) (m_s c), isotropic
+    double udrift_[3] = {0, 0, 0};   // <name>.u_drift: momentum added at loading (tests)
+    bool tail_dump_ = false;         // <name>.tail_dump: write the particles at the end of the box
     Real delta_min_ = 1e-3;
     Real max_qsa_ = 35;   // particles with gamma/Delta = 1/(1 - v_z) above this are removed (trapped)
     Real density_factor_ = 1;

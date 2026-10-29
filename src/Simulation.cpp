@@ -163,6 +163,21 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
     diag_base_ = m1_ ? int(D_NC1) : int(D_NC0);
     diag = View3D("diag", KL, M, diag_base_ + static_cast<int>(ion_sp_.size()));
     if (any_impact) imp_ = View3D("impact", KL, M, any_delta ? 5 : 3);   // delta electrons: + W_max, kappa sums
+    {   // electron-impact ionization by the plasma electrons
+        std::vector<IonSpeciesInfo*> ions;
+        for (int s : ion_sp_) ions.push_back(&species_[s]->ion_info_mut());
+        eit_ = make_ei_targets(ions, cfg.get_double("units.n0_cm3", 0.0));
+        if (eit_.T > 0) {
+            eimp_ = View3D("eimp", eit_.T, 2 * EI_NB, M);
+            ntg_ = View2D("ei.targets", eit_.T, M);
+            for (size_t s = 0; s < species_.size(); ++s) {
+                const auto& sp = *species_[s];
+                if (sp.mobile() && !sp.ionizable() && sp.charge() == -1 && sp.mass() == 1 &&
+                    cfg.get_bool(sp.name() + ".electron_impact_projectile", true))
+                    ei_proj_.push_back(static_cast<int>(s));
+            }
+        }
+    }
     bguard = View2D("bguard", M, B_NC1);
 
     if (comm_.root()) {
@@ -682,12 +697,20 @@ void Simulation::step_fields(const std::vector<double>& msg, size_t& off) {
         combine_sources(kl);
         solve_slice_fields();
         store_slice(kl);
+        if (eit_.T > 0) {   // electron impact: rates of the projectile electrons of this slice
+            Kokkos::deep_copy(eimp_, 0.0);
+            for (int s : ei_proj_) species_[s]->deposit_eimpact(eimp_, eit_);
+        }
         for (size_t s = 0; s < ion_sp_.size(); ++s) {   // ionization with the fields of this slice
             PlasmaSpecies& ion = *species_[ion_sp_[s]];
-            const IonizeResult r = ion.ionize(fld_, imp_, kl, dxi, k, step_, *species_[ion_prod_[s]]);
+            const IonizeResult r = ion.ionize(fld_, imp_, kl, dxi, k, step_, *species_[ion_prod_[s]], eimp_, eit_);
             ion_acc_[s][0] += r.born_w;
             ion_acc_[s][1] += r.born_wp2;
             ion.deposit_charge_state(diag, kl, diag_base_ + static_cast<int>(s));
+        }
+        if (eit_.T > 0) {   // electron impact: densities of the target levels for the energy loss of the projectiles
+            Kokkos::deep_copy(ntg_, 0.0);
+            for (int s : ion_sp_) species_[s]->deposit_targets(ntg_);
         }
         if (k < K - 1 || !bwrite_path_.empty()) {   // the last local push produces the state entering the next rank
             // (and, with boundary.write, the state leaving the box)
@@ -708,13 +731,21 @@ void Simulation::step_fields(const std::vector<double>& msg, size_t& off) {
                 }
                 for (auto& sp : species_)
                     if (sp->mobile()) sp->push(fld_, h);
+                for (int s : ei_proj_) species_[s]->eloss(ntg_, eit_, h);
             }
             nsub_step_ += nsub - 1;
         }
     }
     if (laser_) laser_->end_sweep();
-    if (k0 + KL == K)   // the last rank: plasma state at the end of the box
+    if (k0 + KL == K) {   // the last rank: plasma state at the end of the box
         for (size_t s = 0; s < ion_sp_.size(); ++s) species_[ion_sp_[s]]->charge_sums(ion_acc_[s][2], ion_acc_[s][3]);
+        for (auto& sp : species_)
+            if (sp->tail_dump()) {
+                char st[16];
+                std::snprintf(st, sizeof(st), "%06d", step_);
+                sp->write_state(outdir_ + "/tail_" + sp->name() + "_" + st + ".txt");
+            }
+    }
     Kokkos::fence();
 }
 

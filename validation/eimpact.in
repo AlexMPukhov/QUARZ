@@ -1,0 +1,34 @@
+# electron-impact ionization: dilute Xe atoms (or ions with xe.z0) in a uniform, mono-energetic
+# electron population (two counter-streaming species with u_z = +-u: no net current); no beam, no fields
+# to speak of. Set the electron energy with ea.u_drift = 0 0 u, eb.u_drift = 0 0 -u.
+units.n0_cm3 = 1e16
+grid.type = uniform
+grid.rmax = 2
+grid.dr = 0.05
+xi.min = 0
+xi.max = 1000
+xi.step = 1
+time.dt = 1
+time.steps = 0
+plasma.species = ea eb sec xe
+ea.density = 0.0005
+eb.density = 0.0005
+ea.ppc = 4
+eb.ppc = 4
+ea.u_drift = 0 0 0.0198
+eb.u_drift = 0 0 -0.0198
+ea.tail_dump = 1
+eb.tail_dump = 1
+sec.ppc = 0
+xe.element = Xe
+xe.density = 1e-4
+xe.ppc = 16
+xe.mobile = 0
+xe.ionization.field = 0
+xe.ionization.nsplit = 100000
+xe.ionization.electron_impact = 1
+xe.ionization.product = sec
+xe.ionization.born_dump = 1
+plasma.neutralize = 1
+output.dir = out_eimp
+output.every = 1

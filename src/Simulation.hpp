@@ -161,6 +161,10 @@ private:
     // ---- ionization
     std::vector<int> ion_sp_, ion_prod_;     // ionizable species and their electron product species (indices)
     View3D imp_;                             // (local xi, r, 3): beam impact-ionization sources
+    EITargets eit_;                          // electron-impact ionization: targets (species, level)
+    View3D eimp_;                            //   (target, 2 x energy bin, r): rates of the projectiles, this slice
+    View2D ntg_;                             //   (target, r): densities of the target levels, this slice
+    std::vector<int> ei_proj_;               //   projectile species (mobile electrons)
     int diag_base_ = 0;                      // first diag component of the ion charge densities
     int step_ = 0;
     std::ofstream ionlog_;

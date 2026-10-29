@@ -440,8 +440,30 @@ an initially empty species). Three channels:
     measured N_T/N_P needs ≈ 76 eV), Kr 85 → 101 eV (≈ 119), Xe 78 → 112 eV (≈ 133; 117 eV with the
     vacancy energy). `impact.inner_shells = 0` turns it off; other gases: `impact.inner_shells_eV`
     and `impact.inner_shells_n` (lists);
-  - not yet included: ionization by the slow delta electrons (plasma electrons do not ionize) and the
-    energy loss of the projectile (Ip + W);
+  - not yet included: the energy loss of the beam projectile (Ip + W).
+- **Electron-impact ionization by the plasma electrons** (`<name>.ionization.electron_impact = 1`, off
+  by default; cascades): every level z → z+1 of the species, by all mobile electron species
+  (`<electrons>.electron_impact_projectile = 0` excludes one):
+  - cross-section of Lotz (Z. Phys. 206, 205 (1967)):
+    σ = a {1 − b exp[−c(E/P₁ − 1)]} Σᵢ qᵢ ln(E/Pᵢ)/(E Pᵢ), E ≥ Pᵢ, with his fits to the measured
+    cross-sections for the neutral atoms H, He, Li, N, O, Ne, Ar, Kr, Rb, Xe, Cs and for He⁺, Li⁺,
+    N⁺, Ne⁺ (Xe: subshells 5p⁶, 5s², 4d¹⁰; σ = 4.9·10⁻¹⁶ cm² at 30 and 100 eV, 1.2·10⁻¹⁶ cm² at
+    1 keV); for the other ions his high-charge form a = 4.5·10⁻¹⁴ cm² eV², b = c = 0 with the
+    outermost subshell (P₁ = Ip, q₁ its electrons from the configuration; Lotz: ±30–40 %). Own
+    data: `<name>.eimpact.table_<z>` = file with lines `E_eV sigma_cm2` (linear interpolation,
+    ∝ ln(E/Ip)/E beyond the last point); custom gases: `<name>.eimpact.q` (outermost electrons per
+    level);
+  - rate of an atom at rest in the quasi-static slice: R = Σ_e n_e σ(E_e) v_e = Σ_e w_e |u_e|/Δ_e
+    σ(E_e)/V. The electrons deposit it per target level, binned in E/Ip (factors of 2), with the
+    rate-weighted energy of each bin; the ionization uses it like the beam impact rate (P = 1 −
+    exp(−W dt − (R_beam + R_e) dξ)), picks the projectile energy E (bin ∝ rate) and gives the new
+    electron W from dσ/dW ∝ 1/(J² + W²) on [0, (E − Ip)/2], isotropic (J of the gas, scaled with
+    Ip for the ions);
+  - the projectiles lose their expected energy n σ(E) (Ip + ⟨W⟩(E)) per unit path, at fixed
+    direction, after every push (continuous slowing down: energy conserved on average, straggling
+    not modelled);
+  - not yet included: excitation (energy loss without ionization: the cascade overproduces ions
+    until it is added), elastic and Coulomb collisions, recombination.
   - `<name>.ionization.born_dump = 1` writes the electrons born in every sweep to
     `born_<name>_<step>.txt` (slice, x, y, p_x, p_y, Δ, w, impact-born flag; MPI: one file per rank).
 
@@ -815,6 +837,8 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `<species>.ppc` | 4 | rings per radial cell. Fine cells automatically get more rings per unit volume. 0 = initially empty (mobile species, e.g. to receive ionization electrons). |
 | `<species>.ntheta` | 1 (modes=0), 8 (modes=1) | particles per ring, at equidistant azimuths (≥ 4 with modes = 1) |
 | `<species>.uth` or `<species>.uth(x,y,z)` | 0 | isotropic thermal momentum spread (m_s c): a number or a function of position (z = lab position). With `modes = 0`, the rms over the ring is used. |
+| `<species>.u_drift` | 0 0 0 | momentum (m_s c) added at loading (tests, e.g. mono-energetic electrons); the stream density is `density`, the lab density density·γ/Δ |
+| `<species>.tail_dump` | 0 | 1 = write the particles at the end of the box to `tail_<species>_<step>.txt` (x y p_x p_y Δ w; last rank) |
 | `<species>.density` | 1 | density multiplier relative to the profile (e.g. 1/Z for ions) |
 
 **Laser** (envelope model; switched on by `laser.a0`)
@@ -874,7 +898,11 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.impact.secondary_angle` | `kinematic` | `kinematic` (binary collision) or `isotropic` |
 | `<species>.impact.inner_shells` | 1 | free-electron tail of the inner subshells (built in: Kr n = 1, 2; Xe n = 1–3) |
 | `<species>.impact.inner_shells_eV`, `.inner_shells_n` | — | own subshells: binding energies (eV) and electron numbers (lists) |
-| `<species>.ionization.born_dump` | 0 | 1 = write the electrons born in every sweep to `born_<species>_<step>.txt` |
+| `<species>.ionization.born_dump` | 0 | 1 = write the electrons born in every sweep to `born_<species>_<step>.txt` (last column: 0 field, 1 beam impact, 2 electron impact) |
+| `<species>.ionization.electron_impact` | 0 | 1 = ionization of all levels by the plasma electrons (§1) |
+| `<species>.eimpact.table_<z>` | Lotz (§1) | file `E_eV sigma_cm2` for the transition z → z+1 |
+| `<species>.eimpact.q` | from the configuration | custom gases: electrons in the outermost subshell, one number per level |
+| `<electrons>.electron_impact_projectile` | 1 | 0 = this electron species does not ionize |
 | `<species>.ionization.nsplit` | 1 | > 1: split the first ionization into quanta of w₀/nsplit. Use it when the ionized fraction is small; choose nsplit ≳ 1/P_total. The particle count grows up to nsplit-fold where the gas is fully ionized. |
 
 The `<species>.density` of an ionizable species is the atom density. Neutral gas does not
@@ -1253,6 +1281,7 @@ and analytic beam densities.
 | Impact ionization of Ar by a rigid 400 GeV proton beam (σ = 1.59·10⁻¹⁸ cm²), `nsplit = 2000` | ionized fraction vs 1 − exp(−σ n₀ k_p⁻¹ β ∫n_b dξ) in radial bands along the beam: within 1–3 %. Total at the end of the box: +0.9 %. |
 | Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). |
 | Delta electrons (section 22): dilute Xe, rigid beam, `ionization.born_dump` | energy spectrum of the impact-born electrons vs the model (independent Python: OPB part atan(W/J)/atan(W_max/J) plus the free-electron tails of the Xe n = 1–3 subshells): Kolmogorov-Smirnov p = 0.57 (protons, γ = 3.39, 66 000 electrons; fraction with W > 1 keV 0.00737 vs 0.00735 ± 0.00033, without the inner shells it would be 0.0055); artificial subshells with 9 % of the rate: p = 0.13; electrons at γ = 20 with J = 2 MeV (the cut-off W_max = (γ − 1)mc²/2 is reached): p = 0.75. Binary-collision angle cos θ = κ√(W/(W+2)) to 3·10⁻¹³; isotropic option: p = 0.13, ⟨cos θ⟩ = 0.003. 400 GeV protons with J = 5.11 MeV: of 121 554 electrons 22 138 are born beyond γ/Δ = 35 and 22 137 become beam particles (the conversion tests the state after the first push; 54 are born within 0.1 % of the threshold). The ion charge density is bit-identical with and without delta electrons; with the fast deltas ionizing as beam electrons, restart and 2 ranks are bit-identical. The same kernel on an RTX 5090 (CUDA 13) gives the same samples. |
+| Electron-impact ionization (section 23): dilute Xe in mono-energetic electrons (two counter-streaming species, no fields) | ionized fraction along ξ vs 1 − exp(−n_e σ v ξ) with Lotz's formula implemented independently in Python: 30 eV, 100 eV, 1 keV and Xe⁺ → Xe²⁺ within 0.5 % (Monte Carlo noise; three seeds at 100 eV: −0.5, −0.5, −0.02 %); a σ(E) table: 0.5 %. Dense Xe (10¹⁶ cm⁻³), dilute 100 eV electrons: energy loss 11.52 and 11.09 eV for u_z = ±0.0198 vs RK4 of dE/dξ = −nσ(Ip + ⟨W⟩)|u|/Δ to 3·10⁻⁵; energy lost by all electrons / Σ(Ip + W) over 66 728 births = 0.9956 (Monte Carlo error 0.004). Restart, 2 and 3 ranks bit-identical. |
 | MPI 2, 3 ranks vs serial, with laser ionization of N (LWFA example + 1 % N, `nsplit = 4`) and with impact ionization (proton bunch in Ar) | all outputs incl. `ionization.txt` bit-identical |
 | MPI 2, 3 ranks vs serial, `modes = 1`, field ionization of H/He (8 particles per ring) by an offset driver | bit-identical |
 | All earlier validation sections | unchanged |

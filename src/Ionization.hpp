@@ -89,11 +89,71 @@ struct IonParams {
     Real shB[ION_MAX_SHELLS] = {};        //     binding energies, m c^2
     Real shP[ION_MAX_SHELLS] = {};        //     cumulative probabilities ~ n_i / B_i
     Real s_in = 0;                        //     inner-shell rate = s_in N2
+    bool eimp = false;                    // electron-impact ionization by the plasma electrons (all levels)
+    int et0 = 0;                          //   index of level z0 in the electron-impact target table
     bool laser = false, circular = false; // laser envelope present, its polarisation
     Real k0 = 0;                          // omega0 / omega_p
 };
 
 // ---------------------------------------------------------------------------- device helpers
+
+// ---- electron-impact ionization by plasma electrons (<name>.ionization.electron_impact)
+// Targets t = (ionizable species, level z -> z+1).  Cross-section: Lotz, Z. Phys. 206, 205 (1967),
+//   sigma = a {1 - b exp[-c (E/P_1 - 1)]} sum_i q_i ln(E/P_i)/(E P_i),   E >= P_i,
+// with the experimentally fitted a, b, c and subshells of his Table 1 for the neutral atoms (and He+,
+// Ne+, Li+, N+), else Lotz's high-charge form a = 4.5e-14 cm^2 eV^2, b = c = 0 with the outermost
+// subshell of the ion (P_1 = Ip(z), q_1 its electrons), or a table sigma(E) (<name>.eimpact.table_<z>).
+// Rate per slice of an atom at rest: R = sum_e n_e sigma(E_e) v_e = sum_e w W/V |u|/Delta sigma(E_e): the
+// electrons deposit it per target, binned in E/Ip (bins [2^b, 2^(b+1)) Ip, b = 0 .. EI_NB-1, the last one
+// open) together with sum r E, so that the ionization can pick the projectile energy (bin ~ rate, rate-
+// weighted mean energy of the bin) for the ejected electron: W from dsigma/dW ~ 1/(J^2 + W^2) on
+// [0, (E - Ip)/2], isotropic.  The projectiles lose their expected energy n_t sigma_t (Ip + <W>) per unit
+// path (continuous slowing down; energy conserved on average).
+constexpr int EI_NB = 12;
+constexpr Real EI_ME_EV = 510998.95;
+// par columns: 0 Ip (eV), 1 nsub, 2-4 P_i (eV), 5-7 q_i, 8 a (1e-14 cm^2 eV^2), 9 b, 10 c, 11 J (eV),
+//              12 table offset, 13 table length (0: Lotz)
+constexpr int EI_NPAR = 14;
+struct EITargets {
+    int T = 0;
+    View2D par;          // T x EI_NPAR
+    View1D tabE, tabS;   // concatenated tables: E (eV), sigma (cm^2)
+    Real norm = 0;       // n0 [cm^-3] k_p^-1 [cm]: sigma (cm^2) -> rate per unit normalised density and length
+};
+
+KOKKOS_INLINE_FUNCTION Real ei_sigma(const EITargets& T, int t, Real E) {   // E in eV, sigma in cm^2
+    const Real Ip = T.par(t, 0);
+    if (!(E > Ip)) return Real(0);
+    const int nt = static_cast<int>(T.par(t, 13));
+    if (nt > 0) {
+        const int o = static_cast<int>(T.par(t, 12));
+        if (E <= T.tabE(o)) return Real(0);
+        if (E >= T.tabE(o + nt - 1)) {   // beyond the table: ~ ln(E/Ip)/E
+            const Real El = T.tabE(o + nt - 1);
+            return T.tabS(o + nt - 1) * (Kokkos::log(E / Ip) / E) / (Kokkos::log(El / Ip) / El);
+        }
+        int lo = o, hi = o + nt - 1;
+        while (hi - lo > 1) { const int m = (lo + hi) / 2; if (T.tabE(m) <= E) lo = m; else hi = m; }
+        const Real f = (E - T.tabE(lo)) / (T.tabE(hi) - T.tabE(lo));
+        return T.tabS(lo) + f * (T.tabS(hi) - T.tabS(lo));
+    }
+    const int ns = static_cast<int>(T.par(t, 1));
+    Real s = 0;
+    for (int i = 0; i < ns; ++i) {
+        const Real P = T.par(t, 2 + i);
+        if (E > P) s += T.par(t, 5 + i) * Kokkos::log(E / P) / (E * P);
+    }
+    return Real(1e-14) * T.par(t, 8) * (Real(1) - T.par(t, 9) * Kokkos::exp(-T.par(t, 10) * (E / Ip - Real(1)))) * s;
+}
+
+// mean energy of the ejected electron (eV) for a projectile of energy E (eV): W_max = (E - Ip)/2
+KOKKOS_INLINE_FUNCTION Real ei_mean_w(const EITargets& T, int t, Real E) {
+    const Real Ip = T.par(t, 0), J = T.par(t, 11);
+    const Real wm = Real(0.5) * (E - Ip);
+    if (!(wm > Real(0))) return Real(0);
+    const Real x = wm / J;
+    return J * Kokkos::log1p(x * x) / (Real(2) * Kokkos::atan(x));
+}
 KOKKOS_INLINE_FUNCTION uint64_t ion_mix(uint64_t z) {   // splitmix64 finaliser
     z += 0x9e3779b97f4a7c15ULL;
     z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
@@ -206,6 +266,9 @@ struct IonSpeciesInfo {
     double J_eV = 0;              // delta electrons: width of the energy spectrum
     std::vector<std::pair<double, int>> shells;   // inner subshells: binding energy (eV), electrons
     bool born_dump = false;       // <name>.ionization.born_dump: write the new electrons of every sweep
+    // electron impact: per level z0 .. zmax-1 the parameters of EITargets::par (host) and the table
+    std::vector<std::vector<double>> ei_par;
+    std::vector<std::vector<double>> ei_tabE, ei_tabS;
     std::string description() const;
 };
 
@@ -215,6 +278,8 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
 bool is_ionizable(const Config& cfg, const std::string& name);
 // true if an ionizable species with delta electrons (impact.secondary_energy) sends its electrons to <name>
 bool receives_delta_electrons(const Config& cfg, const std::string& name);
+// the device target table of all species with electron-impact ionization (sets P.et0 of each)
+EITargets make_ei_targets(std::vector<IonSpeciesInfo*>& ions, double n0_cm3);
 
 // impact cross-section (cm^2) of a beam particle with charge z, Lorentz factor gamma (for the log)
 double impact_sigma_cm2(const IonSpeciesInfo& I, double z, double gamma);

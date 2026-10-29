@@ -262,3 +262,29 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   beamlog  max rel diff 0.00e+00  (beams.txt col 1)
   dumps    max rel diff 0.00e+00  (beam_b_000000.bin:x)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 23. electron-impact ionization by plasma electrons (<species>.ionization.electron_impact) ==
+ (a) dilute gas in mono-energetic electrons (u_z = +-u): ionized fraction vs 1 - exp(-n sigma v xi), Lotz formula
+     implemented independently in Python:
+  E = 30.00 eV, sigma(Xe -> +1) = 4.9397e-16 cm^2;  electron density (lab) code 9.99881e+12, expected 1.00012e+13 cm^-3
+  ionized fraction code / expected:  xi = 250: 7.1330e-05 / 7.1397e-05   xi = 500: 1.4326e-04 / 1.4250e-04   xi = 1000: 2.8469e-04 / 2.8470e-04   (max rel. diff 5.3e-03)
+  E = 100.16 eV, sigma(Xe -> +1) = 4.8809e-16 cm^2;  electron density (lab) code 9.99454e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = 250: 1.2830e-04 / 1.2892e-04   xi = 500: 2.5833e-04 / 2.5731e-04   xi = 1000: 5.1536e-04 / 5.1405e-04   (max rel. diff 4.8e-03)
+  E = 999.94 eV, sigma(Xe -> +1) = 1.1628e-16 cm^2;  electron density (lab) code 9.94270e+12, expected 1.00392e+13 cm^-3
+  ionized fraction code / expected:  xi = 250: 9.7039e-05 / 9.7260e-05   xi = 500: 1.9407e-04 / 1.9412e-04   xi = 1000: 3.8728e-04 / 3.8782e-04   (max rel. diff 2.3e-03)
+ (b) Xe+ -> Xe2+ (high-charge Lotz form, 5p^5):
+  E = 100.16 eV, sigma(Xe+ -> +1) = 1.6745e-16 cm^2;  electron density (lab) code 9.99437e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = 250: 4.4103e-05 / 4.4230e-05   xi = 500: 8.8753e-05 / 8.8282e-05   xi = 1000: 1.7628e-04 / 1.7638e-04   (max rel. diff 5.3e-03)
+ (c) cross-section table (eimpact_table.txt):
+  E = 100.16 eV, sigma(Xe -> +1) = 4.9988e-16 cm^2 (table);  electron density (lab) code 9.99455e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = 250: 1.3162e-04 / 1.3204e-04   xi = 500: 2.6477e-04 / 2.6353e-04   xi = 1000: 5.2825e-04 / 5.2646e-04   (max rel. diff 4.7e-03)
+ (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons: energy loss vs RK4 of dE/dxi = -n sigma (Ip + <W>) |u|/Delta,
+     energy lost by all electrons vs sum of (Ip + W) over the electron-impact births:
+  ea (u_z = +0.0198): energy 100.16 eV -> code 88.6397 eV, RK4 88.6400 eV  (loss: code 11.5165, RK4 11.5162, rel. diff +2.9e-05)
+  eb (u_z = -0.0198): energy 100.16 eV -> code 89.0640 eV, RK4 89.0641 eV  (loss: code 11.0922, RK4 11.0921, rel. diff +1.1e-05)
+  energy balance: lost by the electrons 2.88719e-03, given to ionization (Ip + W) 2.89996e-03  (ratio 0.9956; 66728 births, Monte Carlo error ~3.9e-03)
+ (e) restart (expected: bit-identical):
+  6 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 0)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)

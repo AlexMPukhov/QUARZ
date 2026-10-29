@@ -1,8 +1,10 @@
 #include "Ionization.hpp"
 #include "Config.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
 #include <map>
 #include <sstream>
 #include <stdexcept>
@@ -46,6 +48,79 @@ const std::map<std::string, Element>& elements() {
                 {{34561, 2}, {5453, 2}, {5107, 2}, {4786, 4}, {1148.7, 2}, {1002.1, 2}, {940.6, 4}, {689.0, 4}, {676.4, 6}}}},
         {"Cs", {132.905, {3.8939, 23.15744}, 0, 0, 0}},
     };
+    return t;
+}
+// electron-impact ionization: Lotz, Z. Phys. 206, 205 (1967), Table 1 (fits to the measured cross-sections;
+// formula (7): common a, b, c with U = E/P_1); P_1 is replaced by the ionization energy of the table above
+struct LotzFit {
+    std::vector<double> P;
+    std::vector<int> q;
+    double a, b, c;
+};
+const std::map<std::pair<std::string, int>, LotzFit>& lotz_fits() {
+    static const std::map<std::pair<std::string, int>, LotzFit> t = {
+        {{"H", 0}, {{13.6}, {1}, 4.0, 0.60, 0.56}},
+        {{"He", 0}, {{24.6}, {2}, 4.0, 0.75, 0.46}},
+        {{"He", 1}, {{54.4}, {1}, 4.4, 0.38, 0.60}},
+        {{"Li", 0}, {{5.39, 58}, {1, 2}, 4.0, 0.70, 2.4}},
+        {{"Li", 1}, {{75.6}, {2}, 4.0, 0.48, 0.60}},
+        {{"N", 0}, {{14.5, 20.3}, {3, 2}, 3.4, 0.83, 0.22}},
+        {{"N", 1}, {{29.6, 36.7}, {2, 2}, 4.1, 0.46, 0.62}},
+        {{"O", 0}, {{13.6, 28.5}, {4, 2}, 2.8, 0.74, 0.24}},
+        {{"Ne", 0}, {{21.6, 48.5}, {6, 2}, 2.8, 0.92, 0.19}},
+        {{"Ne", 1}, {{41.1, 66.4}, {5, 2}, 3.2, 0.83, 0.48}},
+        {{"Ar", 0}, {{15.8, 29.2}, {6, 2}, 4.0, 0.62, 0.40}},
+        {{"Kr", 0}, {{14.0, 27.5, 93}, {6, 2, 10}, 4.0, 0.71, 0.76}},
+        {{"Rb", 0}, {{4.18, 15.3}, {1, 6}, 4.0, 0, 0}},
+        {{"Xe", 0}, {{12.1, 23.4, 67}, {6, 2, 10}, 4.0, 0.54, 0.64}},
+        {{"Cs", 0}, {{3.89, 12.3}, {1, 6}, 4.0, 0, 0}},
+    };
+    return t;
+}
+const std::map<std::string, int>& atomic_numbers() {
+    static const std::map<std::string, int> t = {{"H", 1}, {"He", 2}, {"Li", 3}, {"C", 6}, {"N", 7}, {"O", 8},
+                                                {"Ne", 10}, {"Ar", 18}, {"Kr", 36}, {"Rb", 37}, {"Xe", 54}, {"Cs", 55}};
+    return t;
+}
+// electrons in the outermost subshell of the ion with charge z: the neutral configuration (Madelung order),
+// then the electrons removed from the subshell with the largest n (then l)
+int outer_subshell_electrons(int Z, int z) {
+    struct Sub { int n, l, cap, occ; };
+    const int ord[][2] = {{1, 0}, {2, 0}, {2, 1}, {3, 0}, {3, 1}, {4, 0}, {3, 2}, {4, 1}, {5, 0}, {4, 2}, {5, 1},
+                          {6, 0}, {4, 3}, {5, 2}, {6, 1}, {7, 0}};
+    std::vector<Sub> s;
+    int left = Z;
+    for (const auto& o : ord) {
+        if (left == 0) break;
+        const int cap = 2 * (2 * o[1] + 1), occ = std::min(cap, left);
+        s.push_back({o[0], o[1], cap, occ});
+        left -= occ;
+    }
+    auto outer = [&]() {
+        int k = -1;
+        for (int i = 0; i < static_cast<int>(s.size()); ++i)
+            if (s[i].occ > 0 && (k < 0 || s[i].n > s[k].n || (s[i].n == s[k].n && s[i].l > s[k].l))) k = i;
+        return k;
+    };
+    for (int r = 0; r < z; ++r) { const int k = outer(); if (k >= 0) --s[k].occ; }
+    const int k = outer();
+    return k >= 0 ? s[k].occ : 0;
+}
+std::vector<std::pair<double, double>> read_table(const std::string& fn) {
+    std::ifstream f(fn);
+    if (!f) throw std::runtime_error("cannot open the cross-section table " + fn);
+    std::vector<std::pair<double, double>> t;
+    std::string line;
+    while (std::getline(f, line)) {
+        const auto h = line.find('#');
+        if (h != std::string::npos) line.erase(h);
+        std::istringstream is(line);
+        double e, s;
+        if (is >> e >> s) t.push_back({e, s});
+    }
+    if (t.size() < 2) throw std::runtime_error(fn + ": need at least two lines 'E_eV sigma_cm2'");
+    for (size_t i = 1; i < t.size(); ++i)
+        if (!(t[i].first > t[i - 1].first)) throw std::runtime_error(fn + ": energies must increase");
     return t;
 }
 constexpr double HARTREE_EV = 27.211386245988;
@@ -182,10 +257,88 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
         P.s_in = 2 * PI * R_E_CM * R_E_CM * ME_C2_EV * tot * n0_cm3 * kp_inv_cm;
     }
     I.born_dump = cfg.get_bool(name + ".ionization.born_dump", false);
+    // electron-impact ionization by the plasma electrons: cross-section parameters of every level
+    P.eimp = cfg.get_bool(name + ".ionization.electron_impact", false);
+    if (P.eimp) {
+        int Z = 0;
+        if (!I.element.empty() && atomic_numbers().count(I.element)) Z = atomic_numbers().at(I.element);
+        const double J0 = cfg.get_double(name + ".impact.J_eV", J > 0 ? J : ip[P.z0]);
+        std::vector<std::string> qlist;
+        if (cfg.has(name + ".eimpact.q")) qlist = cfg.get_list(name + ".eimpact.q");
+        for (int l = P.z0; l < P.zmax; ++l) {
+            std::vector<double> p(EI_NPAR, 0.0);
+            p[0] = ip[l];
+            p[11] = J0 * ip[l] / ip[P.z0];
+            const std::string tk = name + ".eimpact.table_" + std::to_string(l);
+            std::vector<double> te, ts;
+            if (cfg.has(tk)) {
+                for (const auto& v : read_table(cfg.get_string(tk))) { te.push_back(v.first); ts.push_back(v.second); }
+            } else {
+                auto it = lotz_fits().find({I.element, l});
+                if (it != lotz_fits().end() && !cfg.has(name + ".ionization_energies_eV")) {
+                    const LotzFit& L = it->second;
+                    p[1] = static_cast<double>(L.P.size());
+                    for (size_t i = 0; i < L.P.size(); ++i) { p[2 + i] = i == 0 ? ip[l] : L.P[i]; p[5 + i] = L.q[i]; }
+                    p[8] = L.a; p[9] = L.b; p[10] = L.c;
+                } else {
+                    int q = 0;
+                    if (!qlist.empty()) {
+                        if (static_cast<int>(qlist.size()) != P.zmax - P.z0)
+                            throw std::runtime_error(name + ".eimpact.q: one number per level z0 .. z_max-1");
+                        q = std::stoi(qlist[l - P.z0]);
+                    } else if (Z > 0) q = outer_subshell_electrons(Z, l);
+                    else
+                        throw std::runtime_error(name + ".ionization.electron_impact: give " + name + ".eimpact.q (electrons in "
+                                                 "the outermost subshell, per level) or " + tk);
+                    p[1] = 1; p[2] = ip[l]; p[5] = q; p[8] = 4.5;
+                }
+            }
+            I.ei_par.push_back(p);
+            I.ei_tabE.push_back(te);
+            I.ei_tabS.push_back(ts);
+        }
+    }
     I.nsplit = cfg.get_int(name + ".ionization.nsplit", 1);
     if (I.nsplit < 1) throw std::runtime_error(name + ".ionization.nsplit must be >= 1");
     I.product = cfg.get_string(name + ".ionization.product", "electrons");
     return I;
+}
+
+EITargets make_ei_targets(std::vector<IonSpeciesInfo*>& ions, double n0_cm3) {
+    EITargets T;
+    std::vector<double> par, tE, tS;
+    for (IonSpeciesInfo* I : ions) {
+        if (!I->P.eimp) continue;
+        I->P.et0 = T.T;
+        for (size_t l = 0; l < I->ei_par.size(); ++l) {
+            std::vector<double> p = I->ei_par[l];
+            if (!I->ei_tabE[l].empty()) {
+                p[12] = static_cast<double>(tE.size());
+                p[13] = static_cast<double>(I->ei_tabE[l].size());
+                tE.insert(tE.end(), I->ei_tabE[l].begin(), I->ei_tabE[l].end());
+                tS.insert(tS.end(), I->ei_tabS[l].begin(), I->ei_tabS[l].end());
+            }
+            par.insert(par.end(), p.begin(), p.end());
+            ++T.T;
+        }
+    }
+    if (T.T == 0) return T;
+    T.par = View2D("ei.par", T.T, EI_NPAR);
+    auto hp = Kokkos::create_mirror_view(T.par);
+    for (int t = 0; t < T.T; ++t)
+        for (int c = 0; c < EI_NPAR; ++c) hp(t, c) = par[static_cast<size_t>(t) * EI_NPAR + c];
+    Kokkos::deep_copy(T.par, hp);
+    const size_t nt = std::max<size_t>(tE.size(), 1);
+    T.tabE = View1D("ei.tabE", nt);
+    T.tabS = View1D("ei.tabS", nt);
+    auto he = Kokkos::create_mirror_view(T.tabE);
+    auto hs = Kokkos::create_mirror_view(T.tabS);
+    for (size_t i = 0; i < tE.size(); ++i) { he(i) = tE[i]; hs(i) = tS[i]; }
+    Kokkos::deep_copy(T.tabE, he);
+    Kokkos::deep_copy(T.tabS, hs);
+    const double wp = 5.64146e4 * std::sqrt(n0_cm3);
+    T.norm = n0_cm3 * 2.99792458e10 / wp;
+    return T;
 }
 
 double impact_sigma_cm2(const IonSpeciesInfo& I, double z, double gamma) {
@@ -219,6 +372,12 @@ std::string IonSpeciesInfo::description() const {
             o << ", free-electron tail of " << shells.size() << " inner subshells (" << ne << " electrons, B >= "
               << shells.back().first << " eV)";
         }
+    }
+    if (P.eimp) {
+        o << "; electron impact (Lotz";
+        for (size_t l = 0; l < ei_par.size(); ++l)
+            if (!ei_tabE[l].empty()) o << ", table for z = " << P.z0 + l;
+        o << ")";
     }
     o << "; electrons -> '" << product << "'";
     if (nsplit > 1) o << "; first ionization split in " << nsplit << " quanta";
