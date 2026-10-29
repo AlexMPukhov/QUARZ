@@ -642,7 +642,7 @@ void PlasmaSpecies::deposit_eimpact(const View3D& eimp, const EITargets& eit) co
             if (!(sg > Real(0))) continue;
             if (!have) { p = geometry(g, x(i), y(i)); have = true; }
             const Real r = f * sg;
-            int b = static_cast<int>(Kokkos::floor(Kokkos::log2(E / T.par(t, 0))));
+            int b = static_cast<int>(Kokkos::floor(EI_BPO * Kokkos::log2(E / T.par(t, 0))));
             b = b < 0 ? 0 : (b >= EI_NB ? EI_NB - 1 : b);
             for (int cc = 0; cc < 2; ++cc) {
                 const int jj = p.j + cc;
@@ -674,37 +674,91 @@ void PlasmaSpecies::deposit_targets(const View2D& ntg) const {
     });
 }
 
-// expected energy loss of the projectiles over a step h: dE = sum_t n_t sigma_t(E) (Ip_t + <W>_t(E)) |u|/Delta h
-// (continuous slowing down), applied to |u| at fixed direction
-void PlasmaSpecies::eloss(const View2D& ntg, const EITargets& eit, Real h) {
+// energy loss of the projectiles over a step h (time in the slice tau = h gamma/Delta):
+//   continuous: dE = sum_t n_t [sigma_t (Ip_t + <W>_t) + sum_j sigma_j W_j] v tau  (expected loss);
+//   discrete:   collisions drawn one by one with the rate nu = sum n sigma v (null-free: the energy and the rate
+//               are updated after every collision): ionization loses Ip + W, W from 1/(J^2 + W^2) on
+//               [0, (E - Ip)/2] (the ion side makes the ions and the secondary electrons from the rates; both
+//               sides agree on average), excitation of channel j loses W_j.
+// The direction is kept; random numbers keyed on (seed, step, slice, sub-slice, species, particle).
+void PlasmaSpecies::eloss(const View2D& ntg, const EITargets& eit, Real h, bool discrete, int k, int step, int sub) {
     const GridD g = grid_.d;
     auto x = x_; auto y = y_; auto px = px_; auto py = py_; auto dl = dl_; auto w = w_;
     const EITargets T = eit;
     const int NT = eit.T;
     const Real norm = eit.norm;
+    uint64_t nh = 1469598103934665603ULL;
+    for (char c : name_) { nh ^= static_cast<unsigned char>(c); nh *= 1099511628211ULL; }
+    const uint64_t key = ion_mix(seed_ ^ ion_mix(0xE1055ULL + static_cast<uint64_t>(step) ^
+                                 ion_mix(static_cast<uint64_t>(k) * 64 + static_cast<uint64_t>(sub) ^ ion_mix(nh))));
     Kokkos::parallel_for("plasma.eimpact_loss", Range(0, Np_), KOKKOS_LAMBDA(int i) {
         if (w(i) == Real(0)) return;
         const Real PX = px(i), PY = py(i), D = dl(i);
         const Real gam = (Real(1) + PX * PX + PY * PY + D * D) / (Real(2) * D);
-        const Real E = (gam - Real(1)) * EI_ME_EV;
-        Real L = 0;
+        const Real E0 = (gam - Real(1)) * EI_ME_EV;
+        Real E = E0;
         PGeo p;
         bool have = false;
-        for (int t = 0; t < NT; ++t) {
-            const Real sg = ei_sigma(T, t, E);
-            if (!(sg > Real(0))) continue;
-            if (!have) { p = geometry(g, x(i), y(i)); have = true; }
-            const Real n = p.W[0] * ntg(t, p.j) + p.W[1] * ntg(t, p.j + 1);
-            L += n * sg * (T.par(t, 0) + ei_mean_w(T, t, E));
+        const Real tau = h * gam / D;   // time in the slice
+        if (!discrete) {
+            Real L = 0;
+            for (int t = 0; t < NT; ++t) {
+                const Real sg = ei_sigma(T, t, E), sx = ei_exc_loss(T, t, E);   // ionization, excitation
+                if (!(sg > Real(0)) && !(sx > Real(0))) continue;
+                if (!have) { p = geometry(g, x(i), y(i)); have = true; }
+                const Real n = p.W[0] * ntg(t, p.j) + p.W[1] * ntg(t, p.j + 1);
+                L += n * (sg * (T.par(t, 0) + ei_mean_w(T, t, E)) + sx);
+            }
+            if (!(L > Real(0))) return;
+            E = Kokkos::fmax(E - L * norm * Kokkos::sqrt(gam * gam - Real(1)) / gam * tau, Real(0));
+        } else {
+            Real left = tau;
+            const uint64_t ii = static_cast<uint64_t>(i);
+            for (int ev = 0; ev < 256; ++ev) {
+                // total rate nu = sum_t n_t (sigma_ion + sum_j sigma_j) v at the present energy
+                const Real gm = Real(1) + E / EI_ME_EV, v = Kokkos::sqrt(Real(1) - Real(1) / (gm * gm));
+                Real nu = 0;
+                for (int t = 0; t < NT; ++t) {
+                    Real st = ei_sigma(T, t, E);
+                    const int nx = static_cast<int>(T.par(t, 15)), o = static_cast<int>(T.par(t, 14));
+                    for (int j = o; j < o + nx; ++j) st += ei_exc_sigma(T, j, E);
+                    if (!(st > Real(0))) continue;
+                    if (!have) { p = geometry(g, x(i), y(i)); have = true; }
+                    nu += (p.W[0] * ntg(t, p.j) + p.W[1] * ntg(t, p.j + 1)) * st;
+                }
+                nu *= norm * v;
+                if (!(nu > Real(0))) break;
+                const Real s = -Kokkos::log(Real(1) - ion_rand(key, ii, 3 * ev)) / nu;
+                if (s > left) break;
+                left -= s;
+                // which collision
+                Real u = ion_rand(key, ii, 3 * ev + 1) * nu / (norm * v), c = 0, dE = 0;
+                for (int t = 0; t < NT && dE == Real(0); ++t) {
+                    const Real n = p.W[0] * ntg(t, p.j) + p.W[1] * ntg(t, p.j + 1);
+                    const Real si = n * ei_sigma(T, t, E);
+                    if (u < c + si) {
+                        const Real Ip = T.par(t, 0), J = T.par(t, 11), wm = Real(0.5) * (E - Ip);
+                        dE = Ip + J * Kokkos::tan(ion_rand(key, ii, 3 * ev + 2) * Kokkos::atan(wm / J));
+                        break;
+                    }
+                    c += si;
+                    const int nx = static_cast<int>(T.par(t, 15)), o = static_cast<int>(T.par(t, 14));
+                    for (int j = o; j < o + nx; ++j) {
+                        const Real sj = n * ei_exc_sigma(T, j, E);
+                        if (u < c + sj) { dE = T.exc(j, 0); break; }
+                        c += sj;
+                    }
+                }
+                if (dE == Real(0)) break;   // round-off at the end of the list
+                E = Kokkos::fmax(E - dE, Real(0));
+            }
+            if (E == E0) return;
         }
-        if (!(L > Real(0))) return;
-        const Real u = Kokkos::sqrt(gam * gam - Real(1));
-        const Real dE = L * norm * u / D * h;
-        const Real E1 = Kokkos::fmax(E - dE, Real(0)) / EI_ME_EV;
-        const Real u1 = Kokkos::sqrt(E1 * (E1 + Real(2)));
-        const Real k = u1 / u;
+        const Real u0 = Kokkos::sqrt(gam * gam - Real(1));
+        const Real E1 = E / EI_ME_EV;
+        const Real k1 = Kokkos::sqrt(E1 * (E1 + Real(2))) / u0;
         const Real uz = gam - D;
-        const Real qx = PX * k, qy = PY * k, qz = uz * k;
+        const Real qx = PX * k1, qy = PY * k1, qz = uz * k1;
         const Real q2 = Real(1) + qx * qx + qy * qy, g1 = Kokkos::sqrt(q2 + qz * qz);
         px(i) = qx; py(i) = qy; dl(i) = qz > Real(0) ? q2 / (g1 + qz) : g1 - qz;
     });

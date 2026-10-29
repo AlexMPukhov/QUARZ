@@ -266,14 +266,22 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  (c) cross-section table (eimpact_table.txt):
   E = 100.16 eV, sigma(Xe -> +1) = 4.9988e-16 cm^2 (table);  electron density (lab) code 9.99454e+12, expected 1.00039e+13 cm^-3
   ionized fraction code / expected:  xi = 250: 1.2952e-04 / 1.3204e-04   xi = 500: 2.6146e-04 / 2.6353e-04   xi = 1000: 5.2528e-04 / 5.2646e-04   (max rel. diff 1.9e-02)
- (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons: energy loss vs RK4 of dE/dxi = -n sigma (Ip + <W>) |u|/Delta,
-     energy lost by all electrons vs sum of (Ip + W) over the electron-impact births:
-  ea (u_z = +0.0198): energy 100.16 eV -> code 88.6402 eV, RK4 88.6400 eV  (loss: code 11.5160, RK4 11.5162, rel. diff -1.4e-05)
-  eb (u_z = -0.0198): energy 100.16 eV -> code 89.0636 eV, RK4 89.0641 eV  (loss: code 11.0926, RK4 11.0921, rel. diff +4.8e-05)
-  energy balance: lost by the electrons 2.88787e-03, given to ionization (Ip + W) 2.93198e-03  (ratio 0.9850; 13329 births, Monte Carlo error ~8.7e-03)
+ (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons, continuous loss with excitation: energy vs RK4 of
+     dE/dxi = -n [sigma (Ip + <W>) + sum_j sigma_j W_j] |u|/Delta:
+  ea (u_z = +0.0198): energy 100.16 eV -> code 86.3091 +- 0.0000 eV, RK4 86.3090 eV  (loss: code 13.8471, RK4 13.8472, rel. diff -1.2e-05)
+  eb (u_z = -0.0198): energy 100.16 eV -> code 86.8145 +- 0.0000 eV, RK4 86.8151 eV  (loss: code 13.3417, RK4 13.3411, rel. diff +4.4e-05)
+ (d2) discrete collisions (default), no excitation: mean energy vs RK4 (straggling: second order), energy lost by
+     all electrons vs sum of (Ip + W) over the electron-impact births:
+  ea (u_z = +0.0198): energy 100.16 eV -> code 88.8853 +- 0.3334 eV, RK4 88.6400 eV  (loss: code 11.2709, RK4 11.5162, rel. diff -2.1e-02)
+  eb (u_z = -0.0198): energy 100.16 eV -> code 89.1439 +- 0.3239 eV, RK4 89.0641 eV  (loss: code 11.0123, RK4 11.0921, rel. diff -7.2e-03)
+  energy balance: lost by the electrons 2.84568e-03, given to ionization (Ip + W) 2.88040e-03  (ratio 0.9879; 66263 births; Monte Carlo error ~6.8e-02)
  (e) restart (expected: bit-identical):
   6 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
  2 ranks vs serial (expected: bit-identical):
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 0.00e+00  (beams.txt col 0)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 24. 0D electron cascade in Xe: ionization + excitation (W-value) vs an independent event-by-event Monte Carlo ==
+ (a) 100 eV primaries (cascade_mc.py: same cross-sections, discrete collisions; measured W of Xe: 22.0 eV at high energy):
+  E0 = 100.16 eV: W code 25.02 +- 0.26 eV (10336 births, 5120 primaries; energy left above threshold 1.4e-03), independent MC 24.38 +- 0.15 eV  (rel. diff +2.6e-02)
+  E0 = 100.16 eV, no excitation: W code 17.19 +- 0.14 eV (14981 births, 5120 primaries; energy left above threshold 1.8e-02), independent MC 16.80 +- 0.04 eV  (rel. diff +2.3e-02)

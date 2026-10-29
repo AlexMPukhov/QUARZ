@@ -75,7 +75,9 @@ public:
     // energy bin; ionizable species deposit the density of every target level; projectiles lose energy
     void deposit_eimpact(const View3D& eimp, const EITargets& eit) const;
     void deposit_targets(const View2D& ntg) const;
-    void eloss(const View2D& ntg, const EITargets& eit, Real h);
+    // discrete = true: each collision (ionization: Ip + W with W sampled; excitation: W_j) is drawn per
+    // electron (straggling); false: the expected loss (continuous slowing down)
+    void eloss(const View2D& ntg, const EITargets& eit, Real h, bool discrete, int k, int step, int sub);
     IonSpeciesInfo& ion_info_mut() { return ion_; }
     bool tail_dump() const { return tail_dump_; }
     void write_state(const std::string& fn) const;   // x y px py Delta w of the live particles (text)

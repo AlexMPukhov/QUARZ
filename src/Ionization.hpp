@@ -97,6 +97,7 @@ struct IonParams {
 
 // ---------------------------------------------------------------------------- device helpers
 
+constexpr Real EI_ME_EV = 510998.95;
 // ---- electron-impact ionization by plasma electrons (<name>.ionization.electron_impact)
 // Targets t = (ionizable species, level z -> z+1).  Cross-section: Lotz, Z. Phys. 206, 205 (1967),
 //   sigma = a {1 - b exp[-c (E/P_1 - 1)]} sum_i q_i ln(E/P_i)/(E P_i),   E >= P_i,
@@ -104,39 +105,50 @@ struct IonParams {
 // Ne+, Li+, N+), else Lotz's high-charge form a = 4.5e-14 cm^2 eV^2, b = c = 0 with the outermost
 // subshell of the ion (P_1 = Ip(z), q_1 its electrons), or a table sigma(E) (<name>.eimpact.table_<z>).
 // Rate per slice of an atom at rest: R = sum_e n_e sigma(E_e) v_e = sum_e w W/V |u|/Delta sigma(E_e): the
-// electrons deposit it per target, binned in E/Ip (bins [2^b, 2^(b+1)) Ip, b = 0 .. EI_NB-1, the last one
-// open) together with sum r E, so that the ionization can pick the projectile energy (bin ~ rate, rate-
+// electrons deposit it per target, binned in E/Ip (bins [2^(b/4), 2^((b+1)/4)) Ip, b = 0 .. EI_NB-1, the
+// last one open) together with sum r E, so that the ionization can pick the projectile energy (bin ~ rate, rate-
 // weighted mean energy of the bin) for the ejected electron: W from dsigma/dW ~ 1/(J^2 + W^2) on
 // [0, (E - Ip)/2], isotropic.  The projectiles lose their expected energy n_t sigma_t (Ip + <W>) per unit
 // path (continuous slowing down; energy conserved on average).
-constexpr int EI_NB = 12;
-constexpr Real EI_ME_EV = 510998.95;
+// Excitation (<name>.excitation, item C): channels j of a target (neutral atoms) with threshold W_j add
+// n sigma_j(E) W_j to the energy loss per unit path; no other effect (no metastables, no radiation).
+// Built in for Xe: the 13 levels of Puech & Mizzi (J. Phys. B 24, 4689 (1991)) as tabulated by Mukundan &
+// Bhardwaj (arXiv:1604.08449, Table 3), Born-Bethe with a low-energy modifier, x = m c^2 beta^2 (eV):
+//   allowed:   sigma = 8 pi a0^2 R^2 F/(x W) [ln(x/(1 - beta^2)/(2 W)) - beta^2] B,
+//   forbidden: sigma = 8 pi a0^2 R F/x B,     B = [1 - (2W/x)^a]^b / x^c   (a = b = 1);
+// or a table sigma(E) with one excitation energy (<name>.excitation.table, .energy_eV).
+constexpr int EI_BPO = 4;                 // energy bins per octave of E/Ip
+constexpr int EI_NB = 12 * EI_BPO;        // up to 4096 Ip (the last bin is open)
 // par columns: 0 Ip (eV), 1 nsub, 2-4 P_i (eV), 5-7 q_i, 8 a (1e-14 cm^2 eV^2), 9 b, 10 c, 11 J (eV),
-//              12 table offset, 13 table length (0: Lotz)
-constexpr int EI_NPAR = 14;
+//              12 table offset, 13 table length (0: Lotz), 14 first excitation channel, 15 channels
+constexpr int EI_NPAR = 16;
+// excitation channel columns: 0 W (eV), 1 kind (0 allowed, 1 forbidden, 2 table), 2 F (table: offset),
+//                             3 c (table: length), 4 a, 5 b
+constexpr int EX_NPAR = 6;
 struct EITargets {
     int T = 0;
     View2D par;          // T x EI_NPAR
+    View2D exc;          // excitation channels x EX_NPAR
     View1D tabE, tabS;   // concatenated tables: E (eV), sigma (cm^2)
     Real norm = 0;       // n0 [cm^-3] k_p^-1 [cm]: sigma (cm^2) -> rate per unit normalised density and length
 };
+
+KOKKOS_INLINE_FUNCTION Real ei_table(const EITargets& T, int o, int nt, Real E, Real Ip) {   // linear; ~ln(E/Ip)/E beyond
+    if (E <= T.tabE(o)) return Real(0);
+    if (E >= T.tabE(o + nt - 1)) {
+        const Real El = T.tabE(o + nt - 1);
+        return T.tabS(o + nt - 1) * (Kokkos::log(E / Ip) / E) / (Kokkos::log(El / Ip) / El);
+    }
+    int lo = o, hi = o + nt - 1;
+    while (hi - lo > 1) { const int m = (lo + hi) / 2; if (T.tabE(m) <= E) lo = m; else hi = m; }
+    return T.tabS(lo) + (E - T.tabE(lo)) / (T.tabE(hi) - T.tabE(lo)) * (T.tabS(hi) - T.tabS(lo));
+}
 
 KOKKOS_INLINE_FUNCTION Real ei_sigma(const EITargets& T, int t, Real E) {   // E in eV, sigma in cm^2
     const Real Ip = T.par(t, 0);
     if (!(E > Ip)) return Real(0);
     const int nt = static_cast<int>(T.par(t, 13));
-    if (nt > 0) {
-        const int o = static_cast<int>(T.par(t, 12));
-        if (E <= T.tabE(o)) return Real(0);
-        if (E >= T.tabE(o + nt - 1)) {   // beyond the table: ~ ln(E/Ip)/E
-            const Real El = T.tabE(o + nt - 1);
-            return T.tabS(o + nt - 1) * (Kokkos::log(E / Ip) / E) / (Kokkos::log(El / Ip) / El);
-        }
-        int lo = o, hi = o + nt - 1;
-        while (hi - lo > 1) { const int m = (lo + hi) / 2; if (T.tabE(m) <= E) lo = m; else hi = m; }
-        const Real f = (E - T.tabE(lo)) / (T.tabE(hi) - T.tabE(lo));
-        return T.tabS(lo) + f * (T.tabS(hi) - T.tabS(lo));
-    }
+    if (nt > 0) return ei_table(T, static_cast<int>(T.par(t, 12)), nt, E, Ip);
     const int ns = static_cast<int>(T.par(t, 1));
     Real s = 0;
     for (int i = 0; i < ns; ++i) {
@@ -144,6 +156,29 @@ KOKKOS_INLINE_FUNCTION Real ei_sigma(const EITargets& T, int t, Real E) {   // E
         if (E > P) s += T.par(t, 5 + i) * Kokkos::log(E / P) / (E * P);
     }
     return Real(1e-14) * T.par(t, 8) * (Real(1) - T.par(t, 9) * Kokkos::exp(-T.par(t, 10) * (E / Ip - Real(1)))) * s;
+}
+
+// cross-section (cm^2) of excitation channel j at E (eV)
+KOKKOS_INLINE_FUNCTION Real ei_exc_sigma(const EITargets& T, int j, Real E) {
+    const Real W = T.exc(j, 0);
+    if (!(E > W)) return Real(0);
+    const int kind = static_cast<int>(T.exc(j, 1));
+    if (kind == 2) return ei_table(T, static_cast<int>(T.exc(j, 2)), static_cast<int>(T.exc(j, 3)), E, W);
+    const Real g = Real(1) + E / EI_ME_EV, b2 = Real(1) - Real(1) / (g * g), x = EI_ME_EV * b2;
+    constexpr Real A0 = 7.0378e-16, RY = 13.605693;   // 8 pi a0^2 (cm^2), Rydberg (eV)
+    const Real B = Kokkos::pow(Kokkos::fmax(Real(1) - Kokkos::pow(Real(2) * W / x, T.exc(j, 4)), Real(0)), T.exc(j, 5)) /
+                   Kokkos::pow(x, T.exc(j, 3));
+    const Real sg = kind == 0 ? A0 * RY * RY * T.exc(j, 2) / (x * W) * (Kokkos::log(x / (Real(1) - b2) / (Real(2) * W)) - b2) * B
+                              : A0 * RY * T.exc(j, 2) / x * B;
+    return Kokkos::fmax(sg, Real(0));
+}
+
+// excitation energy-loss cross-section sum_j sigma_j(E) W_j (cm^2 eV) of target t, E in eV
+KOKKOS_INLINE_FUNCTION Real ei_exc_loss(const EITargets& T, int t, Real E) {
+    const int n = static_cast<int>(T.par(t, 15)), o = static_cast<int>(T.par(t, 14));
+    Real s = 0;
+    for (int j = o; j < o + n; ++j) s += ei_exc_sigma(T, j, E) * T.exc(j, 0);
+    return s;
 }
 
 // mean energy of the ejected electron (eV) for a projectile of energy E (eV): W_max = (E - Ip)/2
@@ -269,6 +304,8 @@ struct IonSpeciesInfo {
     // electron impact: per level z0 .. zmax-1 the parameters of EITargets::par (host) and the table
     std::vector<std::vector<double>> ei_par;
     std::vector<std::vector<double>> ei_tabE, ei_tabS;
+    std::vector<std::vector<double>> ex_ch;            // excitation channels of level z0 (EX_NPAR each)
+    std::vector<double> ex_tabE, ex_tabS;              // table channel
     std::string description() const;
 };
 

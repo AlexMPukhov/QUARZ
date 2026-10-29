@@ -168,6 +168,10 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         for (int s : ion_sp_) ions.push_back(&species_[s]->ion_info_mut());
         eit_ = make_ei_targets(ions, cfg.get_double("units.n0_cm3", 0.0));
         if (eit_.T > 0) {
+            const std::string el = cfg.get_string("ionization.electron_loss", "discrete");
+            if (el != "discrete" && el != "continuous")
+                throw std::runtime_error("ionization.electron_loss must be discrete or continuous");
+            ei_discrete_ = el == "discrete";
             eimp_ = View3D("eimp", eit_.T, 2 * EI_NB, M);
             ntg_ = View2D("ei.targets", eit_.T, M);
             for (size_t s = 0; s < species_.size(); ++s) {
@@ -731,7 +735,7 @@ void Simulation::step_fields(const std::vector<double>& msg, size_t& off) {
                 }
                 for (auto& sp : species_)
                     if (sp->mobile()) sp->push(fld_, h);
-                for (int s : ei_proj_) species_[s]->eloss(ntg_, eit_, h);
+                for (int s : ei_proj_) species_[s]->eloss(ntg_, eit_, h, ei_discrete_, k, step_, ss);
             }
             nsub_step_ += nsub - 1;
         }

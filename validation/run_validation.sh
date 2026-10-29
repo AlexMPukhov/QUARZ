@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..23 (default: all)
+#   sections   numbers 1..24 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 23)}
+SECTIONS=${*:-$(seq 1 24)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -545,11 +545,15 @@ sec23() {
     $QS $E xe.eimpact.table_0=eimpact_table.txt output.dir=out_eimp_tab > /dev/null
     echo " (c) cross-section table (eimpact_table.txt):"
     python3 eimpact_check.py rate out_eimp_tab 1e16 0.0198 0.0005 0.0005 Xe:1e-4:0:eimpact_table.txt
-    $QS eimpact.in xe.density=1 ea.density=1e-5 eb.density=1e-5 xe.ionization.nsplit=$(q 10000000 2000000) sec.tail_dump=1 \
-        output.dir=out_eimp_loss > /dev/null
-    echo " (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons: energy loss vs RK4 of dE/dxi = -n sigma (Ip + <W>) |u|/Delta,"
-    echo "     energy lost by all electrons vs sum of (Ip + W) over the electron-impact births:"
-    python3 eimpact_check.py loss out_eimp_loss 1e16 0.0198 Xe:1:0 ea eb
+    local L="eimpact.in xe.density=1 ea.density=1e-5 eb.density=1e-5 sec.tail_dump=1"
+    $QS $L xe.ionization.nsplit=$(q 10000000 2000000) ionization.electron_loss=continuous output.dir=out_eimp_loss > /dev/null
+    echo " (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons, continuous loss with excitation: energy vs RK4 of"
+    echo "     dE/dxi = -n [sigma (Ip + <W>) + sum_j sigma_j W_j] |u|/Delta:"
+    python3 eimpact_check.py loss out_eimp_loss 1e16 0.0198 Xe:1:0:exc ea eb 2> /dev/null
+    $QS $L xe.ionization.nsplit=10000000 xe.excitation=0 ea.ppc=$(q 256 64) eb.ppc=$(q 256 64) output.dir=out_eimp_disc > /dev/null
+    echo " (d2) discrete collisions (default), no excitation: mean energy vs RK4 (straggling: second order), energy lost by"
+    echo "     all electrons vs sum of (Ip + W) over the electron-impact births:"
+    python3 eimpact_check.py loss out_eimp_disc 1e16 0.0198 Xe:1:0 ea eb 2> /dev/null
     export OMP_NUM_THREADS=1
     local M="eimpact.in xe.density=1 ea.density=1e-5 eb.density=1e-5 xe.ionization.nsplit=1000000 xe.ionization.born_dump=0"
     M="$M ea.tail_dump=0 eb.tail_dump=0 xi.max=200 time.steps=4 output.every=2"
@@ -564,6 +568,23 @@ sec23() {
     fi
     unset OMP_NUM_THREADS
     rm -rf out_eimp*
+}
+
+sec24() {
+    echo "== 24. 0D electron cascade in Xe: ionization + excitation (W-value) vs an independent event-by-event Monte Carlo =="
+    local C="eimpact.in xe.density=1000 ea.density=1e-6 eb.density=1e-6 ea.ppc=64 eb.ppc=64 xe.ppc=16 xi.step=0.1 sec.tail_dump=1"
+    C="$C xe.ionization.nsplit=2000000000"
+    $QS $C xi.max=300 output.dir=out_casc_100 > /dev/null
+    $QS $C xi.max=300 xe.excitation=0 output.dir=out_casc_100n > /dev/null
+    echo " (a) 100 eV primaries (cascade_mc.py: same cross-sections, discrete collisions; measured W of Xe: 22.0 eV at high energy):"
+    python3 eimpact_check.py cascade out_casc_100 100.16
+    python3 eimpact_check.py cascade out_casc_100n 100.16 noexc
+    if [ "$QUICK" = 0 ]; then
+        $QS $C xi.max=1000 ea.ppc=4 eb.ppc=4 xe.ppc=16 ea.u_drift="0 0 0.06259" eb.u_drift="0 0 -0.06259" output.dir=out_casc_1k > /dev/null
+        echo " (b) 1 keV primaries:"
+        python3 eimpact_check.py cascade out_casc_1k 999.94
+    fi
+    rm -rf out_casc*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

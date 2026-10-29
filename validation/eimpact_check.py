@@ -7,11 +7,16 @@ usage:
       two counter-streaming electron species with u_z = +-u (stream densities density_a, density_b): the lab
       density n (gamma/Delta) of each vs the code's electron density, and the ionized fraction of the dilute
       gas along xi vs 1 - exp(-R xi), R = sum_s n_s,lab sigma(E) v k_p^-1/c.  With a file: sigma(E) table.
-  eimpact_check.py loss DIR n0_cm3 u GAS:density:z0  SPECIES...
-      dense gas, dilute projectiles: the energy of the projectiles at the end of the box vs the integral of
-      dE/dxi = -n sigma(E) (Ip + <W>(E)) |u|/Delta k_p^-1 (RK4), <W> of dsigma/dW ~ 1/(J^2+W^2) on
-      [0, (E - Ip)/2]; and the energy balance: energy lost by all electrons vs sum over the electron-impact
-      births of (Ip + W) (expected: equal within the Monte Carlo noise).
+  eimpact_check.py loss DIR n0_cm3 u GAS:density:z0[:exc]  SPECIES...
+      dense gas, dilute projectiles: the mean energy of the projectiles at the end of the box vs the integral
+      of dE/dxi = -n [sigma(E) (Ip + <W>(E)) + sum_j sigma_j(E) W_j] |u|/Delta k_p^-1 (RK4), <W> of
+      dsigma/dW ~ 1/(J^2+W^2) on [0, (E - Ip)/2], excitation of Xe (cascade_mc.py) with ":exc"; without
+      excitation also the energy balance: energy lost by all electrons vs sum over the electron-impact births of
+      (Ip + W) (expected: equal within the Monte Carlo noise).
+  eimpact_check.py cascade DIR E0_eV [noexc]
+      0D cascade of primaries ea, eb (energy E0) in a dense gas: mean energy per ion pair W = E0 (primary weight)
+      / (weight of the electron-impact births), the energy left above the lowest excitation threshold, vs the
+      independent event-by-event Monte Carlo cascade_mc.py with the same cross-sections.
 """
 import glob
 import os
@@ -96,7 +101,9 @@ elif what == "loss":
     d, n0, u = sys.argv[2], float(sys.argv[3]), float(sys.argv[4])
     g = sys.argv[5].split(":")
     gas, dens, z0 = g[0], float(g[1]), int(g[2])
+    exc = len(g) > 3 and g[3] == "exc"
     proj = sys.argv[6:]
+    from cascade_mc import sig_exc, WTH
     kpi = units(n0)
     f = read_fields(d + "/fields_000000.bin")
     xi = f["xi"]
@@ -107,7 +114,9 @@ elif what == "loss":
         g_ = 1 + E / ME
         uu = np.sqrt(g_ * g_ - 1)
         D = g_ - sgn * uu
-        return -n * sigma(gas, z0, E) * (IP[gas][z0] + mean_w(gas, z0, E)) * uu / D * kpi
+        L = sigma(gas, z0, E) * (IP[gas][z0] + mean_w(gas, z0, E))
+        if exc: L = L + np.array([(sig_exc(e) * WTH).sum() for e in np.atleast_1d(E)])
+        return -n * L * uu / D * kpi
 
     E0 = (np.sqrt(1 + u * u) - 1) * ME
     for sp, sgn in zip(proj, (1, -1)):
@@ -119,10 +128,12 @@ elif what == "loss":
         p2 = t[:, 2] ** 2 + t[:, 3] ** 2
         gm = (1 + p2 + t[:, 4] ** 2) / (2 * t[:, 4])
         Ec = np.average((gm - 1) * ME, weights=t[:, 5])
-        print(f"  {sp} (u_z = {'+' if sgn > 0 else '-'}{u}): energy {E0:.2f} eV -> code {Ec:.4f} eV, RK4 {float(np.squeeze(E)):.4f} eV"
+        err = np.std((gm - 1) * ME) / np.sqrt(len(t))
+        print(f"  {sp} (u_z = {'+' if sgn > 0 else '-'}{u}): energy {E0:.2f} eV -> code {Ec:.4f} +- {err:.4f} eV, RK4 {float(np.squeeze(E)):.4f} eV"
               f"  (loss: code {E0 - Ec:.4f}, RK4 {E0 - float(np.squeeze(E)):.4f}, rel. diff {(E0 - Ec) / (E0 - float(np.squeeze(E))) - 1:+.1e})")
+    if exc: sys.exit(0)   # excitations are not counted: no energy balance
     # energy balance over all electron species
-    lost = 0.0
+    lost, var = 0.0, 0.0
     for fn in glob.glob(d + "/tail_*_000000.txt"):
         sp = os.path.basename(fn)[5:-11]
         t = np.loadtxt(fn, ndmin=2)
@@ -130,7 +141,9 @@ elif what == "loss":
         p2 = t[:, 2] ** 2 + t[:, 3] ** 2
         gm = (1 + p2 + t[:, 4] ** 2) / (2 * t[:, 4])
         e_end = np.sum(t[:, 5] * (gm - 1) * ME)
-        if sp in proj: lost += np.sum(t[:, 5]) * E0 - e_end
+        if sp in proj:
+            lost += np.sum(t[:, 5]) * E0 - e_end
+            var += np.var(t[:, 5] * (gm - 1) * ME) * len(t)
         else: lost -= e_end            # secondaries: start at their birth energy (counted below)
     b = np.vstack([np.loadtxt(fn, ndmin=2) for fn in glob.glob(d + f"/born_xe_*.txt")])
     sel = b[:, 7] == 2
@@ -139,6 +152,32 @@ elif what == "loss":
     Wb = np.sum(b[sel, 6] * (gm - 1) * ME)
     Ib = np.sum(b[sel, 6]) * IP[gas][z0]
     lost += Wb
-    rel = np.sqrt(sel.sum())
+    err = np.hypot(1 / np.sqrt(sel.sum()), np.sqrt(var) / lost)   # ion side (births) and electron side (collisions)
     print(f"  energy balance: lost by the electrons {lost:.5e}, given to ionization (Ip + W) {Ib + Wb:.5e}"
-          f"  (ratio {lost / (Ib + Wb):.4f}; {sel.sum()} births, Monte Carlo error ~{1 / rel:.1e})")
+          f"  (ratio {lost / (Ib + Wb):.4f}; {sel.sum()} births; Monte Carlo error ~{err:.1e})")
+elif what == "cascade":
+    from cascade_mc import cascade, WTH
+    d, E0 = sys.argv[2], float(sys.argv[3])
+    exc = not (len(sys.argv) > 4 and sys.argv[4] == "noexc")
+    def en(t):
+        p2 = t[:, 2] ** 2 + t[:, 3] ** 2
+        return ((1 + p2 + t[:, 4] ** 2) / (2 * t[:, 4]) - 1) * ME
+    wp, left, npr = 0.0, 0.0, 0
+    for fn in glob.glob(d + "/tail_*_000000.txt"):
+        t = np.loadtxt(fn, ndmin=2)
+        if t.size == 0: continue
+        e = en(t)
+        if os.path.basename(fn)[5:7] in ("ea", "eb"): wp += t[:, 5].sum(); npr += len(t)
+        left += np.sum(t[:, 5] * np.maximum(e - WTH.min(), 0))
+    b = np.vstack([np.loadtxt(fn, ndmin=2) for fn in glob.glob(d + "/born_xe_*.txt")])
+    b = b[b[:, 7] == 2]
+    N = b[:, 6].sum()
+    Wc = E0 * wp / N
+    rng = np.random.default_rng(2024)
+    k = np.array([cascade(E0, rng, exc) for _ in range(1500)])
+    Wm = E0 / k.mean()
+    # errors: ion side (births) and the yield fluctuation of the primary macro-particles (spread from the MC)
+    ec = Wc * np.hypot(1 / np.sqrt(len(b)), k.std() / k.mean() / np.sqrt(npr))
+    print(f"  E0 = {E0:g} eV{'' if exc else ', no excitation'}: W code {Wc:.2f} +- {ec:.2f} eV ({len(b)} births, {npr} primaries;"
+          f" energy left above threshold {left / (wp * E0):.1e}), independent MC {Wm:.2f} +- {Wm * k.std() / k.mean() / np.sqrt(len(k)):.2f} eV"
+          f"  (rel. diff {Wc / Wm - 1:+.1e})")

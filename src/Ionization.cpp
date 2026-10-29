@@ -77,6 +77,18 @@ const std::map<std::pair<std::string, int>, LotzFit>& lotz_fits() {
     };
     return t;
 }
+// excitation of the neutral atoms: (W eV, F, c, allowed); a = b = 1.  Xe: Puech & Mizzi (1991) as tabulated
+// by Mukundan & Bhardwaj, arXiv:1604.08449, Table 3 (c = 0: allowed, F = optical oscillator strength)
+struct ExcLevel { double W, F, c; bool allowed; };
+const std::map<std::string, std::vector<ExcLevel>>& excitation_levels() {
+    static const std::map<std::string, std::vector<ExcLevel>> t = {
+        {"Xe", {{8.315, 53.7, 2, false}, {8.437, 0.26, 0, true}, {9.447, 27.0, 2, false}, {9.570, 0.19, 0, true},
+                {9.580, 2.57, 1, false}, {9.706, 4.89, 1, false}, {9.809, 2.54, 1, false}, {9.917, 0.01, 0, true},
+                {10.11, 20.0, 1, false}, {10.40, 0.395, 0, true}, {10.59, 0.097, 0, true}, {11.0, 5.0, 1, false},
+                {11.7, 0.689, 0, true}}},
+    };
+    return t;
+}
 const std::map<std::string, int>& atomic_numbers() {
     static const std::map<std::string, int> t = {{"H", 1}, {"He", 2}, {"Li", 3}, {"C", 6}, {"N", 7}, {"O", 8},
                                                 {"Ne", 10}, {"Ar", 18}, {"Kr", 36}, {"Rb", 37}, {"Xe", 54}, {"Cs", 55}};
@@ -297,6 +309,25 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
             I.ei_tabE.push_back(te);
             I.ei_tabS.push_back(ts);
         }
+        // excitation of the neutral atoms (item C): built in (Xe) or a table; on by default when data exist
+        const bool tab = cfg.has(name + ".excitation.table");
+        const auto xl = excitation_levels().find(I.element);
+        const bool have = tab || (xl != excitation_levels().end() && !cfg.has(name + ".ionization_energies_eV"));
+        if (cfg.get_bool(name + ".excitation", have) && P.z0 == 0) {
+            if (!have)
+                throw std::runtime_error(name + ".excitation: no built-in data for this gas; give " + name +
+                                         ".excitation.table (E_eV sigma_cm2) and " + name + ".excitation.energy_eV");
+            if (tab) {
+                for (const auto& v : read_table(cfg.get_string(name + ".excitation.table"))) {
+                    I.ex_tabE.push_back(v.first); I.ex_tabS.push_back(v.second);
+                }
+                if (!cfg.has(name + ".excitation.energy_eV"))
+                    throw std::runtime_error(name + ".excitation.table needs " + name + ".excitation.energy_eV");
+                I.ex_ch.push_back({cfg.get_double(name + ".excitation.energy_eV"), 2, 0, static_cast<double>(I.ex_tabE.size()), 1, 1});
+            } else {
+                for (const auto& L : xl->second) I.ex_ch.push_back({L.W, L.allowed ? 0.0 : 1.0, L.F, L.c, 1, 1});
+            }
+        }
     }
     I.nsplit = cfg.get_int(name + ".ionization.nsplit", 1);
     if (I.nsplit < 1) throw std::runtime_error(name + ".ionization.nsplit must be >= 1");
@@ -306,12 +337,26 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
 
 EITargets make_ei_targets(std::vector<IonSpeciesInfo*>& ions, double n0_cm3) {
     EITargets T;
-    std::vector<double> par, tE, tS;
+    std::vector<double> par, tE, tS, ex;
+    int nx = 0;
     for (IonSpeciesInfo* I : ions) {
         if (!I->P.eimp) continue;
         I->P.et0 = T.T;
         for (size_t l = 0; l < I->ei_par.size(); ++l) {
             std::vector<double> p = I->ei_par[l];
+            if (l == 0 && !I->ex_ch.empty()) {
+                p[14] = nx;
+                p[15] = static_cast<double>(I->ex_ch.size());
+                for (auto c : I->ex_ch) {
+                    if (c[1] == 2) {   // table channel: offset into the concatenated tables
+                        c[2] = static_cast<double>(tE.size());
+                        tE.insert(tE.end(), I->ex_tabE.begin(), I->ex_tabE.end());
+                        tS.insert(tS.end(), I->ex_tabS.begin(), I->ex_tabS.end());
+                    }
+                    ex.insert(ex.end(), c.begin(), c.end());
+                    ++nx;
+                }
+            }
             if (!I->ei_tabE[l].empty()) {
                 p[12] = static_cast<double>(tE.size());
                 p[13] = static_cast<double>(I->ei_tabE[l].size());
@@ -328,6 +373,11 @@ EITargets make_ei_targets(std::vector<IonSpeciesInfo*>& ions, double n0_cm3) {
     for (int t = 0; t < T.T; ++t)
         for (int c = 0; c < EI_NPAR; ++c) hp(t, c) = par[static_cast<size_t>(t) * EI_NPAR + c];
     Kokkos::deep_copy(T.par, hp);
+    T.exc = View2D("ei.exc", std::max(nx, 1), EX_NPAR);
+    auto hx = Kokkos::create_mirror_view(T.exc);
+    for (int j = 0; j < nx; ++j)
+        for (int c = 0; c < EX_NPAR; ++c) hx(j, c) = ex[static_cast<size_t>(j) * EX_NPAR + c];
+    Kokkos::deep_copy(T.exc, hx);
     const size_t nt = std::max<size_t>(tE.size(), 1);
     T.tabE = View1D("ei.tabE", nt);
     T.tabS = View1D("ei.tabS", nt);
@@ -378,6 +428,7 @@ std::string IonSpeciesInfo::description() const {
         for (size_t l = 0; l < ei_par.size(); ++l)
             if (!ei_tabE[l].empty()) o << ", table for z = " << P.z0 + l;
         o << ")";
+        if (!ex_ch.empty()) o << " with excitation (" << ex_ch.size() << " channel" << (ex_ch.size() > 1 ? "s" : "") << ")";
     }
     o << "; electrons -> '" << product << "'";
     if (nsplit > 1) o << "; first ionization split in " << nsplit << " quanta";

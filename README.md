@@ -459,11 +459,23 @@ an initially empty species). Three channels:
     exp(−W dt − (R_beam + R_e) dξ)), picks the projectile energy E (bin ∝ rate) and gives the new
     electron W from dσ/dW ∝ 1/(J² + W²) on [0, (E − Ip)/2], isotropic (J of the gas, scaled with
     Ip for the ions);
-  - the projectiles lose their expected energy n σ(E) (Ip + ⟨W⟩(E)) per unit path, at fixed
-    direction, after every push (continuous slowing down: energy conserved on average, straggling
-    not modelled);
-  - not yet included: excitation (energy loss without ionization: the cascade overproduces ions
-    until it is added), elastic and Coulomb collisions, recombination.
+  - **excitation** (`<name>.excitation`, on by default where data exist): energy loss of the
+    projectiles without ionization. Built in for Xe: the 13 levels of Puech & Mizzi (J. Phys. B 24,
+    4689 (1991)) as tabulated by Mukundan & Bhardwaj (arXiv:1604.08449, Table 3), Born–Bethe with a
+    low-energy modifier, valid from threshold (8.3 eV) up; other gases: `<name>.excitation.table`
+    (`E_eV sigma_cm2`) with `<name>.excitation.energy_eV`. Without excitation the cascade makes about
+    40 % too many ions (W = 16 instead of 22 eV in Xe);
+  - energy loss of the projectiles after every push, at fixed direction
+    (`ionization.electron_loss`): `discrete` (default) draws every collision of every electron
+    (ionization: Ip + W with W from its own spectrum, excitation: W_j), so the energy straggles as in
+    reality; `continuous` subtracts the expected loss n[σ(Ip + ⟨W⟩) + Σⱼσⱼ Wⱼ] per unit path.
+    Continuous slowing down underestimates the ionization by electrons a few eV above Ip (an
+    ionization costs at least Ip): in a Xe cascade from 1 keV it gives W = 24.4 eV, the discrete
+    collisions 22.5 eV, as the event-by-event Monte Carlo (22.6 eV) and close to the measured 22.0 eV.
+    The ions and their electrons come from the rates on the ion side (unchanged); both sides agree on
+    average (energy balance 1.015 ± 0.033 discrete, 0.996 ± 0.004 continuous);
+  - not yet included: excitation of the ions, metastables and their radiation, elastic and Coulomb
+    collisions, recombination.
   - `<name>.ionization.born_dump = 1` writes the electrons born in every sweep to
     `born_<name>_<step>.txt` (slice, x, y, p_x, p_y, Δ, w, impact-born flag; MPI: one file per rank).
 
@@ -903,6 +915,9 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.eimpact.table_<z>` | Lotz (§1) | file `E_eV sigma_cm2` for the transition z → z+1 |
 | `<species>.eimpact.q` | from the configuration | custom gases: electrons in the outermost subshell, one number per level |
 | `<electrons>.electron_impact_projectile` | 1 | 0 = this electron species does not ionize |
+| `<species>.excitation` | 1 where data exist (Xe) | excitation loss of the projectiles on the neutral atoms |
+| `<species>.excitation.table`, `.excitation.energy_eV` | — | own total excitation cross-section (`E_eV sigma_cm2`) and its energy loss |
+| `ionization.electron_loss` | `discrete` | `discrete` collisions (straggling) or `continuous` slowing down of the projectile electrons |
 | `<species>.ionization.nsplit` | 1 | > 1: split the first ionization into quanta of w₀/nsplit. Use it when the ionized fraction is small; choose nsplit ≳ 1/P_total. The particle count grows up to nsplit-fold where the gas is fully ionized. |
 
 The `<species>.density` of an ionizable species is the atom density. Neutral gas does not
@@ -1282,6 +1297,7 @@ and analytic beam densities.
 | Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). |
 | Delta electrons (section 22): dilute Xe, rigid beam, `ionization.born_dump` | energy spectrum of the impact-born electrons vs the model (independent Python: OPB part atan(W/J)/atan(W_max/J) plus the free-electron tails of the Xe n = 1–3 subshells): Kolmogorov-Smirnov p = 0.57 (protons, γ = 3.39, 66 000 electrons; fraction with W > 1 keV 0.00737 vs 0.00735 ± 0.00033, without the inner shells it would be 0.0055); artificial subshells with 9 % of the rate: p = 0.13; electrons at γ = 20 with J = 2 MeV (the cut-off W_max = (γ − 1)mc²/2 is reached): p = 0.75. Binary-collision angle cos θ = κ√(W/(W+2)) to 3·10⁻¹³; isotropic option: p = 0.13, ⟨cos θ⟩ = 0.003. 400 GeV protons with J = 5.11 MeV: of 121 554 electrons 22 138 are born beyond γ/Δ = 35 and 22 137 become beam particles (the conversion tests the state after the first push; 54 are born within 0.1 % of the threshold). The ion charge density is bit-identical with and without delta electrons; with the fast deltas ionizing as beam electrons, restart and 2 ranks are bit-identical. The same kernel on an RTX 5090 (CUDA 13) gives the same samples. |
 | Electron-impact ionization (section 23): dilute Xe in mono-energetic electrons (two counter-streaming species, no fields) | ionized fraction along ξ vs 1 − exp(−n_e σ v ξ) with Lotz's formula implemented independently in Python: 30 eV, 100 eV, 1 keV and Xe⁺ → Xe²⁺ within 0.5 % (Monte Carlo noise; three seeds at 100 eV: −0.5, −0.5, −0.02 %); a σ(E) table: 0.5 %. Dense Xe (10¹⁶ cm⁻³), dilute 100 eV electrons: energy loss 11.52 and 11.09 eV for u_z = ±0.0198 vs RK4 of dE/dξ = −nσ(Ip + ⟨W⟩)|u|/Δ to 3·10⁻⁵; energy lost by all electrons / Σ(Ip + W) over 66 728 births = 0.9956 (Monte Carlo error 0.004). Restart, 2 and 3 ranks bit-identical. |
+| 0D electron cascade in Xe (section 24): dense Xe (10¹⁹ cm⁻³), dilute primaries, ionization + excitation, discrete collisions | mean energy per ion pair W = E₀ N_primaries/N_ions vs an independent event-by-event Monte Carlo with the same cross-sections (`cascade_mc.py`): 1 keV: 22.53 ± 0.09 vs 22.48 ± 0.04 eV (measured 22.0 eV); 100 eV: 25.0 vs 24.4 eV, without excitation 17.2, 17.0, 16.8, 16.9 eV (four seeds / steps) vs 16.8 eV (seed-to-seed scatter ~1 %). Continuous slowing down instead: 24.4 eV at 1 keV (+8 %). |
 | MPI 2, 3 ranks vs serial, with laser ionization of N (LWFA example + 1 % N, `nsplit = 4`) and with impact ionization (proton bunch in Ar) | all outputs incl. `ionization.txt` bit-identical |
 | MPI 2, 3 ranks vs serial, `modes = 1`, field ionization of H/He (8 particles per ring) by an offset driver | bit-identical |
 | All earlier validation sections | unchanged |
