@@ -135,7 +135,8 @@ PlasmaSpecies::PlasmaSpecies(const Config& cfg, const std::string& name, const R
     fresh_ = IView1D(name + ".fresh", cap_);
     hist_ = View3D(name + ".hist", ab_.order, 5, cap_);
     lost_ = IView1D(name + ".lost", 1);
-    trap_ = cfg.get_bool(name + ".trap", false);
+    // electrons receiving delta electrons: fast ones (beyond the quasi-static limit) become beam particles
+    trap_ = cfg.get_bool(name + ".trap", mobile_ && !ionizable_ && receives_delta_electrons(cfg, name));
     if (trap_) {
         if (ionizable_ || !mobile_) throw std::runtime_error(name + ".trap: only for mobile species without ionization (e.g. the electrons)");
         trap_beam_ = cfg.get_string(name + ".trap_beam", name + "_trapped");
@@ -636,11 +637,31 @@ struct IonizeKernel {
     int nion = 0, tot_e = 0;                      // particles processed, electrons created (create pass)
     View1D ex, ey, epx, epy, edl, ew;
     IView1D efresh;
+    View1D eflag;                                 // born_dump: 1 = impact-born, 0 = field-born
 
-    // new macro-electron j: parent velocity + laser drift (field-born electrons in the laser)
+    // new macro-electron j: parent velocity + laser drift (field-born electrons in the laser), or
+    // + the delta-electron momentum (impact-born, P.delta; lnwm = ln W_max, kap: see Ionization.hpp)
     KOKKOS_INLINE_FUNCTION void electron(int j, Real X, Real Y, Real PX, Real PY, Real D, Real wgt, const IonRate& R,
                                          bool laser_born, Real Aamp, Real Ex, Real Ey, Real Ez, Real EL, int l,
-                                         uint64_t i, uint64_t d) const {
+                                         uint64_t i, uint64_t d, bool impact_born, Real lnwm, Real kap) const {
+        if (eflag.extent(0) > 0) eflag(j - ne0) = impact_born ? Real(1) : Real(0);
+        if (impact_born && P.delta) {
+            // W = J tan(u atan(W_max/J)): exact sampling of dsigma/dW ~ 1/(J^2 + W^2) on [0, W_max]
+            const Real J = P.dJ;
+            const Real W = J * Kokkos::tan(ion_rand(key, i, d + 4096) * Kokkos::atan(Kokkos::exp(lnwm) / J));
+            const Real u = Kokkos::sqrt(W * (W + Real(2)));
+            Real c = P.delta_iso ? Real(2) * ion_rand(key, i, d + 4097) - Real(1) : kap * Kokkos::sqrt(W / (W + Real(2)));
+            c = Kokkos::fmin(c, Real(1));
+            const Real s = Kokkos::sqrt(Kokkos::fmax(Real(1) - c * c, Real(0)));
+            const Real ph = Real(2) * Real(PI) * ion_rand(key, i, d + 4098);
+            // parent velocity + delta momentum (the parent moves non-relativistically)
+            const Real uzp = (Real(1) + PX * PX + PY * PY - D * D) / (Real(2) * D);
+            const Real qx = PX + u * s * Kokkos::cos(ph), qy = PY + u * s * Kokkos::sin(ph), qz = uzp + u * c;
+            const Real q2 = Real(1) + qx * qx + qy * qy, gm = Kokkos::sqrt(q2 + qz * qz);
+            ex(j) = X; ey(j) = Y; epx(j) = qx; epy(j) = qy; edl(j) = qz > Real(0) ? q2 / (gm + qz) : gm - qz;
+            ew(j) = wgt; efresh(j) = 1;
+            return;
+        }
         Real dpx = 0, dpy = 0;
         if (laser_born && Aamp > Real(0)) {
             const int lb = (R.wl[1] > Real(0) && ion_rand(key, i, d) * (R.wl[0] + R.wl[1]) >= R.wl[0]) ? 1 : 0;
@@ -700,6 +721,14 @@ struct IonizeKernel {
             }
             Rimp = Kokkos::fmax(Rimp, Real(0));
         }
+        Real lnwm = 0, kap = 1;   // delta electrons: ln W_max, kappa of the beams at this atom
+        if (P.delta && Rimp > Real(0)) {
+            const Real n2 = pg.W[0] * imp(kl, pg.j, 2) + pg.W[1] * imp(kl, pg.j + 1, 2);
+            if (n2 > Real(0)) {
+                lnwm = (pg.W[0] * imp(kl, pg.j, 3) + pg.W[1] * imp(kl, pg.j + 1, 3)) / n2;
+                kap = (pg.W[0] * imp(kl, pg.j, 4) + pg.W[1] * imp(kl, pg.j + 1, 4)) / n2;
+            }
+        }
         const Real dtf = dxi * (Real(1) + PX * PX + PY * PY + D * D) / (Real(2) * D * D);   // dxi gamma/Delta
         const uint64_t ii = static_cast<uint64_t>(i);
 
@@ -719,8 +748,9 @@ struct IonizeKernel {
             x(jc) = X; y(jc) = Y; px(jc) = PX; py(jc) = PY; dl(jc) = D; w(jc) = we;
             lev(jc) = Real(z + 1); wq(jc) = Real(0); fresh(jc) = 1;
             w(i) = wi - we;
-            const bool lb = P.laser && ion_rand(key, ii, 1) * a < R.W * dtf;
-            electron(ne0 + cnt_e(i), X, Y, PX, PY, D, we, R, lb, Aamp, Ex, Ey, Ez, EL, z, ii, 1u << 20);
+            const bool fb = ion_rand(key, ii, 1) * a < R.W * dtf;   // field-born (else impact-born)
+            electron(ne0 + cnt_e(i), X, Y, PX, PY, D, we, R, P.laser && fb, Aamp, Ex, Ey, Ez, EL, z, ii, 1u << 20,
+                     !fb, lnwm, kap);
             return;
         }
         // ---- whole macro-particle, possibly several levels in this slice
@@ -732,8 +762,9 @@ struct IonizeKernel {
             const uint64_t d = 16 + 16 * static_cast<uint64_t>(l);
             if (ion_rand(key, ii, d) >= -Kokkos::expm1(-a)) break;
             if (create) {
-                const bool lb = P.laser && ion_rand(key, ii, d + 1) * a < R.W * dtf;
-                electron(ne0 + cnt_e(i) + ne, X, Y, PX, PY, D, wi, R, lb, Aamp, Ex, Ey, Ez, EL, l, ii, (2u + static_cast<uint64_t>(l)) << 20);
+                const bool fb = ion_rand(key, ii, d + 1) * a < R.W * dtf;   // field-born (else impact-born)
+                electron(ne0 + cnt_e(i) + ne, X, Y, PX, PY, D, wi, R, P.laser && fb, Aamp, Ex, Ey, Ez, EL, l, ii,
+                         (2u + static_cast<uint64_t>(l)) << 20, !fb, lnwm, kap);
             }
             ++ne;
         }
@@ -752,6 +783,7 @@ IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int 
     const uint64_t key = ion_mix(seed_ ^ ion_mix(static_cast<uint64_t>(step) ^ ion_mix(static_cast<uint64_t>(k) ^ ion_mix(nh))));
     const int N = Np_;
     int tot_e = 0, tot_c = 0;
+    View1D eflag;
     auto make = [&](bool create) {
         IonizeKernel K;
         K.g = grid_.d; K.f = f; K.m1 = m1_; K.P = ion_.P;
@@ -763,6 +795,7 @@ IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int 
         K.nion = N; K.tot_e = tot_e;
         K.ex = prod.x_; K.ey = prod.y_; K.epx = prod.px_; K.epy = prod.py_; K.edl = prod.dl_; K.ew = prod.w_;
         K.efresh = prod.fresh_;
+        K.eflag = eflag;
         return K;
     };
     Kokkos::parallel_for("ion.count", Range(0, N), make(false));
@@ -774,7 +807,20 @@ IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int 
         const int v = cc(i); if (fin) cc(i) = u; u += v; }, tot_c);
     prod.ensure_capacity(prod.Np_ + tot_e);
     ensure_capacity(Np_ + tot_c);
+    if (ion_.born_dump) eflag = View1D("ion.born_flag", tot_e);
     Kokkos::parallel_for("ion.create", Range(0, N), make(true));
+    if (ion_.born_dump) {   // records: slice, x, y, px, py, Delta, w, impact-born
+        const std::pair<int, int> rg(prod.Np_, prod.Np_ + tot_e);
+        auto hf = Kokkos::create_mirror_view_and_copy(HostSpace(), eflag);
+        View1D vv[6] = {prod.x_, prod.y_, prod.px_, prod.py_, prod.dl_, prod.w_};
+        std::vector<Kokkos::View<Real*, HostSpace>> hv;
+        for (auto& v : vv) hv.push_back(Kokkos::create_mirror_view_and_copy(HostSpace(), Kokkos::subview(v, rg)));
+        for (int j = 0; j < tot_e; ++j) {
+            born_rec_.push_back(k);
+            for (auto& h : hv) born_rec_.push_back(h(j));
+            born_rec_.push_back(hf(j));
+        }
+    }
     // statistics of the new electrons
     const int e0 = prod.Np_;
     auto ew = prod.w_; auto epx = prod.px_; auto epy = prod.py_;

@@ -27,6 +27,16 @@
 //     or a constant sigma.  An atom at rest sees  dP = sigma n_b beta dxi  per slice (n_b: beam
 //     density in the box frame); the beams deposit  N0 = sum z^2 beta n,  N1 = sum z^2 L n / beta,
 //     N2 = sum z^2 n / beta  (L = ln(beta^2 gamma^2) - beta^2), so  rate/dxi = s0 N0 + s1 N1 + s2 N2.
+//     Delta electrons (<name>.impact.secondary_energy = 1): the electron of a beam impact ionization
+//     gets a kinetic energy W from  dsigma/dW ~ 1/(J^2 + W^2),  0 <= W <= W_max  (Opal, Peterson & Beaty,
+//     J. Chem. Phys. 55, 4100 (1971); normalised to the total cross-section above, so the ionization
+//     rate is unchanged), sampled exactly by W = J tan(u atan(W_max/J)), and the polar angle of a binary
+//     collision with a free electron at rest,  cos(theta) = kappa sqrt(W/(W + 2 m c^2)),
+//     kappa = (E_b + m c^2)/(p_b c)  (exact two-body kinematics; 1/beta for heavy projectiles), or an
+//     isotropic direction.  W_max = 2 m c^2 beta^2 gamma^2/(1 + 2 gamma m/M + (m/M)^2), (gamma - 1)/2 m c^2
+//     for electrons (the slower of the two is the secondary), (gamma - 1) m c^2 for positrons.  Several
+//     beams: the beams deposit two more sums  N3 = sum z^2 n ln(W_max)/beta,  N4 = sum z^2 n kappa/beta,
+//     and an atom uses W_max = exp(N3/N2), kappa = N4/N2 (exact for one kind of projectile).
 //
 // Monte Carlo: per slice the probability of the transition z -> z+1 is P = 1 - exp(-W dt - R dxi),
 // dt = dxi gamma/Delta (time an ion spends in the slice; = dxi for atoms at rest).  Several
@@ -63,6 +73,9 @@ struct IonParams {
     bool field = true;                    // ADK by the plasma/beam (and laser) fields
     bool impact = false;                  // beam impact ionization 0 -> 1
     Real s0 = 0, s1 = 0, s2 = 0;          // impact: dP/dxi = s0 N0 + s1 N1 + s2 N2
+    bool delta = false;                   // impact-born electrons get the delta-electron energy and angle
+    bool delta_iso = false;               //   isotropic emission instead of the binary-collision angle
+    Real dJ = 0;                          //   width J of the energy spectrum dsigma/dW ~ 1/(J^2 + W^2), m c^2
     bool laser = false, circular = false; // laser envelope present, its polarisation
     Real k0 = 0;                          // omega0 / omega_p
 };
@@ -177,6 +190,8 @@ struct IonSpeciesInfo {
     int nsplit = 1;
     std::string product;          // electron species receiving the new electrons
     double M2 = 0, C = 0, sigma_cm2 = 0;
+    double J_eV = 0;              // delta electrons: width of the energy spectrum
+    bool born_dump = false;       // <name>.ionization.born_dump: write the new electrons of every sweep
     std::string description() const;
 };
 
@@ -184,6 +199,8 @@ struct IonSpeciesInfo {
 // n0_cm3: the plasma (normalisation) density
 IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, double n0_cm3);
 bool is_ionizable(const Config& cfg, const std::string& name);
+// true if an ionizable species with delta electrons (impact.secondary_energy) sends its electrons to <name>
+bool receives_delta_electrons(const Config& cfg, const std::string& name);
 
 // impact cross-section (cm^2) of a beam particle with charge z, Lorentz factor gamma (for the log)
 double impact_sigma_cm2(const IonSpeciesInfo& I, double z, double gamma);

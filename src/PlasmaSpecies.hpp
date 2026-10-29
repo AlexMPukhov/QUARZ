@@ -70,6 +70,8 @@ public:
     // slice kl (global k) of time step `step`: ionization with the fields f of the slice, beam impact
     // sources imp(kl, node, 3) (empty: none); new electrons are appended to `prod`
     IonizeResult ionize(const SliceFields& f, const View3D& imp, int kl, Real dxi, int k, int step, PlasmaSpecies& prod);
+    // <name>.ionization.born_dump: electrons born in this sweep, 8 numbers each (see ionize)
+    std::vector<double>& born_records() { return born_rec_; }
     // charge density sum z w (gamma/Delta) / V of the ions (m = 0) -> out(kl, node, comp)
     void deposit_charge_state(const View3D& out, int kl, int comp) const;
     // sum z w and sum w over live particles (mean charge state)
@@ -131,6 +133,7 @@ private:
     bool ionizable_ = false;
     bool frozen_ = false;     // ionizable species with <name>.mobile = 0: particles, but not pushed
     IonSpeciesInfo ion_;
+    std::vector<double> born_rec_;
     IView1D cnt_e_, cnt_c_;   // ionization scratch (per particle)
     unsigned long long seed_ = 1;
     View3D hist_;   // (order, 5, Np): dx, dy, dpx, dpy, dDelta

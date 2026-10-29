@@ -411,8 +411,32 @@ an initially empty species). Three channels:
     (give `ionization_energies_eV` and these): H₂ 0.695, 8.115; N₂ 3.74, 34.84; O₂ 4.20, 38.84;
     CO₂ 5.75, 55.92; CH₄ 4.28, 41.85. No data for atomic H, C, N, O and the alkali vapours.
   - these are *primary* ionizations (one ion pair per collision). dE/dx / W counts in addition
-    the ionization by the delta electrons (3–4× more in Ar and Xe), which this model does not
-    include: the delta electron is born at rest.
+    the ionization by the delta electrons (3–4× more in Ar, 7× in Xe). By default the delta electron
+    is born at rest; with `<name>.impact.secondary_energy = 1` it gets its energy and direction:
+- **Delta electrons** (`impact.secondary_energy = 1`, off by default):
+  - kinetic energy W from dσ/dW ∝ 1/(J² + W²) on [0, W_max] (Opal, Peterson & Beaty, J. Chem.
+    Phys. 55, 4100 (1971)), normalised to the Bethe cross-section, so the ionization rate does not
+    change. Sampled exactly: W = J tan(u·atan(W_max/J)). Built-in J: He 15.8, Ne 24.2, Ar 10.0,
+    Kr 9.6, Xe 8.7 eV (`impact.J_eV` for other gases or to override);
+  - W_max = 2mc²β²γ²/(1 + 2γm/M + (m/M)²) for a projectile of mass M; (γ − 1)mc²/2 for electrons
+    (the slower of the two is the secondary), (γ − 1)mc² for positrons;
+  - direction: binary collision with a free electron at rest, cos θ = κ √(W/(W + 2mc²)) with
+    κ = (E_b + mc²)/(p_b c) (exact two-body kinematics; κ = 1/β for heavy projectiles), azimuth
+    random; `impact.secondary_angle = isotropic` for isotropic emission;
+  - with several beams the atom uses the rate-weighted W_max and κ of the beams at its position
+    (the beams deposit Σz²n ln W_max/β and Σz²nκ/β; exact for one kind of projectile);
+  - every delta electron is kept. Slow ones are plasma electrons of the product species; fast ones
+    (γ/Δ > `pusher.max_qsa_factor`, mostly the forward tail of a few MeV and more) become beam
+    particles of `<product>_trapped` through the trapping path: `<product>.trap` is on by default
+    for a species that receives delta electrons. These beam electrons ionize the gas themselves
+    (Bethe cross-section and their own delta electrons, with Møller kinematics);
+  - not yet included: ionization by the slow delta electrons (plasma electrons do not ionize), the
+    energy loss of the projectile (Ip + W), and the inner shells. The 1/W² tail of the fit carries the
+    strength of ~21 free electrons in Ar (Z = 18) but only ~34 in Xe (Z = 54), so the mean delta
+    energy at minimum ionization, Ar 88 eV and Xe 78 eV, matches the measured total ionization in
+    Ar (N_T/N_P needs ≈ 76 eV) but is ≈ 40 % low in Xe (≈ 133 eV);
+  - `<name>.ionization.born_dump = 1` writes the electrons born in every sweep to
+    `born_<name>_<step>.txt` (slice, x, y, p_x, p_y, Δ, w, impact-born flag; MPI: one file per rank).
 
 **Monte Carlo.**
 - Per slice, the transition z → z+1 happens with probability P = 1 − exp(−W dt − R dξ),
@@ -831,13 +855,17 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.mass` | from the element | in electron masses |
 | `<species>.mobile` | 1 | 0: ions stay at their positions (still macro-particles: their charge changes) |
 | `<species>.ionization.product` | `electrons` | species that receives the new electrons (mobile, negative; `ppc = 0` for an initially empty one) |
-| `<species>.trap` | 0 | 1 = particles of this (mobile, non-ionizable) species that reach the quasi-static limit become beam particles (§1) |
+| `<species>.trap` | 0 (1 if it receives delta electrons) | 1 = particles of this (mobile, non-ionizable) species that reach the quasi-static limit become beam particles (§1) |
 | `<species>.trap_beam` | `<species>_trapped` | name of that beam (created automatically; set its options under this name) |
 | `<species>.trap_nphi` | 1 | `modes = 0`: beam particles per converted ring (equidistant azimuths, random offset) |
 | `<species>.ionization.field` | 1 | ADK by the plasma, beam and laser fields |
 | `<species>.ionization.impact` | 1 if a cross-section is known | beam impact ionization 0 → 1 |
 | `<species>.impact.M2`, `<species>.impact.C` | He, Ne, Ar, Kr, Xe: built in (§1) | Bethe parameters |
 | `<species>.impact.sigma_cm2` | — | constant impact cross-section instead |
+| `<species>.impact.secondary_energy` | 0 | 1 = delta electrons: impact-born electrons get energy and direction (§1) |
+| `<species>.impact.J_eV` | He, Ne, Ar, Kr, Xe: built in (§1) | width J of the delta-electron spectrum 1/(J² + W²) |
+| `<species>.impact.secondary_angle` | `kinematic` | `kinematic` (binary collision) or `isotropic` |
+| `<species>.ionization.born_dump` | 0 | 1 = write the electrons born in every sweep to `born_<species>_<step>.txt` |
 | `<species>.ionization.nsplit` | 1 | > 1: split the first ionization into quanta of w₀/nsplit. Use it when the ionized fraction is small; choose nsplit ≳ 1/P_total. The particle count grows up to nsplit-fold where the gas is fully ionized. |
 
 The `<species>.density` of an ionizable species is the atom density. Neutral gas does not
@@ -1215,6 +1243,7 @@ and analytic beam densities.
 | Laser ionization of N up to N⁵⁺ (0.8 µm, a0 = 0.1, wide spot) | ⟨z⟩(ξ) on the axis vs the ADK rate integrated over the true oscillating field: within 0.033 everywhere (Monte Carlo noise of the 4800 rings near the axis; converged in Δξ). Mean p⊥² of the born electrons vs test particles (p = −a(t_birth)): ratio 0.98. With the usual Laplace closed form the rates were 5–40 % high and p⊥² 13 % high, so it was replaced. |
 | Impact ionization of Ar by a rigid 400 GeV proton beam (σ = 1.59·10⁻¹⁸ cm²), `nsplit = 2000` | ionized fraction vs 1 − exp(−σ n₀ k_p⁻¹ β ∫n_b dξ) in radial bands along the beam: within 1–3 %. Total at the end of the box: +0.9 %. |
 | Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). |
+| Delta electrons (section 22): dilute Xe, rigid beam, `ionization.born_dump` | energy spectrum of the impact-born electrons vs the model CDF atan(W/J)/atan(W_max/J) (independent Python): Kolmogorov-Smirnov p = 0.68 (protons, γ = 3.39, J = 8.7 eV, 66 000 electrons; median 8.76 vs 8.70 eV) and p = 0.90 (electrons, γ = 20, J = 2 MeV: the cut-off W_max = (γ − 1)mc²/2 is reached, max W/W_max = 0.9999); binary-collision angle cos θ = κ√(W/(W+2)) to 3·10⁻¹³; isotropic option: KS p = 0.08, ⟨cos θ⟩ = 0.003. 400 GeV protons with J = 5.11 MeV: of 121 554 electrons 22 262 are born beyond γ/Δ = 35, 22 261 become beam particles (the one is born at γ/Δ = 35.005 and falls below after the first push). The ion charge density is bit-identical with and without delta electrons; with the fast deltas ionizing as beam electrons, restart and 2 ranks are bit-identical. The same kernel on an RTX 5090 (CUDA 13) gives the same samples. |
 | MPI 2, 3 ranks vs serial, with laser ionization of N (LWFA example + 1 % N, `nsplit = 4`) and with impact ionization (proton bunch in Ar) | all outputs incl. `ionization.txt` bit-identical |
 | MPI 2, 3 ranks vs serial, `modes = 1`, field ionization of H/He (8 particles per ring) by an offset driver | bit-identical |
 | All earlier validation sections | unchanged |

@@ -228,3 +228,28 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   beamlog  max rel diff 0.00e+00  (beams.txt col 1)
   dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 22. delta electrons of beam impact ionization (<species>.impact.secondary_energy) ==
+ (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV) and binary-collision angle vs the model:
+  66075 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 2.79e-03, p-value 0.682;  max W / W_max = 0.0294;  median W 8.76 eV (model 8.70 eV)
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 3.3e-13  (W > 0.5 eV, 63584 electrons)
+ (b) electrons at gamma = 20 (W_max = (gamma - 1)/2, Moller kinematics), J = 2 MeV to resolve the cut-off:
+  84733 impact-born electrons; W_max = 4.854 MeV, kappa = 1.051315, J = 2e+06 eV
+  energy: KS distance 1.97e-03, p-value 0.897;  max W / W_max = 0.9999;  median W 1344231.78 eV (model 1339106.80 eV)
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 1.3e-14  (W > 0.5 eV, 84733 electrons)
+ (c) isotropic emission:
+  66075 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 2.79e-03, p-value 0.682;  max W / W_max = 0.0294;  median W 8.76 eV (model 8.70 eV)
+  angle: isotropic, KS distance of cos(theta) 5.00e-03, p-value 0.083; <cos(theta)> = +0.0029
+ (d) 400 GeV protons, J = 5.11 MeV: fast delta electrons (gamma/Delta > 35) -> beam particles of electrons_trapped:
+  121554 electrons born, 22262 beyond gamma/Delta = 35 at birth; trapped beam particles at the end: 22261
+  (expected: equal up to the 42 born within 0.1 % of the threshold: the conversion tests the state after the first push) OK
+ (e) the ionization itself does not change:
+  ion charge density with / without delta electrons: max |difference| = 0.0e+00  (expected: 0)
+ (f) with fast deltas ionizing as beam electrons: restart (expected: bit-identical):
+  14 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_b_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)

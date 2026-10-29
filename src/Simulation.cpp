@@ -114,7 +114,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         if (sp.charge() > 0 && (!sp.ionizable() || sp.ion_info().P.z0 > 0)) has_positive = true;
     }
     neutralize_ = cfg.get_bool("plasma.neutralize", !has_positive);
-    bool any_impact = false;
+    bool any_impact = false, any_delta = false;
     for (size_t i = 0; i < species_.size(); ++i) {
         if (!species_[i]->ionizable()) continue;
         const std::string pn = species_[i]->ion_info().product;
@@ -127,6 +127,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         ion_sp_.push_back(static_cast<int>(i));
         ion_prod_.push_back(pi);
         any_impact = any_impact || species_[i]->ion_info().P.impact;
+        any_delta = any_delta || species_[i]->ion_info().P.delta;
     }
     ion_acc_.assign(ion_sp_.size(), {0, 0, 0, 0});
 
@@ -161,7 +162,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
     bsrc = View3D("bsrc", KL, M, m1_ ? int(B_NC1) : int(B_NC0));
     diag_base_ = m1_ ? int(D_NC1) : int(D_NC0);
     diag = View3D("diag", KL, M, diag_base_ + static_cast<int>(ion_sp_.size()));
-    if (any_impact) imp_ = View3D("impact", KL, M, 3);
+    if (any_impact) imp_ = View3D("impact", KL, M, any_delta ? 5 : 3);   // delta electrons: + W_max, kappa sums
     bguard = View2D("bguard", M, B_NC1);
 
     if (comm_.root()) {
@@ -1243,6 +1244,25 @@ void Simulation::write_ion_diag(int n) {
         ionlog_ << "\n";
     }
     ionlog_.flush();
+    // <species>.ionization.born_dump: the electrons born in this sweep (a debugging / validation aid;
+    // one file per step and rank, not merged)
+    for (int s : ion_sp_) {
+        auto& rec = species_[s]->born_records();
+        if (!species_[s]->ion_info().born_dump) continue;
+        char st[16];
+        std::snprintf(st, sizeof(st), "%06d", n);
+        std::string fn = outdir_ + "/born_" + species_[s]->name() + "_" + st + ".txt";
+        if (comm_.size() > 1) fn += ".part" + std::to_string(comm_.rank());
+        std::ofstream o(fn);
+        o << "# slice x y px py Delta w impact_born (electrons born in the sweep of step " << n << ")\n"
+          << std::setprecision(17);
+        for (size_t i = 0; i + 8 <= rec.size(); i += 8) {
+            o << static_cast<long>(rec[i]);
+            for (int c = 1; c < 7; ++c) o << " " << rec[i + c];
+            o << " " << static_cast<int>(rec[i + 7]) << "\n";
+        }
+        rec.clear();
+    }
 }
 
 void Simulation::run() {

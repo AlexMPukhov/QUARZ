@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..19 (default: all)
+#   sections   numbers 1..22 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 21)}
+SECTIONS=${*:-$(seq 1 22)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -271,7 +271,7 @@ sec15() {
     # one OpenMP thread (with more, the atomic deposits are not bit-reproducible anyway)
     local E="../paper/inputs/evo_s1.in time.steps=$(q 6 4) output.every=1 output.beam_every=1 beams.xi_shape=ngp xi.step=$(q 0.005 0.01)"
     local C="checkpoint.every=2 checkpoint.keep=0" R="restart.from=out_rs_A/checkpoints/chk_000002"
-    local L="../examples/lwfa_laser.in time.steps=$(q 4 2) output.every=1 output.beam_every=1 beams.xi_shape=ngp"
+    local L="../examples/lwfa_laser.in time.steps=$(q 4 2) output.every=1 output.beam_every=1 beams.xi_shape=ngp xe.ionization.born_dump=0"
     local O="../paper/inputs/evo_s1.in time.steps=2 output.every=2 output.beam_every=2 beams.xi_shape=ngp xi.step=$(q 0.005 0.01)"
     export OMP_NUM_THREADS=1
     $QS $E $C output.dir=out_rs_A > /dev/null
@@ -446,7 +446,7 @@ sec20() {
     echo " (c) scattering only (expected slopes 1 - O((kappa theta)^2)):"
     python3 spin_check.py free out_spin_sc 20 0.00115965218128
     # (d) restart and 2 ranks bit-identical
-    local M="spin.in time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp"
+    local M="spin.in time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp xe.ionization.born_dump=0"
     $QS $M checkpoint.every=4 checkpoint.keep=0 checkpoint.dir=out_spin_chk output.dir=out_spin_A > /dev/null
     $QS $M restart.from=out_spin_chk/chk_000004 output.dir=out_spin_B > /dev/null
     echo " (d) restart (expected: bit-identical):"
@@ -487,6 +487,41 @@ sec21() {
     fi
     unset OMP_NUM_THREADS
     rm -rf out_trap*
+}
+
+sec22() {
+    echo "== 22. delta electrons of beam impact ionization (<species>.impact.secondary_energy) =="
+    local D="ion_delta.in xe.ionization.nsplit=$(q 100000 20000) xi.step=$(q 0.1 0.25)"
+    $QS $D > /dev/null
+    echo " (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV) and binary-collision angle vs the model:"
+    python3 delta_check.py spectrum out_delta xe 8.7 1836.15 1 3.39 kinematic
+    $QS $D b.mass=1 b.charge=-1 b.gamma=20 xe.impact.J_eV=2e6 output.dir=out_delta_e > /dev/null
+    echo " (b) electrons at gamma = 20 (W_max = (gamma - 1)/2, Moller kinematics), J = 2 MeV to resolve the cut-off:"
+    python3 delta_check.py spectrum out_delta_e xe 2e6 1 -1 20 kinematic
+    $QS $D xe.impact.secondary_angle=isotropic output.dir=out_delta_iso > /dev/null
+    echo " (c) isotropic emission:"
+    python3 delta_check.py spectrum out_delta_iso xe 8.7 1836.15 1 3.39 isotropic
+    $QS $D b.gamma=427 xe.impact.J_eV=5.11e6 output.dir=out_delta_fast > /dev/null
+    echo " (d) 400 GeV protons, J = 5.11 MeV: fast delta electrons (gamma/Delta > 35) -> beam particles of electrons_trapped:"
+    python3 delta_check.py trapped out_delta_fast xe 35
+    export OMP_NUM_THREADS=1
+    $QS $D xi.step=0.25 output.dir=out_delta_on > /dev/null
+    $QS $D xi.step=0.25 xe.impact.secondary_energy=0 output.dir=out_delta_off > /dev/null
+    echo " (e) the ionization itself does not change:"
+    python3 delta_check.py same out_delta_on out_delta_off xe
+    # (f) fast deltas as non-passive beam electrons that ionize the gas themselves: restart and MPI bit-identical
+    local M="$D b.gamma=427 xe.impact.J_eV=5.11e6 xi.step=0.25 time.steps=$(q 6 4) output.every=2 output.beam_every=2 beams.xi_shape=ngp xe.ionization.born_dump=0"
+    $QS $M checkpoint.every=2 checkpoint.keep=0 checkpoint.dir=out_delta_chk output.dir=out_delta_A > /dev/null
+    $QS $M restart.from=out_delta_chk/chk_000002 output.dir=out_delta_B > /dev/null
+    echo " (f) with fast deltas ionizing as beam electrons: restart (expected: bit-identical):"
+    python3 restart_check.py out_delta_A out_delta_B 0 || true
+    if [ -n "$MPIRUN" ]; then
+        $MPIRUN 2 $QS $M output.dir=out_delta_P > /dev/null
+        echo " 2 ranks vs serial (expected: bit-identical):"
+        python3 cmp_runs.py out_delta_A out_delta_P 1e-14 || true
+    fi
+    unset OMP_NUM_THREADS
+    rm -rf out_delta*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

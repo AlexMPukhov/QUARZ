@@ -554,10 +554,24 @@ void Beam::deposit(const View3D& src) const {
     });
 }
 
+namespace {
+// delta electrons: ln W_max (m c^2) and kappa = (E + m c^2)/(p c) of a projectile of mass M (electron
+// masses), charge sign qs, Lorentz factor gam, u2 = (beta gamma)^2  (see Ionization.hpp)
+KOKKOS_INLINE_FUNCTION void delta_kin(Real M, Real qs, Real gam, Real u2, Real& lnwm, Real& kap) {
+    Real wm;
+    if (M == Real(1)) wm = qs < Real(0) ? Real(0.5) * (gam - Real(1)) : gam - Real(1);
+    else wm = Real(2) * u2 / (Real(1) + Real(2) * gam / M + Real(1) / (M * M));
+    lnwm = Kokkos::log(wm);
+    kap = (gam + Real(1) / M) / Kokkos::sqrt(u2);
+}
+} // namespace
+
 void Beam::deposit_impact(const View3D& imp) const {
     if (passive_) return;
     const GridD g = grid_.d;
     const Real z2 = q_ * q_;
+    const bool dl = imp.extent(2) > 3;   // delta-electron sums
+    const Real Mb = m_, qs = q_;
     if (analytic_) {   // rigid analytic beam: m = 0 density at every node
         const int K = bg_.nloc, M = grid_.N + 1;
         const Real xmin = bg_.xi_min, dxi = bg_.dxi;
@@ -566,6 +580,9 @@ void Beam::deposit_impact(const View3D& imp) const {
         const Real b2 = Real(1) - Real(1) / (gam * gam), be = std::sqrt(b2);
         const Real L = std::log(b2 * gam * gam) - b2;
         const Real c0 = z2 * be, c1 = z2 * L / be, c2 = z2 / be;
+        Real lw = 0, ka = 0;
+        if (dl) delta_kin(Mb, qs, gam, b2 * gam * gam, lw, ka);
+        const Real c3 = c2 * lw, c4 = c2 * ka;
         if (parsed_) {
             const ParserExec f = dens_.exec();
             constexpr int NQ = 32;
@@ -579,6 +596,7 @@ void Beam::deposit_impact(const View3D& imp) const {
                 }
                 n /= NQ;
                 imp(k, j, 0) += c0 * n; imp(k, j, 1) += c1 * n; imp(k, j, 2) += c2 * n;
+                if (dl) { imp(k, j, 3) += c3 * n; imp(k, j, 4) += c4 * n; }
             });
             return;
         }
@@ -600,6 +618,7 @@ void Beam::deposit_impact(const View3D& imp) const {
             bessel_i01_scaled(r * d / s2, i0, i1);
             const Real n = n0 * fxi * Kokkos::exp(-Real(0.5) * (r - d) * (r - d) / s2) * i0;
             imp(k, j, 0) += c0 * n; imp(k, j, 1) += c1 * n; imp(k, j, 2) += c2 * n;
+            if (dl) { imp(k, j, 3) += c3 * n; imp(k, j, 4) += c4 * n; }
         });
         return;
     }
@@ -624,6 +643,8 @@ void Beam::deposit_impact(const View3D& imp) const {
         if (!(be > Real(0))) return;
         const Real L = Kokkos::log(u2) - b2;   // ln(beta^2 gamma^2) - beta^2
         const Real c0 = z2 * be, c1 = z2 * L / be, c2 = z2 / be;
+        Real lw = 0, ka = 0;
+        if (dl) delta_kin(Mb, qs, Kokkos::sqrt(g2), u2, lw, ka);
         int j; Real t;
         g.weights(r, j, t);
         const Real Wr[2] = {Real(1) - t, t};
@@ -637,6 +658,10 @@ void Beam::deposit_impact(const View3D& imp) const {
                 Kokkos::atomic_add(&imp(kk, jj, 0), d * c0);
                 Kokkos::atomic_add(&imp(kk, jj, 1), d * c1);
                 Kokkos::atomic_add(&imp(kk, jj, 2), d * c2);
+                if (dl) {
+                    Kokkos::atomic_add(&imp(kk, jj, 3), d * c2 * lw);
+                    Kokkos::atomic_add(&imp(kk, jj, 4), d * c2 * ka);
+                }
             }
         }
     });

@@ -14,6 +14,7 @@ struct Element {
     double amu;
     std::vector<double> ip;   // ionization energies, eV (NIST / CRC Handbook)
     double M2, C;             // Bethe parameters for fast-particle impact ionization (0 = not tabulated)
+    double J;                 // width of the delta-electron energy spectrum, eV (0 = not tabulated)
 };
 // Bethe parameters: Rieke & Prepejchal, PRA 6, 1507 (1972), Table II, quality-A entries (He: the
 // H2-additive run, the pair behind their minimum cross-section 1.86e-19 cm^2; Ar, Xe: pure gas).  They
@@ -21,21 +22,23 @@ struct Element {
 // Drift Chambers, Table 1.2) to < 0.3 %: ~25 (Ar), ~43 (Xe) primary ion pairs/cm at NTP.  No data for
 // H atoms and the alkali vapours (Li, Rb, Cs) and the atomic C, N, O: give <species>.impact.M2 and
 // <species>.impact.C, or <species>.impact.sigma_cm2.
+// J: Opal, Peterson & Beaty, J. Chem. Phys. 55, 4100 (1971), fits to the measured secondary-electron
+// spectra (the authors call the fits for Ar, Kr, Xe poor); for others give <species>.impact.J_eV.
 const std::map<std::string, Element>& elements() {
     static const std::map<std::string, Element> t = {
-        {"H", {1.008, {13.59844}, 0, 0}},
-        {"He", {4.0026, {24.58739, 54.41776}, 0.745, 8.005}},
-        {"Li", {6.94, {5.39172, 75.6402, 122.4543}, 0, 0}},
-        {"C", {12.011, {11.2603, 24.3833, 47.8878, 64.4939, 392.087, 489.993}, 0, 0}},
-        {"N", {14.007, {14.5341, 29.6013, 47.44924, 77.4735, 97.8902, 552.0718, 667.046}, 0, 0}},
-        {"O", {15.999, {13.6181, 35.1211, 54.9355, 77.41353, 113.899, 138.1189, 739.29, 871.4101}, 0, 0}},
-        {"Ne", {20.180, {21.5646, 40.96328, 63.45, 97.12, 126.21, 157.93, 207.2759, 239.0989, 1195.8286, 1362.1995}, 2.02, 18.17}},
+        {"H", {1.008, {13.59844}, 0, 0, 0}},
+        {"He", {4.0026, {24.58739, 54.41776}, 0.745, 8.005, 15.8}},
+        {"Li", {6.94, {5.39172, 75.6402, 122.4543}, 0, 0, 0}},
+        {"C", {12.011, {11.2603, 24.3833, 47.8878, 64.4939, 392.087, 489.993}, 0, 0, 0}},
+        {"N", {14.007, {14.5341, 29.6013, 47.44924, 77.4735, 97.8902, 552.0718, 667.046}, 0, 0, 0}},
+        {"O", {15.999, {13.6181, 35.1211, 54.9355, 77.41353, 113.899, 138.1189, 739.29, 871.4101}, 0, 0, 0}},
+        {"Ne", {20.180, {21.5646, 40.96328, 63.45, 97.12, 126.21, 157.93, 207.2759, 239.0989, 1195.8286, 1362.1995}, 2.02, 18.17, 24.2}},
         {"Ar", {39.948, {15.7596, 27.62966, 40.74, 59.81, 75.02, 91.009, 124.323, 143.460, 422.45, 478.69, 538.96,
-                         618.26, 686.10, 755.74, 854.77, 918.03, 4120.8857, 4426.2296}, 4.22, 37.93}},
-        {"Kr", {83.798, {13.99961, 24.35985, 36.950, 52.5, 64.7, 78.5, 111.0, 125.802}, 6.09, 52.38}},
-        {"Rb", {85.468, {4.17713, 27.2895, 40.0}, 0, 0}},
-        {"Xe", {131.293, {12.1298, 20.975, 32.1230}, 8.04, 72.35}},
-        {"Cs", {132.905, {3.8939, 23.15744}, 0, 0}},
+                         618.26, 686.10, 755.74, 854.77, 918.03, 4120.8857, 4426.2296}, 4.22, 37.93, 10.0}},
+        {"Kr", {83.798, {13.99961, 24.35985, 36.950, 52.5, 64.7, 78.5, 111.0, 125.802}, 6.09, 52.38, 9.6}},
+        {"Rb", {85.468, {4.17713, 27.2895, 40.0}, 0, 0, 0}},
+        {"Xe", {131.293, {12.1298, 20.975, 32.1230}, 8.04, 72.35, 8.7}},
+        {"Cs", {132.905, {3.8939, 23.15744}, 0, 0, 0}},
     };
     return t;
 }
@@ -44,23 +47,33 @@ constexpr double E_AU = 5.14220674763e11;          // V/m
 constexpr double T_AU = 2.4188843265857e-17;       // s
 constexpr double SIGMA_BETHE = 1.87386e-20;        // 4 pi a0^2 R / (m c^2 / 2), cm^2
 constexpr double AMU_ME = 1822.888486;
+constexpr double ME_C2_EV = 510998.95;
 } // namespace
 
 bool is_ionizable(const Config& cfg, const std::string& name) {
     return cfg.has(name + ".element") || cfg.has(name + ".ionization_energies_eV");
 }
 
+bool receives_delta_electrons(const Config& cfg, const std::string& name) {
+    if (!cfg.has("plasma.species")) return false;
+    for (const auto& s : cfg.get_list("plasma.species"))
+        if (is_ionizable(cfg, s) && cfg.get_bool(s + ".impact.secondary_energy", false) &&
+            cfg.get_string(s + ".ionization.product", "electrons") == name)
+            return true;
+    return false;
+}
+
 IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, double n0_cm3) {
     IonSpeciesInfo I;
     if (!(n0_cm3 > 0)) throw std::runtime_error(name + ": ionization needs the plasma density units.n0_cm3");
     std::vector<double> ip;
-    double M2 = 0, C = 0;
+    double M2 = 0, C = 0, J = 0;
     if (cfg.has(name + ".ionization_energies_eV")) {
         for (const auto& s : cfg.get_list(name + ".ionization_energies_eV")) ip.push_back(std::stod(s));
         if (cfg.has(name + ".element")) {
             I.element = cfg.get_string(name + ".element");
             auto it = elements().find(I.element);
-            if (it != elements().end()) { I.mass_me = it->second.amu * AMU_ME; M2 = it->second.M2; C = it->second.C; }
+            if (it != elements().end()) { I.mass_me = it->second.amu * AMU_ME; M2 = it->second.M2; C = it->second.C; J = it->second.J; }
         }
     } else {
         I.element = cfg.get_string(name + ".element");
@@ -75,6 +88,7 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
         I.mass_me = it->second.amu * AMU_ME;
         M2 = it->second.M2;
         C = it->second.C;
+        J = it->second.J;
     }
     if (ip.empty()) throw std::runtime_error(name + ": no ionization energies");
     IonParams& P = I.P;
@@ -118,6 +132,21 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
             I.M2 = M2; I.C = C;
         }
     }
+    // delta electrons
+    P.delta = cfg.get_bool(name + ".impact.secondary_energy", false);
+    if (P.delta) {
+        if (!P.impact) throw std::runtime_error(name + ".impact.secondary_energy needs beam impact ionization");
+        I.J_eV = cfg.get_double(name + ".impact.J_eV", J);
+        if (!(I.J_eV > 0))
+            throw std::runtime_error(name + ".impact.secondary_energy: no width of the energy spectrum tabulated; give " + name +
+                                     ".impact.J_eV");
+        P.dJ = I.J_eV / ME_C2_EV;
+        const std::string a = cfg.get_string(name + ".impact.secondary_angle", "kinematic");
+        if (a != "kinematic" && a != "isotropic")
+            throw std::runtime_error(name + ".impact.secondary_angle must be kinematic or isotropic");
+        P.delta_iso = a == "isotropic";
+    }
+    I.born_dump = cfg.get_bool(name + ".ionization.born_dump", false);
     I.nsplit = cfg.get_int(name + ".ionization.nsplit", 1);
     if (I.nsplit < 1) throw std::runtime_error(name + ".ionization.nsplit must be >= 1");
     I.product = cfg.get_string(name + ".ionization.product", "electrons");
@@ -142,6 +171,12 @@ std::string IonSpeciesInfo::description() const {
         char b[128];
         std::snprintf(b, sizeof(b), "Bethe M^2 = %g, C = %g (sigma = %.3g cm^2 at gamma = 427)", M2, C,
                       impact_sigma_cm2(*this, 1, 427));
+        o << b;
+    }
+    if (P.delta) {
+        char b[160];
+        std::snprintf(b, sizeof(b), "; delta electrons: dsigma/dW ~ 1/(J^2 + W^2), J = %g eV, %s angle", J_eV,
+                      P.delta_iso ? "isotropic" : "binary-collision");
         o << b;
     }
     o << "; electrons -> '" << product << "'";
