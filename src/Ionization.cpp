@@ -15,23 +15,26 @@ struct Element {
     std::vector<double> ip;   // ionization energies, eV (NIST / CRC Handbook)
     double M2, C;             // Bethe parameters for fast-particle impact ionization (0 = not tabulated)
 };
-// Bethe parameters: Rieke & Prepejchal, PRA 6, 1507 (1972) (argon; checked against the primary
-// ionization of minimum-ionizing particles, ~25 ion pairs/cm at STP).  For other gases give
-// <species>.impact.M2 and <species>.impact.C, or <species>.impact.sigma_cm2.
+// Bethe parameters: Rieke & Prepejchal, PRA 6, 1507 (1972), Table II, quality-A entries (He: the
+// H2-additive run, the pair behind their minimum cross-section 1.86e-19 cm^2; Ar, Xe: pure gas).  They
+// reproduce the measured minimum primary ionization (Blum, Riegler & Rolandi, Particle Detection with
+// Drift Chambers, Table 1.2) to < 0.3 %: ~25 (Ar), ~43 (Xe) primary ion pairs/cm at NTP.  No data for
+// H atoms and the alkali vapours (Li, Rb, Cs) and the atomic C, N, O: give <species>.impact.M2 and
+// <species>.impact.C, or <species>.impact.sigma_cm2.
 const std::map<std::string, Element>& elements() {
     static const std::map<std::string, Element> t = {
         {"H", {1.008, {13.59844}, 0, 0}},
-        {"He", {4.0026, {24.58739, 54.41776}, 0, 0}},
+        {"He", {4.0026, {24.58739, 54.41776}, 0.745, 8.005}},
         {"Li", {6.94, {5.39172, 75.6402, 122.4543}, 0, 0}},
         {"C", {12.011, {11.2603, 24.3833, 47.8878, 64.4939, 392.087, 489.993}, 0, 0}},
         {"N", {14.007, {14.5341, 29.6013, 47.44924, 77.4735, 97.8902, 552.0718, 667.046}, 0, 0}},
         {"O", {15.999, {13.6181, 35.1211, 54.9355, 77.41353, 113.899, 138.1189, 739.29, 871.4101}, 0, 0}},
-        {"Ne", {20.180, {21.5646, 40.96328, 63.45, 97.12, 126.21, 157.93, 207.2759, 239.0989, 1195.8286, 1362.1995}, 0, 0}},
+        {"Ne", {20.180, {21.5646, 40.96328, 63.45, 97.12, 126.21, 157.93, 207.2759, 239.0989, 1195.8286, 1362.1995}, 2.02, 18.17}},
         {"Ar", {39.948, {15.7596, 27.62966, 40.74, 59.81, 75.02, 91.009, 124.323, 143.460, 422.45, 478.69, 538.96,
                          618.26, 686.10, 755.74, 854.77, 918.03, 4120.8857, 4426.2296}, 4.22, 37.93}},
-        {"Kr", {83.798, {13.99961, 24.35985, 36.950, 52.5, 64.7, 78.5, 111.0, 125.802}, 0, 0}},
+        {"Kr", {83.798, {13.99961, 24.35985, 36.950, 52.5, 64.7, 78.5, 111.0, 125.802}, 6.09, 52.38}},
         {"Rb", {85.468, {4.17713, 27.2895, 40.0}, 0, 0}},
-        {"Xe", {131.293, {12.1298, 20.975, 32.1230}, 0, 0}},
+        {"Xe", {131.293, {12.1298, 20.975, 32.1230}, 8.04, 72.35}},
         {"Cs", {132.905, {3.8939, 23.15744}, 0, 0}},
     };
     return t;

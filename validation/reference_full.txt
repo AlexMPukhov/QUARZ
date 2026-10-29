@@ -91,6 +91,14 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
     xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.6165e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.8248e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.6242e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.5770e-04 / 2.5598e-04
     xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.7814e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.3581e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.7223e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.3681e-04 / 4.2995e-04
     xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.1672e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.5021e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.2282e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.2788e-04 / 5.1029e-04
+ built-in Bethe data (Rieke & Prepejchal): impact ionization of dilute He, Ne, Ar, Kr, Xe by a rigid beam at
+ gamma = 3.39 (minimum) vs the measured minimum cross-sections (Blum, Riegler & Rolandi, Table 1.2, +-4 %):
+  he : sigma code 1.8731e-19 cm^2  measured 1.860e-19  (rel. diff +7.1e-03);  primary ion pairs/cm at NTP:   4.7  (measured ~5.0)
+  ne : sigma code 4.3324e-19 cm^2  measured 4.330e-19  (rel. diff +5.6e-04);  primary ion pairs/cm at NTP:  10.8  (measured ~12.4)
+  ar : sigma code 9.0297e-19 cm^2  measured 9.030e-19  (rel. diff -2.8e-05);  primary ion pairs/cm at NTP:  22.6  (measured ~25-28)
+  kr : sigma code 1.2578e-18 cm^2  measured: not tabulated;  primary ion pairs/cm at NTP:  31.5  (measured ~-)
+  xe : sigma code 1.7212e-18 cm^2  measured 1.720e-18  (rel. diff +6.9e-04);  primary ion pairs/cm at NTP:  43.1  (measured ~41-44)
+  largest |rel. diff| of sigma: 7.1e-03
 == 13. adaptive sub-slicing of the plasma push (pusher.max_cells_per_step) ==
  dxi = 0.01 without / with sub-slicing vs reference dxi = 0.000625 (relative r.m.s. errors on the axis):
   reference out_ss_ref: integral of Ez over the closure spike (xi 8.9..9.2) = -0.341

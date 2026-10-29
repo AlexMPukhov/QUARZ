@@ -12,6 +12,11 @@ usage:
       of the born electrons vs a test-particle calculation (drift p = -a(t_birth)).
   ion_check.py impact DIR n0_cm3 sigma_cm2_or_M2:C beam_n0 sigma_r sigma_xi xi0 gamma density
       beam impact ionization of a neutral gas vs P = 1 - exp(-sigma n0 k_p^-1 beta int n_b dxi).
+  ion_check.py impact_gases DIR n0_cm3 beam_n0 sigma_r sigma_xi xi0 gamma NAME:density:sigma_ref:nP_ref ...
+      built-in Bethe data per gas: the cross-section that reproduces the simulated ionized charge at the
+      end of the box vs a measured reference sigma_ref (1e-20 cm^2; Rieke & Prepejchal minimum primary
+      cross-sections as tabulated by Blum, Riegler & Rolandi, Table 1.2), and the primary ion pairs per
+      cm at NTP (20 C, 1 atm) vs nP_ref (measured, PDG / Blum Table 1.1; information only).
 """
 import os
 import sys
@@ -196,3 +201,39 @@ elif what == "impact":
             code = (nz[k, sel] * Vn[sel]).sum() / Vn[sel].sum()
             out.append(f"r/sr in [{a / sr:.1f},{b / sr:.1f}): {code:.4e} / {ref:.4e}")
         print(f"    xi - xi0 = {xi[k] - x0:+6.1f}: ionized fraction code / analytic  " + "  ".join(out))
+
+elif what == "impact_gases":
+    from scipy.optimize import brentq
+    d, n0 = sys.argv[2], float(sys.argv[3])
+    nb, sr, sxi, x0, gam = [float(v) for v in sys.argv[4:9]]
+    wp, E0 = units(n0)
+    kpi = 2.99792458e10 / wp
+    beta = np.sqrt(1 - 1 / gam ** 2)
+    f = read_fields(d + "/fields_000000.bin")
+    r, xi = f["r"], f["xi"]
+    dx = xi[1] - xi[0]
+    Vn = np.zeros(len(r))
+    for k in range(len(r) - 1):
+        a, b = r[k], r[k + 1]; h = b - a
+        Vn[k] += 2 * np.pi * (a * h / 2 + h * h / 6); Vn[k + 1] += 2 * np.pi * (b * h / 2 - h * h / 6)
+    kk = len(xi) - 1
+    from math import erf
+    I_end = nb * np.sqrt(np.pi / 2) * sxi * (1 + erf((xi[kk] + dx - x0) / (np.sqrt(2) * sxi)))
+    prof = np.exp(-r ** 2 / (2 * sr ** 2))
+    N_NTP = 101325 / (1.380649e-23 * 293.15) * 1e-6     # cm^-3
+    worst = 0.0
+    for spec in sys.argv[9:]:
+        name, dens, sref, nref = spec.split(":")
+        dens = float(dens)
+        code = (f["nz_" + name][kk] / dens * Vn).sum()
+        tot = lambda s20: (-np.expm1(-s20 * 1e-20 * n0 * kpi * beta * I_end * prof) * Vn).sum() - code
+        sig = brentq(tot, 1e-2, 1e5, xtol=1e-10, rtol=1e-12) * 1e-20
+        if sref == "-":
+            cmp = "measured: not tabulated"
+        else:
+            sref = float(sref) * 1e-20
+            worst = max(worst, abs(sig / sref - 1))
+            cmp = f"measured {sref:.3e}  (rel. diff {sig / sref - 1:+.1e})"
+        print(f"  {name:3s}: sigma code {sig:.4e} cm^2  {cmp};"
+              f"  primary ion pairs/cm at NTP: {sig * N_NTP:5.1f}  (measured ~{nref})")
+    print(f"  largest |rel. diff| of sigma: {worst:.1e}")

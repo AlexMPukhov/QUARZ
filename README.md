@@ -392,9 +392,27 @@ an initially empty species). Three channels:
   - an atom at rest sees dP = σ n_b β dξ per slice, where n_b is the beam density in the box;
   - the beams deposit three target-independent sums Σz²βn, Σz²Ln/β and Σz²n/β,
     so every beam particle has its own γ;
-  - M² = 4.22, C = 37.93 are built in for Ar. They reproduce the measured primary
-    ionization of minimum-ionizing particles in Ar (about 25 ion pairs/cm at STP).
-    For other gases give `impact.M2` and `impact.C`, or `impact.sigma_cm2`.
+  - built in (Rieke & Prepejchal, Table II, quality-A entries; σ_min at γ ≈ 3.4 and the primary
+    ion pairs per cm at NTP, 20 °C and 1 atm, for a minimum-ionizing particle):
+
+    | element | M² | C | σ_min (10⁻²⁰ cm²) | ion pairs/cm |
+    |---|---|---|---|---|
+    | He | 0.745 | 8.005 | 18.6 | 4.7 |
+    | Ne | 2.02 | 18.17 | 43.3 | 10.8 |
+    | Ar | 4.22 | 37.93 | 90.3 | 22.6 |
+    | Kr | 6.09 | 52.38 | 126 | 31.4 |
+    | Xe | 8.04 | 72.35 | 172 | 43.1 |
+
+    They reproduce the measured minimum cross-sections (Blum, Riegler & Rolandi, *Particle
+    Detection with Drift Chambers*, Table 1.2) to < 0.3 % and the measured primary ionization
+    (Ar ≈ 25, Xe ≈ 41–44 per cm) within its scatter. For a gas with these data the beam impact
+    ionization is on by default (`<name>.ionization.impact = 0` turns it off). For other gases
+    give `impact.M2` and `impact.C`, or `impact.sigma_cm2`; molecular gases from the same paper
+    (give `ionization_energies_eV` and these): H₂ 0.695, 8.115; N₂ 3.74, 34.84; O₂ 4.20, 38.84;
+    CO₂ 5.75, 55.92; CH₄ 4.28, 41.85. No data for atomic H, C, N, O and the alkali vapours.
+  - these are *primary* ionizations (one ion pair per collision). dE/dx / W counts in addition
+    the ionization by the delta electrons (3–4× more in Ar and Xe), which this model does not
+    include: the delta electron is born at rest.
 
 **Monte Carlo.**
 - Per slice, the transition z → z+1 happens with probability P = 1 − exp(−W dt − R dξ),
@@ -818,7 +836,7 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.trap_nphi` | 1 | `modes = 0`: beam particles per converted ring (equidistant azimuths, random offset) |
 | `<species>.ionization.field` | 1 | ADK by the plasma, beam and laser fields |
 | `<species>.ionization.impact` | 1 if a cross-section is known | beam impact ionization 0 → 1 |
-| `<species>.impact.M2`, `<species>.impact.C` | Ar: 4.22, 37.93 | Bethe parameters |
+| `<species>.impact.M2`, `<species>.impact.C` | He, Ne, Ar, Kr, Xe: built in (§1) | Bethe parameters |
 | `<species>.impact.sigma_cm2` | — | constant impact cross-section instead |
 | `<species>.ionization.nsplit` | 1 | > 1: split the first ionization into quanta of w₀/nsplit. Use it when the ionized fraction is small; choose nsplit ≳ 1/P_total. The particle count grows up to nsplit-fold where the gas is fully ionized. |
 
@@ -1196,6 +1214,7 @@ and analytic beam densities.
 | The same with `nsplit = 64` | He +0.06 σ, H +0.15 σ (unbiased, less noise; 46× the run time, since every atom emits up to 64 pairs) |
 | Laser ionization of N up to N⁵⁺ (0.8 µm, a0 = 0.1, wide spot) | ⟨z⟩(ξ) on the axis vs the ADK rate integrated over the true oscillating field: within 0.033 everywhere (Monte Carlo noise of the 4800 rings near the axis; converged in Δξ). Mean p⊥² of the born electrons vs test particles (p = −a(t_birth)): ratio 0.98. With the usual Laplace closed form the rates were 5–40 % high and p⊥² 13 % high, so it was replaced. |
 | Impact ionization of Ar by a rigid 400 GeV proton beam (σ = 1.59·10⁻¹⁸ cm²), `nsplit = 2000` | ionized fraction vs 1 − exp(−σ n₀ k_p⁻¹ β ∫n_b dξ) in radial bands along the beam: within 1–3 %. Total at the end of the box: +0.9 %. |
+| Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). |
 | MPI 2, 3 ranks vs serial, with laser ionization of N (LWFA example + 1 % N, `nsplit = 4`) and with impact ionization (proton bunch in Ar) | all outputs incl. `ionization.txt` bit-identical |
 | MPI 2, 3 ranks vs serial, `modes = 1`, field ionization of H/He (8 particles per ring) by an offset driver | bit-identical |
 | All earlier validation sections | unchanged |

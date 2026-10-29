@@ -206,6 +206,12 @@ sec12() {
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) > /dev/null
     echo " impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):"
     python3 ion_check.py impact out_ion_impact 1e15 4.22:37.93 10 1 15 50 427 1
+    local G=""; for s in he ne ar kr xe; do G="$G $s.ppc=$(q 32 16) $s.ionization.nsplit=$(q 2000 1000)"; done
+    $QS ion_impact_gases.in $G xi.step=$(q 0.1 0.25) > /dev/null
+    echo " built-in Bethe data (Rieke & Prepejchal): impact ionization of dilute He, Ne, Ar, Kr, Xe by a rigid beam at"
+    echo " gamma = 3.39 (minimum) vs the measured minimum cross-sections (Blum, Riegler & Rolandi, Table 1.2, +-4 %):"
+    python3 ion_check.py impact_gases out_ion_gases 1e16 40 1 15 50 3.39 he:1e-6:18.6:5.0 ne:1e-6:43.3:12.4 \
+        ar:1e-6:90.3:25-28 kr:1e-6:-:- xe:1e-6:172:41-44
     rm -rf out_ion_*
 }
 

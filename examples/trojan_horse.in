@@ -24,6 +24,7 @@ he.density = 0.01
 he.ppc = 16
 he.mobile = 0
 he.ionization.product = hel
+he.ionization.impact = 0        # laser (field) ionization only: no driver impact ionization (dark current)
 hel.ppc = 0
 hel.trap = 1
 beams = driver
