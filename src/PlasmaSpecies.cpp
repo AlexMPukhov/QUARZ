@@ -643,12 +643,26 @@ struct IonizeKernel {
     // + the delta-electron momentum (impact-born, P.delta; lnwm = ln W_max, kap: see Ionization.hpp)
     KOKKOS_INLINE_FUNCTION void electron(int j, Real X, Real Y, Real PX, Real PY, Real D, Real wgt, const IonRate& R,
                                          bool laser_born, Real Aamp, Real Ex, Real Ey, Real Ez, Real EL, int l,
-                                         uint64_t i, uint64_t d, bool impact_born, Real lnwm, Real kap) const {
+                                         uint64_t i, uint64_t d, bool impact_born, Real lnwm, Real kap, Real pin) const {
         if (eflag.extent(0) > 0) eflag(j - ne0) = impact_born ? Real(1) : Real(0);
         if (impact_born && P.delta) {
-            // W = J tan(u atan(W_max/J)): exact sampling of dsigma/dW ~ 1/(J^2 + W^2) on [0, W_max]
-            const Real J = P.dJ;
-            const Real W = J * Kokkos::tan(ion_rand(key, i, d + 4096) * Kokkos::atan(Kokkos::exp(lnwm) / J));
+            const Real J = P.dJ, wm = Kokkos::exp(lnwm);
+            const Real u0 = ion_rand(key, i, d + 4096);
+            Real W = -1;
+            if (P.nsh > 0 && u0 < pin) {
+                // inner subshell (~ n_i/B_i), energy transfer E ~ 1/E^2 on [B_i, W_max], ejected W = E - B_i
+                const Real us = u0 / pin;
+                int sh = 0;
+                while (sh < P.nsh - 1 && us > P.shP[sh]) ++sh;
+                const Real B = P.shB[sh];
+                if (wm > B) {
+                    const Real ue = ion_rand(key, i, d + 4099);
+                    W = Real(1) / (Real(1) / B - ue * (Real(1) / B - Real(1) / wm)) - B;
+                }
+            }
+            // otherwise W = J tan(u atan(W_max/J)): exact sampling of dsigma/dW ~ 1/(J^2 + W^2) on [0, W_max]
+            if (W < Real(0))
+                W = J * Kokkos::tan((P.nsh > 0 ? ion_rand(key, i, d + 4100) : u0) * Kokkos::atan(wm / J));
             const Real u = Kokkos::sqrt(W * (W + Real(2)));
             Real c = P.delta_iso ? Real(2) * ion_rand(key, i, d + 4097) - Real(1) : kap * Kokkos::sqrt(W / (W + Real(2)));
             c = Kokkos::fmin(c, Real(1));
@@ -721,12 +735,13 @@ struct IonizeKernel {
             }
             Rimp = Kokkos::fmax(Rimp, Real(0));
         }
-        Real lnwm = 0, kap = 1;   // delta electrons: ln W_max, kappa of the beams at this atom
-        if (P.delta && Rimp > Real(0)) {
+        Real lnwm = 0, kap = 1, pin = 0;   // delta electrons: ln W_max, kappa of the beams at this atom,
+        if (P.delta && Rimp > Real(0)) {   // probability of an inner-shell ionization
             const Real n2 = pg.W[0] * imp(kl, pg.j, 2) + pg.W[1] * imp(kl, pg.j + 1, 2);
             if (n2 > Real(0)) {
                 lnwm = (pg.W[0] * imp(kl, pg.j, 3) + pg.W[1] * imp(kl, pg.j + 1, 3)) / n2;
                 kap = (pg.W[0] * imp(kl, pg.j, 4) + pg.W[1] * imp(kl, pg.j + 1, 4)) / n2;
+                pin = Kokkos::fmin(P.s_in * n2 / Rimp, Real(1));
             }
         }
         const Real dtf = dxi * (Real(1) + PX * PX + PY * PY + D * D) / (Real(2) * D * D);   // dxi gamma/Delta
@@ -750,7 +765,7 @@ struct IonizeKernel {
             w(i) = wi - we;
             const bool fb = ion_rand(key, ii, 1) * a < R.W * dtf;   // field-born (else impact-born)
             electron(ne0 + cnt_e(i), X, Y, PX, PY, D, we, R, P.laser && fb, Aamp, Ex, Ey, Ez, EL, z, ii, 1u << 20,
-                     !fb, lnwm, kap);
+                     !fb, lnwm, kap, pin);
             return;
         }
         // ---- whole macro-particle, possibly several levels in this slice
@@ -764,7 +779,7 @@ struct IonizeKernel {
             if (create) {
                 const bool fb = ion_rand(key, ii, d + 1) * a < R.W * dtf;   // field-born (else impact-born)
                 electron(ne0 + cnt_e(i) + ne, X, Y, PX, PY, D, wi, R, P.laser && fb, Aamp, Ex, Ey, Ez, EL, l, ii,
-                         (2u + static_cast<uint64_t>(l)) << 20, !fb, lnwm, kap);
+                         (2u + static_cast<uint64_t>(l)) << 20, !fb, lnwm, kap, pin);
             }
             ++ne;
         }

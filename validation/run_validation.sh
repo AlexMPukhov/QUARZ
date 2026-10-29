@@ -493,14 +493,19 @@ sec22() {
     echo "== 22. delta electrons of beam impact ionization (<species>.impact.secondary_energy) =="
     local D="ion_delta.in xe.ionization.nsplit=$(q 100000 20000) xi.step=$(q 0.1 0.25)"
     $QS $D > /dev/null
-    echo " (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV) and binary-collision angle vs the model:"
-    python3 delta_check.py spectrum out_delta xe 8.7 1836.15 1 3.39 kinematic
+    local XE="8.04 72.35 34561:2,5453:2,5107:2,4786:4,1148.7:2,1002.1:2,940.6:4,689.0:4,676.4:6"
+    echo " (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV + free-electron tail of the n = 1-3 subshells)"
+    echo "     and binary-collision angle vs the model:"
+    python3 delta_check.py spectrum out_delta xe 8.7 1836.15 1 3.39 kinematic $XE
+    $QS $D xe.impact.inner_shells_eV="100 1000" xe.impact.inner_shells_n="50 50" output.dir=out_delta_sh > /dev/null
+    echo " (a2) artificial subshells (100 eV, 1 keV; 50 electrons each) to resolve the mixture:"
+    python3 delta_check.py spectrum out_delta_sh xe 8.7 1836.15 1 3.39 kinematic 8.04 72.35 100:50,1000:50
     $QS $D b.mass=1 b.charge=-1 b.gamma=20 xe.impact.J_eV=2e6 output.dir=out_delta_e > /dev/null
     echo " (b) electrons at gamma = 20 (W_max = (gamma - 1)/2, Moller kinematics), J = 2 MeV to resolve the cut-off:"
-    python3 delta_check.py spectrum out_delta_e xe 2e6 1 -1 20 kinematic
+    python3 delta_check.py spectrum out_delta_e xe 2e6 1 -1 20 kinematic $XE
     $QS $D xe.impact.secondary_angle=isotropic output.dir=out_delta_iso > /dev/null
     echo " (c) isotropic emission:"
-    python3 delta_check.py spectrum out_delta_iso xe 8.7 1836.15 1 3.39 isotropic
+    python3 delta_check.py spectrum out_delta_iso xe 8.7 1836.15 1 3.39 isotropic $XE
     $QS $D b.gamma=427 xe.impact.J_eV=5.11e6 output.dir=out_delta_fast > /dev/null
     echo " (d) 400 GeV protons, J = 5.11 MeV: fast delta electrons (gamma/Delta > 35) -> beam particles of electrons_trapped:"
     python3 delta_check.py trapped out_delta_fast xe 35

@@ -430,11 +430,18 @@ an initially empty species). Three channels:
     particles of `<product>_trapped` through the trapping path: `<product>.trap` is on by default
     for a species that receives delta electrons. These beam electrons ionize the gas themselves
     (Bethe cross-section and their own delta electrons, with Møller kinematics);
-  - not yet included: ionization by the slow delta electrons (plasma electrons do not ionize), the
-    energy loss of the projectile (Ip + W), and the inner shells. The 1/W² tail of the fit carries the
-    strength of ~21 free electrons in Ar (Z = 18) but only ~34 in Xe (Z = 54), so the mean delta
-    energy at minimum ionization, Ar 88 eV and Xe 78 eV, matches the measured total ionization in
-    Ar (N_T/N_P needs ≈ 76 eV) but is ≈ 40 % low in Xe (≈ 133 eV);
+  - inner shells of the heavy gases: the 1/W² tail of the fit carries the strength of ~21 free
+    electrons in Ar (Z = 18), ~28 in Kr (Z = 36) and ~34 in Xe (Z = 54). For Kr (n = 1, 2) and Xe
+    (n = 1–3) every inner subshell (n_i electrons, binding B_i; X-ray Data Booklet) adds the
+    free-electron cross-section dσ/dE = 2πr_e²mc² z² n_i/(β²E²) for the energy transfer
+    B_i ≤ E ≤ W_max; the electron gets W = E − B_i (the vacancy energy, Auger electrons, is not
+    followed). This part (0.4 % of the ionizations in Xe at minimum ionization) is taken out of the
+    total, so the rate stays the Bethe one. Mean delta energy at minimum ionization: Ar 88 eV (the
+    measured N_T/N_P needs ≈ 76 eV), Kr 85 → 101 eV (≈ 119), Xe 78 → 112 eV (≈ 133; 117 eV with the
+    vacancy energy). `impact.inner_shells = 0` turns it off; other gases: `impact.inner_shells_eV`
+    and `impact.inner_shells_n` (lists);
+  - not yet included: ionization by the slow delta electrons (plasma electrons do not ionize) and the
+    energy loss of the projectile (Ip + W);
   - `<name>.ionization.born_dump = 1` writes the electrons born in every sweep to
     `born_<name>_<step>.txt` (slice, x, y, p_x, p_y, Δ, w, impact-born flag; MPI: one file per rank).
 
@@ -865,6 +872,8 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.impact.secondary_energy` | 0 | 1 = delta electrons: impact-born electrons get energy and direction (§1) |
 | `<species>.impact.J_eV` | He, Ne, Ar, Kr, Xe: built in (§1) | width J of the delta-electron spectrum 1/(J² + W²) |
 | `<species>.impact.secondary_angle` | `kinematic` | `kinematic` (binary collision) or `isotropic` |
+| `<species>.impact.inner_shells` | 1 | free-electron tail of the inner subshells (built in: Kr n = 1, 2; Xe n = 1–3) |
+| `<species>.impact.inner_shells_eV`, `.inner_shells_n` | — | own subshells: binding energies (eV) and electron numbers (lists) |
 | `<species>.ionization.born_dump` | 0 | 1 = write the electrons born in every sweep to `born_<species>_<step>.txt` |
 | `<species>.ionization.nsplit` | 1 | > 1: split the first ionization into quanta of w₀/nsplit. Use it when the ionized fraction is small; choose nsplit ≳ 1/P_total. The particle count grows up to nsplit-fold where the gas is fully ionized. |
 
@@ -1243,7 +1252,7 @@ and analytic beam densities.
 | Laser ionization of N up to N⁵⁺ (0.8 µm, a0 = 0.1, wide spot) | ⟨z⟩(ξ) on the axis vs the ADK rate integrated over the true oscillating field: within 0.033 everywhere (Monte Carlo noise of the 4800 rings near the axis; converged in Δξ). Mean p⊥² of the born electrons vs test particles (p = −a(t_birth)): ratio 0.98. With the usual Laplace closed form the rates were 5–40 % high and p⊥² 13 % high, so it was replaced. |
 | Impact ionization of Ar by a rigid 400 GeV proton beam (σ = 1.59·10⁻¹⁸ cm²), `nsplit = 2000` | ionized fraction vs 1 − exp(−σ n₀ k_p⁻¹ β ∫n_b dξ) in radial bands along the beam: within 1–3 %. Total at the end of the box: +0.9 %. |
 | Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). |
-| Delta electrons (section 22): dilute Xe, rigid beam, `ionization.born_dump` | energy spectrum of the impact-born electrons vs the model CDF atan(W/J)/atan(W_max/J) (independent Python): Kolmogorov-Smirnov p = 0.68 (protons, γ = 3.39, J = 8.7 eV, 66 000 electrons; median 8.76 vs 8.70 eV) and p = 0.90 (electrons, γ = 20, J = 2 MeV: the cut-off W_max = (γ − 1)mc²/2 is reached, max W/W_max = 0.9999); binary-collision angle cos θ = κ√(W/(W+2)) to 3·10⁻¹³; isotropic option: KS p = 0.08, ⟨cos θ⟩ = 0.003. 400 GeV protons with J = 5.11 MeV: of 121 554 electrons 22 262 are born beyond γ/Δ = 35, 22 261 become beam particles (the one is born at γ/Δ = 35.005 and falls below after the first push). The ion charge density is bit-identical with and without delta electrons; with the fast deltas ionizing as beam electrons, restart and 2 ranks are bit-identical. The same kernel on an RTX 5090 (CUDA 13) gives the same samples. |
+| Delta electrons (section 22): dilute Xe, rigid beam, `ionization.born_dump` | energy spectrum of the impact-born electrons vs the model (independent Python: OPB part atan(W/J)/atan(W_max/J) plus the free-electron tails of the Xe n = 1–3 subshells): Kolmogorov-Smirnov p = 0.57 (protons, γ = 3.39, 66 000 electrons; fraction with W > 1 keV 0.00737 vs 0.00735 ± 0.00033, without the inner shells it would be 0.0055); artificial subshells with 9 % of the rate: p = 0.13; electrons at γ = 20 with J = 2 MeV (the cut-off W_max = (γ − 1)mc²/2 is reached): p = 0.75. Binary-collision angle cos θ = κ√(W/(W+2)) to 3·10⁻¹³; isotropic option: p = 0.13, ⟨cos θ⟩ = 0.003. 400 GeV protons with J = 5.11 MeV: of 121 554 electrons 22 138 are born beyond γ/Δ = 35 and 22 137 become beam particles (the conversion tests the state after the first push; 54 are born within 0.1 % of the threshold). The ion charge density is bit-identical with and without delta electrons; with the fast deltas ionizing as beam electrons, restart and 2 ranks are bit-identical. The same kernel on an RTX 5090 (CUDA 13) gives the same samples. |
 | MPI 2, 3 ranks vs serial, with laser ionization of N (LWFA example + 1 % N, `nsplit = 4`) and with impact ionization (proton bunch in Ar) | all outputs incl. `ionization.txt` bit-identical |
 | MPI 2, 3 ranks vs serial, `modes = 1`, field ionization of H/He (8 particles per ring) by an offset driver | bit-identical |
 | All earlier validation sections | unchanged |

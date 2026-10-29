@@ -4,10 +4,12 @@ independent implementation of the model (Ionization.hpp): energy spectrum dsigma
 The parents are atoms at rest, so the birth momentum is the delta-electron momentum.
 
 usage:
-  delta_check.py spectrum DIR SPECIES J_eV beam_mass beam_charge beam_gamma  kinematic|isotropic
+  delta_check.py spectrum DIR SPECIES J_eV beam_mass beam_charge beam_gamma  kinematic|isotropic [M2 C B:n,B:n,...]
       born_<SPECIES>_*.txt (impact-born electrons): Kolmogorov-Smirnov test of W against the CDF
       atan(W/J)/atan(W_max/J), W <= W_max, and the angle: |cos(theta) - kappa sqrt(W/(W+2))| (kinematic)
-      or a KS test of cos(theta) against the uniform distribution (isotropic).
+      or a KS test of cos(theta) against the uniform distribution (isotropic).  With inner subshells
+      (Bethe M2, C and the subshells B (eV):n): the mixture (1 - p) OPB + p sum_i q_i (1/E^2 on [B_i, W_max],
+      W = E - B_i), p = sigma_inner / sigma_Bethe, q_i ~ n_i/B_i; the fraction of W > 1 keV vs the model.
   delta_check.py trapped DIR SPECIES max_qsa
       fast delta electrons (gamma/Delta > max_qsa at birth) -> beam particles of <product>_trapped: the
       number of the born electrons beyond the limit vs the trapped macro-particles in beams.txt (the
@@ -53,6 +55,14 @@ def ks(x, cdf):
     return D, p
 
 
+def median(cdf, hi):
+    lo = 0.0
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        lo, hi = (mid, hi) if cdf(mid) < 0.5 else (lo, mid)
+    return 0.5 * (lo + hi)
+
+
 what = sys.argv[1]
 if what == "spectrum":
     d, sp, J = sys.argv[2], sys.argv[3], float(sys.argv[4]) / ME_EV
@@ -62,14 +72,34 @@ if what == "spectrum":
     if M == 1: Wm = 0.5 * (g - 1) if q < 0 else g - 1
     else: Wm = 2 * u2 / (1 + 2 * g / M + 1 / M ** 2)
     kap = (g + 1 / M) / np.sqrt(u2)
+    sh, pin = [], 0.0
+    if len(sys.argv) > 9:
+        M2, C = float(sys.argv[9]), float(sys.argv[10])
+        sh = [(float(t.split(":")[0]) / ME_EV, int(t.split(":")[1])) for t in sys.argv[11].split(",")]
+        b2 = u2 / g ** 2
+        sP = 1.87386e-20 / b2 * (M2 * (np.log(u2) - b2) + C)
+        sin = 2 * np.pi * 2.8179403262e-13 ** 2 / b2 * sum(n / B for B, n in sh)   # (B in m c^2 units)
+        pin = sin / sP
+        tq = sum(n / B for B, n in sh)
+        q = [n / B / tq for B, n in sh]
+    def cdf(x):
+        F = (1 - pin) * np.arctan(x / J) / np.arctan(Wm / J)
+        for (B, n), qi in zip(sh, q if sh else []):
+            if Wm > B: F = F + pin * qi * np.clip((1 / B - 1 / (x + B)) / (1 / B - 1 / Wm), 0, 1)
+            else: F = F + pin * qi * np.arctan(x / J) / np.arctan(Wm / J)
+        return F
     gam, uz, p2, dl, w, ib = born(d, sp)
     sel = ib == 1
     W, u = gam[sel] - 1, np.sqrt(gam[sel] ** 2 - 1)
     c = uz[sel] / np.maximum(u, 1e-300)
     print(f"  {sel.sum()} impact-born electrons; W_max = {Wm * ME_EV / 1e6:.4g} MeV, kappa = {kap:.6f}, J = {J * ME_EV:g} eV")
-    D, p = ks(W, lambda x: np.arctan(x / J) / np.arctan(Wm / J))
+    D, p = ks(W, cdf)
     print(f"  energy: KS distance {D:.2e}, p-value {p:.3f};  max W / W_max = {W.max() / Wm:.4f};"
-          f"  median W {np.median(W) * ME_EV:.2f} eV (model {J * np.tan(0.5 * np.arctan(Wm / J)) * ME_EV:.2f} eV)")
+          f"  median W {np.median(W) * ME_EV:.2f} eV (model {median(cdf, Wm) * ME_EV:.2f} eV)")
+    if sh:
+        f1, fm = (W > 1e3 / ME_EV).mean(), 1 - cdf(1e3 / ME_EV)
+        print(f"  inner subshells: p = sigma_inner/sigma = {pin:.4f}; fraction with W > 1 keV: {f1:.5f}, model {fm:.5f}"
+              f" +- {np.sqrt(fm * (1 - fm) / len(W)):.5f}")
     m = W > 1e-6   # below, round-off of gamma - 1 dominates the angle
     if mode == "kinematic":
         dev = np.abs(c[m] - np.minimum(kap * np.sqrt(W[m] / (W[m] + 2)), 1))

@@ -37,6 +37,13 @@
 //     for electrons (the slower of the two is the secondary), (gamma - 1) m c^2 for positrons.  Several
 //     beams: the beams deposit two more sums  N3 = sum z^2 n ln(W_max)/beta,  N4 = sum z^2 n kappa/beta,
 //     and an atom uses W_max = exp(N3/N2), kappa = N4/N2 (exact for one kind of projectile).
+//     Inner shells (heavy gases: the 1/W^2 tail of the fit above covers only the outer electrons): a
+//     subshell with n_i electrons bound by B_i adds the free-electron (Rutherford) cross-section
+//     dsigma/dE = 2 pi r_e^2 m c^2 z^2 n_i / (beta^2 E^2) for the energy transfer B_i <= E <= W_max; the
+//     ejected electron gets W = E - B_i (the vacancy energy, Auger electrons, is not followed).  Their
+//     rate s_in N2, s_in = 2 pi r_e^2 (m c^2) sum n_i/B_i n0 k_p^-1, is taken out of the total (Bethe)
+//     rate, so the ionization rate is unchanged; an impact ionization is an inner-shell one with
+//     probability s_in N2 / R_imp.
 //
 // Monte Carlo: per slice the probability of the transition z -> z+1 is P = 1 - exp(-W dt - R dxi),
 // dt = dxi gamma/Delta (time an ion spends in the slice; = dxi for atoms at rest).  Several
@@ -54,6 +61,7 @@
 #include "Types.hpp"
 
 #include <cstdint>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -62,6 +70,7 @@ namespace quarz {
 class Config;
 
 constexpr int ION_MAX_LEVELS = 36;
+constexpr int ION_MAX_SHELLS = 12;
 
 // device-side parameters of one ionizable species
 struct IonParams {
@@ -76,6 +85,10 @@ struct IonParams {
     bool delta = false;                   // impact-born electrons get the delta-electron energy and angle
     bool delta_iso = false;               //   isotropic emission instead of the binary-collision angle
     Real dJ = 0;                          //   width J of the energy spectrum dsigma/dW ~ 1/(J^2 + W^2), m c^2
+    int nsh = 0;                          //   inner subshells with a free-electron (Rutherford) tail
+    Real shB[ION_MAX_SHELLS] = {};        //     binding energies, m c^2
+    Real shP[ION_MAX_SHELLS] = {};        //     cumulative probabilities ~ n_i / B_i
+    Real s_in = 0;                        //     inner-shell rate = s_in N2
     bool laser = false, circular = false; // laser envelope present, its polarisation
     Real k0 = 0;                          // omega0 / omega_p
 };
@@ -191,6 +204,7 @@ struct IonSpeciesInfo {
     std::string product;          // electron species receiving the new electrons
     double M2 = 0, C = 0, sigma_cm2 = 0;
     double J_eV = 0;              // delta electrons: width of the energy spectrum
+    std::vector<std::pair<double, int>> shells;   // inner subshells: binding energy (eV), electrons
     bool born_dump = false;       // <name>.ionization.born_dump: write the new electrons of every sweep
     std::string description() const;
 };

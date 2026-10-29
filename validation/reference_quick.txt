@@ -218,21 +218,30 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
 == 22. delta electrons of beam impact ionization (<species>.impact.secondary_energy) ==
- (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV) and binary-collision angle vs the model:
+ (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV + free-electron tail of the n = 1-3 subshells)
+     and binary-collision angle vs the model:
   13109 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
-  energy: KS distance 5.07e-03, p-value 0.889;  max W / W_max = 0.0033;  median W 8.73 eV (model 8.70 eV)
-  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.6e-13  (W > 0.5 eV, 12603 electrons)
+  energy: KS distance 5.01e-03, p-value 0.897;  max W / W_max = 0.0109;  median W 8.73 eV (model 8.75 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0039; fraction with W > 1 keV: 0.00648, model 0.00735 +- 0.00075
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.4e-13  (W > 0.5 eV, 12651 electrons)
+ (a2) artificial subshells (100 eV, 1 keV; 50 electrons each) to resolve the mixture:
+  13109 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 5.98e-03, p-value 0.736;  max W / W_max = 0.1922;  median W 9.85 eV (model 9.89 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0892; fraction with W > 1 keV: 0.01755, model 0.01647 +- 0.00111
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.4e-13  (W > 0.5 eV, 12689 electrons)
  (b) electrons at gamma = 20 (W_max = (gamma - 1)/2, Moller kinematics), J = 2 MeV to resolve the cut-off:
   16778 impact-born electrons; W_max = 4.854 MeV, kappa = 1.051315, J = 2e+06 eV
-  energy: KS distance 5.05e-03, p-value 0.785;  max W / W_max = 0.9995;  median W 1346255.91 eV (model 1339106.80 eV)
-  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 3.2e-15  (W > 0.5 eV, 16778 electrons)
+  energy: KS distance 4.25e-03, p-value 0.922;  max W / W_max = 0.9998;  median W 1338483.72 eV (model 1334077.15 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0029; fraction with W > 1 keV: 0.99791, model 0.99801 +- 0.00034
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.2e-14  (W > 0.5 eV, 16778 electrons)
  (c) isotropic emission:
   13109 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
-  energy: KS distance 5.07e-03, p-value 0.889;  max W / W_max = 0.0033;  median W 8.73 eV (model 8.70 eV)
-  angle: isotropic, KS distance of cos(theta) 8.02e-03, p-value 0.391; <cos(theta)> = -0.0053
+  energy: KS distance 5.01e-03, p-value 0.897;  max W / W_max = 0.0109;  median W 8.73 eV (model 8.75 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0039; fraction with W > 1 keV: 0.00648, model 0.00735 +- 0.00075
+  angle: isotropic, KS distance of cos(theta) 1.07e-02, p-value 0.109; <cos(theta)> = -0.0074
  (d) 400 GeV protons, J = 5.11 MeV: fast delta electrons (gamma/Delta > 35) -> beam particles of electrons_trapped:
-  24217 electrons born, 4358 beyond gamma/Delta = 35 at birth; trapped beam particles at the end: 4358
-  (expected: equal up to the 10 born within 0.1 % of the threshold: the conversion tests the state after the first push) OK
+  24217 electrons born, 4381 beyond gamma/Delta = 35 at birth; trapped beam particles at the end: 4380
+  (expected: equal up to the 7 born within 0.1 % of the threshold: the conversion tests the state after the first push) OK
  (e) the ionization itself does not change:
   ion charge density with / without delta electrons: max |difference| = 0.0e+00  (expected: 0)
  (f) with fast deltas ionizing as beam electrons: restart (expected: bit-identical):
