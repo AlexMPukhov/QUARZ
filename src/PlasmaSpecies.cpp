@@ -1160,7 +1160,7 @@ IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int 
 // g = d - (d_- + d_+)/2 (one neighbour at the ends: g = d - d_nb), noise part D = g - <g> (<g> over 2 window + 1
 // rings), F = 1 - D^2/D0^2 for |D| < D0 (D0 in units of the local cell), else 0, and a radial kick
 //   dp_i = -{K h / w_i [c_i a_i - (a_- + a_+)/2] + kappa h F_i (D_i - D_i^prev)} / s^2,   a_i = w_i F_i D_i,
-// s = h_local/ppc the ring spacing (the paper's Eq. 32 measures D in lattice spacings: its stability bound
+// s = h_min/ppc the smallest ring spacing (the paper's Eq. 32 measures D in lattice spacings: its stability bound
 // K + kappa < h^2/(dxi^2 N) is then that of an explicit spring), c_i = (number of neighbours)/2. With the weights w
 // (rings: w ~ r) the restoring part is a sum of pair forces:
 // sum_i w_i dp_i = 0 up to round-off (Newton's third law; for equal weights it is the paper's Eq. 32).
@@ -1183,7 +1183,11 @@ void PlasmaSpecies::decluster(Real h) {
     const int n = nfam_, s = ntheta_, W = decl_win_, ns = decl_stride_;
     const GridD g = grid_.d;
     const Real K = decl_K_, kap = decl_kappa_, D0 = decl_D0_;
-    const int ppc = std::max(ppc_, 1);
+    // spring constant in physical units: 1/a^2 with the smallest ring spacing a = h_min/ppc (on a stretched grid
+    // the same restoring frequency everywhere; the clustering rate does not depend on h; stability is set by h_min)
+    double hmin = 1e300;
+    for (int j = 0; j < grid_.N; ++j) hmin = std::min(hmin, double(grid_.h[j]));
+    const Real ia2 = Real(std::max(ppc_, 1) * std::max(ppc_, 1) / (hmin * hmin));
     auto x = x_, y = y_, px = px_, py = py_, w = w_, r0 = r0_, dp = dprev_, G = dg_, Dv = dD_, A = da_;
     auto fresh = fresh_;
     Kokkos::parallel_for("decl.g", Range(0, n), KOKKOS_LAMBDA(int i) {
@@ -1208,8 +1212,7 @@ void PlasmaSpecies::decluster(Real h) {
         const Real hl = g.h(g.locate(r0(i)));
         const Real d0 = D0 * hl, F = Kokkos::fabs(D) < d0 ? Real(1) - D * D / (d0 * d0) : Real(0);
         Dv(i) = D;
-        const Real a = hl / Real(ppc);   // ring spacing
-        A(i) = w(i) * F * D / (a * a);
+        A(i) = w(i) * F * D * ia2;
         mx = Kokkos::fmax(mx, Kokkos::fabs(D) / hl);
     }, Kokkos::Max<Real>(dmax));
     decl_dmax_ = dmax;
@@ -1226,9 +1229,8 @@ void PlasmaSpecies::decluster(Real h) {
         const Real hl = g.h(g.locate(r0(i)));
         const Real d0 = D0 * hl, F = Kokkos::fabs(D) < d0 ? Real(1) - D * D / (d0 * d0) : Real(0);
         const Real Dp = fresh(i) ? D : dp(i);
-        const Real a = hl / Real(ppc);   // ring spacing
         const Real kr = -K * h * (ci * A(i) - nb) / wi;   // restoring part (pair forces)
-        const Real kick = kr - kap * h * F * (D - Dp) / (a * a);
+        const Real kick = kr - kap * h * F * (D - Dp) * ia2;
         swk += wi * kr; swa += wi * Kokkos::fabs(kr);
         dp(i) = D;
         const Real X = x(i), Y = y(i), r = Kokkos::sqrt(X * X + Y * Y);
