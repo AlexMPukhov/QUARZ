@@ -88,6 +88,15 @@ public:
     // sum z w and sum w over live particles (mean charge state)
     void charge_sums(double& zw, double& w) const;
     void ensure_capacity(int n);   // grow the particle arrays (keeps the contents)
+    // declustering (Kargapolov et al., Phys. Plasmas 32, 023905 (2025)): after every push of length h, a restoring
+    // kick on the noise part D of the radial displacement of the loaded rings relative to their lattice neighbours
+    bool declustering() const { return decl_; }
+    void decluster(Real h);
+    std::string decl_description(double dxi) const;   // parameters and the stability bound K + kappa < h_min^2/(dxi^2 N)
+    // diagnostic: max |D| / h_local over the loaded rings at the last decluster() call (0 if off)
+    double decl_dmax() const { return decl_dmax_; }
+    // |sum w dp| / sum w |dp| of the restoring kicks at the last decluster() call (0 up to round-off)
+    double decl_newton() const { return decl_newton_; }
     int num_loaded() const { return Nload_; }
 
     const std::string& name() const { return name_; }
@@ -119,6 +128,7 @@ public:
     IView1D fresh_;        // 1: (re)start the Adams-Bashforth history at the next push (born / charge changed)
     View1D lev_, wq_;      // ionizable species: charge state, split quantum (0: no splitting)
     View1D acc_;           // ionization.quiet: accumulated expected ionization (quanta or probability) in [0, 1)
+    View1D r0_, dprev_;    // declustering: initial radius of each loaded ring, its noise displacement D at the last push
 
 private:
     std::string name_;
@@ -143,6 +153,14 @@ private:
     double xi_slot_[5] = {0, 0, 0, 0, 0};
     int Np_ = 0;      // active particles (loaded + born in this sweep)
     int Nload_ = 0;   // loaded at the head of the box
+    int nfam_ = 0;    // declustering: rings loaded at the head (the lattice), indices [0, nfam_)
+    bool decl_ = false;
+    Real decl_K_ = 0, decl_kappa_ = 0, decl_D0_ = 0;   // restoring force, damping, range (units of the local cell)
+    int decl_win_ = 4;                                // <g> over 2 win + 1 lattice neighbours
+    int decl_stride_ = 1;                             // lattice neighbours at 1 .. stride steps (x ntheta)
+    double decl_dmax_ = 0;
+    double decl_newton_ = 0;
+    View1D dg_, dD_, da_;  // work arrays: g, D, w F D
     int cap_ = 0;     // allocated
     bool ionizable_ = false;
     bool frozen_ = false;     // ionizable species with <name>.mobile = 0: particles, but not pushed

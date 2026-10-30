@@ -112,6 +112,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         species_.push_back(std::make_unique<PlasmaSpecies>(cfg, n, *grid_, profile_, m1_));
         const auto& sp = *species_.back();   // (neutral gas does not count as a positive species)
         if (sp.charge() > 0 && (!sp.ionizable() || sp.ion_info().P.z0 > 0)) has_positive = true;
+        if (sp.declustering()) { decl_any_ = true; ++decl_n_; }
     }
     neutralize_ = cfg.get_bool("plasma.neutralize", !has_positive);
     bool any_impact = false, any_delta = false;
@@ -201,6 +202,8 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
                       << (s->frozen() ? ", immobile" : (s->mobile() ? ", mobile" : ", immobile")) << ", "
                       << "up to " << s->num_particles() << " macro-particles per slice (rings without plasma are skipped)\n";
         for (int i : ion_sp_) std::cout << "Species '" << species_[i]->name() << "'" << species_[i]->ion_info().description() << "\n";
+        for (const auto& s : species_)
+            if (s->declustering()) std::cout << s->decl_description(box_.dxi) << "\n";
         std::cout << "Neutralising immobile background: " << (neutralize_ ? "yes" : "no") << "\n";
         if (smooth_a_ > 0) {
             std::cout << "Radial smoothing of the plasma sources: a = " << smooth_a_ << "\n";
@@ -734,10 +737,15 @@ void Simulation::step_fields(const std::vector<double>& msg, size_t& off) {
                     solve_slice_fields();
                 }
                 for (auto& sp : species_)
-                    if (sp->mobile()) sp->push(fld_, h);
+                    if (sp->mobile()) { sp->push(fld_, h); sp->decluster(h); }
                 for (int s : ei_proj_) species_[s]->eloss(ntg_, eit_, h, ei_discrete_, k, step_, ss);
             }
             nsub_step_ += nsub - 1;
+            if (decl_any_) {   // max |D| / h of every declustering species at this slice (declust_<step>.txt)
+                decl_rec_.push_back(double(k));
+                for (auto& sp : species_)
+                    if (sp->declustering()) { decl_rec_.push_back(sp->decl_dmax()); decl_rec_.push_back(sp->decl_newton()); }
+            }
         }
     }
     if (laser_) laser_->end_sweep();
@@ -1300,6 +1308,28 @@ void Simulation::write_ion_diag(int n) {
     }
 }
 
+// plasma.declustering: max |D| / h of every declustering species per slice of the sweep (one file per step and rank)
+void Simulation::write_decl_diag(int n) {
+    if (decl_any_ && !decl_rec_.empty()) {
+        char st[16];
+        std::snprintf(st, sizeof(st), "%06d", n);
+        std::string fn = outdir_ + "/declust_" + st + ".txt";
+        if (comm_.size() > 1) fn += ".part" + std::to_string(comm_.rank());
+        std::ofstream o(fn);
+        o << "# xi";
+        for (auto& sp : species_) if (sp->declustering()) o << "  " << sp->name() << ":max|D|/h " << sp->name() << ":newton";
+        o << "   (noise displacement of the loaded rings after the push of the slice, step " << n << ")\n"
+          << std::setprecision(8);
+        const size_t nc = 1 + 2 * static_cast<size_t>(decl_n_);
+        for (size_t i = 0; i + nc <= decl_rec_.size(); i += nc) {
+            o << box_.xi_min + decl_rec_[i] * box_.dxi;
+            for (size_t c = 1; c < nc; ++c) o << " " << decl_rec_[i + c];
+            o << "\n";
+        }
+        decl_rec_.clear();
+    }
+}
+
 void Simulation::run() {
     Kokkos::Timer total;
     const int P = comm_.size(), rank = comm_.rank();
@@ -1343,6 +1373,7 @@ void Simulation::run() {
         write_beam_output(n);
         if (laser_) write_laser_diag(n);
         if (!ion_sp_.empty()) write_ion_diag(n);
+        write_decl_diag(n);
         write_group_outputs(n);
 
         if (comm_.root()) {

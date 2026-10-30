@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <cmath>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 
 namespace quarz {
@@ -124,6 +125,20 @@ PlasmaSpecies::PlasmaSpecies(const Config& cfg, const std::string& name, const R
         for (int c = 0; c < 3; ++c) udrift_[c] = std::stod(u[c]);
     }
     tail_dump_ = cfg.get_bool(name + ".tail_dump", false);
+    // declustering: plasma.declustering = 1 turns it on for the mobile electron species (charge < 0); <species>.declustering
+    // overrides per species (e.g. 1 for mobile ions). Parameters plasma.declustering.K / .kappa / .D0 (D0 in local cells)
+    {
+        const bool on = cfg.get_bool("plasma.declustering", false);
+        decl_ = cfg.get_bool(name + ".declustering", on && q_ < 0 && mobile_ && !ionizable_);
+        if (decl_ && (!mobile_ || frozen_)) throw std::runtime_error(name + ".declustering: only for mobile species");
+        decl_K_ = cfg.get_double("plasma.declustering.K", 0.01);
+        decl_kappa_ = cfg.get_double("plasma.declustering.kappa", 0.005);
+        decl_D0_ = cfg.get_double("plasma.declustering.D0", 0.01);
+        decl_win_ = cfg.get_int("plasma.declustering.window", 4);
+        decl_stride_ = cfg.get_int("plasma.declustering.stride", 1);
+        if (decl_ && (decl_K_ < 0 || decl_kappa_ < 0 || !(decl_D0_ > 0) || decl_win_ < 1))
+            throw std::runtime_error("plasma.declustering: K, kappa >= 0, D0 > 0, window >= 1 required");
+    }
     delta_min_ = cfg.get_double("pusher.delta_min", 1e-3);
     max_qsa_ = cfg.get_double("pusher.max_qsa_factor", 35.0);
     ab_ = make_ab(cfg.get_int("pusher.ab_order", 3));
@@ -155,6 +170,10 @@ PlasmaSpecies::PlasmaSpecies(const Config& cfg, const std::string& name, const R
         txi_ = View1D(name + ".trap_xi", cap_);
         tpz_ = View1D(name + ".trap_pz", cap_);
         ntrap_ = IView1D(name + ".ntrap", 1);
+    }
+    if (decl_) {
+        r0_ = View1D(name + ".r0", cap_); dprev_ = View1D(name + ".dprev", cap_);
+        dg_ = View1D(name + ".dg", cap_); dD_ = View1D(name + ".dD", cap_); da_ = View1D(name + ".da", cap_);
     }
     if (ionizable_) {
         lev_ = View1D(name + ".z", cap_);
@@ -243,6 +262,12 @@ void PlasmaSpecies::load(Real z, unsigned long long seed) {
     Kokkos::deep_copy(fresh_, 0);
     if (trap_) { Kokkos::deep_copy(tw_, 0.0); Kokkos::deep_copy(ntrap_, 0); }
     Np_ = i;   // rings with plasma (<= Nload_)
+    nfam_ = i;
+    if (decl_) {
+        auto x = x_, y = y_, r0 = r0_, dp = dprev_;
+        Kokkos::parallel_for("decl.init", Range(0, nfam_), KOKKOS_LAMBDA(int q) {
+            r0(q) = Kokkos::sqrt(x(q) * x(q) + y(q) * y(q)); dp(q) = Real(0); });
+    }
     npush_ = 0;
     xi_cur_ = 0;
     if (ionizable_) {
@@ -280,6 +305,8 @@ void PlasmaSpecies::ensure_capacity(int n) {
         Kokkos::resize(cnt_e_, nc);
         Kokkos::resize(cnt_c_, nc);
     }
+    if (decl_)
+        for (View1D* v : {&r0_, &dprev_, &dg_, &dD_, &da_}) Kokkos::resize(*v, nc);
     cap_ = nc;
 }
 
@@ -288,6 +315,7 @@ void PlasmaSpecies::pack_state(std::vector<double>& buf) const {
     buf.push_back(static_cast<double>(Np_));
     std::vector<View1D> vs = {x_, y_, px_, py_, dl_, w_};
     if (ionizable_) { vs.push_back(lev_); vs.push_back(wq_); if (ion_.quiet) vs.push_back(acc_); }
+    if (decl_) { vs.push_back(r0_); vs.push_back(dprev_); }
     for (const View1D& v : vs) {
         auto h = Kokkos::create_mirror_view_and_copy(HostSpace(), v);
         buf.insert(buf.end(), h.data(), h.data() + Np_);
@@ -308,6 +336,7 @@ size_t PlasmaSpecies::unpack_state(const double* p) {
     ensure_capacity(Np_);
     std::vector<View1D> vs = {x_, y_, px_, py_, dl_, w_};
     if (ionizable_) { vs.push_back(lev_); vs.push_back(wq_); if (ion_.quiet) vs.push_back(acc_); }
+    if (decl_) { vs.push_back(r0_); vs.push_back(dprev_); }
     for (View1D v : vs) {
         auto h = Kokkos::create_mirror_view(v);
         for (int i = 0; i < Np_; ++i) h(i) = p[off + i];
@@ -1123,6 +1152,89 @@ IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int 
     Np_ += tot_c;
     res.born_w = sw; res.born_wp2 = swp; res.born_n = tot_e;
     return res;
+}
+
+// Declustering (Kargapolov, Okhotnikov, Shalimova, Sosedkin & Lotov, Phys. Plasmas 32, 023905 (2025), Sec. IV),
+// on the lattice of the rings loaded at the box head (index order = initial radius; neighbours i +- ntheta,
+// i.e. the same azimuth column with modes = 1). Per ring: radial displacement d = r - r0, inhomogeneity
+// g = d - (d_- + d_+)/2 (one neighbour at the ends: g = d - d_nb), noise part D = g - <g> (<g> over 2 window + 1
+// rings), F = 1 - D^2/D0^2 for |D| < D0 (D0 in units of the local cell), else 0, and a radial kick
+//   dp_i = -{K h / w_i [c_i a_i - (a_- + a_+)/2] + kappa h F_i (D_i - D_i^prev)} / s^2,   a_i = w_i F_i D_i,
+// s = h_local/ppc the ring spacing (the paper's Eq. 32 measures D in lattice spacings: its stability bound
+// K + kappa < h^2/(dxi^2 N) is then that of an explicit spring), c_i = (number of neighbours)/2. With the weights w
+// (rings: w ~ r) the restoring part is a sum of pair forces:
+// sum_i w_i dp_i = 0 up to round-off (Newton's third law; for equal weights it is the paper's Eq. 32).
+// A particle that restarted its push history (fresh) starts without damping (D^prev = D).
+std::string PlasmaSpecies::decl_description(double dxi) const {
+    double hmin = 1e300;
+    for (int j = 0; j < grid_.N; ++j) hmin = std::min(hmin, double(grid_.h[j]));
+    // explicit spring on the lattice (spacing a = h/ppc, neighbours at 1 .. S steps: largest eigenvalue ~ (2S)^2)
+    const double a = hmin / std::max(ppc_, 1), bound = a * a / (dxi * dxi * decl_stride_ * decl_stride_);
+    std::ostringstream o;
+    o << "Declustering of '" << name_ << "': K = " << decl_K_ << ", kappa = " << decl_kappa_ << ", D0 = " << decl_D0_
+      << " cells, <g> over " << 2 * decl_win_ + 1 << " rings; stability K + kappa < (h_min/ppc)^2/(dxi^2 S^2) = " << bound
+      << (decl_K_ + decl_kappa_ < bound ? "" : "  ** VIOLATED: Nyquist oscillation of neighbouring rings expected **");
+    return o.str();
+}
+
+void PlasmaSpecies::decluster(Real h) {
+    if (!decl_ || nfam_ == 0) return;
+    const int n = nfam_, s = ntheta_, W = decl_win_, ns = decl_stride_;
+    const GridD g = grid_.d;
+    const Real K = decl_K_, kap = decl_kappa_, D0 = decl_D0_;
+    const int ppc = std::max(ppc_, 1);
+    auto x = x_, y = y_, px = px_, py = py_, w = w_, r0 = r0_, dp = dprev_, G = dg_, Dv = dD_, A = da_;
+    auto fresh = fresh_;
+    Kokkos::parallel_for("decl.g", Range(0, n), KOKKOS_LAMBDA(int i) {
+        auto disp = [&](int q) { return Kokkos::sqrt(x(q) * x(q) + y(q) * y(q)) - r0(q); };
+        const Real d = disp(i);
+        Real gs = 0;
+        for (int t = 1; t <= ns; ++t) {   // neighbours at 1 .. ns lattice steps
+            const bool lo = i - t * s >= 0, hi = i + t * s < n;
+            gs += (lo && hi) ? d - Real(0.5) * (disp(i - t * s) + disp(i + t * s))
+                             : (lo ? d - disp(i - t * s) : (hi ? d - disp(i + t * s) : Real(0)));
+        }
+        G(i) = gs;
+    });
+    Real dmax = 0;
+    Kokkos::parallel_reduce("decl.D", Range(0, n), KOKKOS_LAMBDA(int i, Real& mx) {
+        Real sg = 0; int c = 0;
+        for (int q = -W; q <= W; ++q) {
+            const int k = i + q * s;
+            if (k >= 0 && k < n) { sg += G(k); ++c; }
+        }
+        const Real D = G(i) - sg / Real(c);
+        const Real hl = g.h(g.locate(r0(i)));
+        const Real d0 = D0 * hl, F = Kokkos::fabs(D) < d0 ? Real(1) - D * D / (d0 * d0) : Real(0);
+        Dv(i) = D;
+        const Real a = hl / Real(ppc);   // ring spacing
+        A(i) = w(i) * F * D / (a * a);
+        mx = Kokkos::fmax(mx, Kokkos::fabs(D) / hl);
+    }, Kokkos::Max<Real>(dmax));
+    decl_dmax_ = dmax;
+    Real sum_wk = 0, sum_wa = 0;   // Newton's third law: sum w dp of the restoring part vs sum w |dp|
+    Kokkos::parallel_reduce("decl.kick", Range(0, n), KOKKOS_LAMBDA(int i, Real& swk, Real& swa) {
+        const Real wi = w(i), D = Dv(i);
+        if (wi == Real(0)) { dp(i) = D; return; }
+        Real ci = 0, nb = 0;
+        for (int t = 1; t <= ns; ++t) {
+            const bool lo = i - t * s >= 0, hi = i + t * s < n;
+            ci += Real(0.5) * Real((lo ? 1 : 0) + (hi ? 1 : 0));
+            nb += Real(0.5) * ((lo ? A(i - t * s) : Real(0)) + (hi ? A(i + t * s) : Real(0)));
+        }
+        const Real hl = g.h(g.locate(r0(i)));
+        const Real d0 = D0 * hl, F = Kokkos::fabs(D) < d0 ? Real(1) - D * D / (d0 * d0) : Real(0);
+        const Real Dp = fresh(i) ? D : dp(i);
+        const Real a = hl / Real(ppc);   // ring spacing
+        const Real kr = -K * h * (ci * A(i) - nb) / wi;   // restoring part (pair forces)
+        const Real kick = kr - kap * h * F * (D - Dp) / (a * a);
+        swk += wi * kr; swa += wi * Kokkos::fabs(kr);
+        dp(i) = D;
+        const Real X = x(i), Y = y(i), r = Kokkos::sqrt(X * X + Y * Y);
+        if (r > Real(0)) { px(i) += kick * X / r; py(i) += kick * Y / r; }
+        else px(i) += kick;
+    }, sum_wk, sum_wa);
+    decl_newton_ = sum_wa > 0 ? std::fabs(sum_wk) / sum_wa : 0.0;
 }
 
 void PlasmaSpecies::deposit_charge_state(const View3D& out, int kl, int comp) const {

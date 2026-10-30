@@ -111,6 +111,9 @@ private:
     bool m1_ = false;
     int picard_ = 1;
     Real smooth_a_ = 0;      // plasma.smooth_length
+    bool decl_any_ = false;  // plasma.declustering: some species declusters
+    int decl_n_ = 0;         //   how many
+    std::vector<double> decl_rec_;   //   per slice: slice index, max |D|/h per declustering species
     Real max_cells_ = 0;     // pusher.max_cells_per_step (0: no sub-slicing)
     int  substep_max_ = 64;  // pusher.substep_max
     double nsub_step_ = 0;   // extra sub-slices in this time step (diagnostic)
@@ -171,6 +174,7 @@ private:
     std::ofstream ionlog_;
     std::vector<std::array<double, 4>> ion_acc_;   // per ionizable species: born w, born w p^2, tail z w, tail w
     void write_ion_diag(int n);
+    void write_decl_diag(int n);
     // ---- time step: fixed or adaptive (time.adaptive), end by step count or time.t_end
     // Rank 0 chooses dt_n (and whether step n is the last) and sends it down the pipeline with
     // the step-n message. Adaptive: dt_n = (2 pi / time.nt_per_betatron) / omega_beta with
