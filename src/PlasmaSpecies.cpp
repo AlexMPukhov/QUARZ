@@ -1172,8 +1172,9 @@ std::string PlasmaSpecies::decl_description(double dxi) const {
     const double a = hmin / std::max(ppc_, 1), bound = a * a / (dxi * dxi * decl_stride_ * decl_stride_);
     std::ostringstream o;
     o << "Declustering of '" << name_ << "': K = " << decl_K_ << ", kappa = " << decl_kappa_ << ", D0 = " << decl_D0_
-      << " cells, <g> over " << 2 * decl_win_ + 1 << " rings; stability K + kappa < (h_min/ppc)^2/(dxi^2 S^2) = " << bound
-      << (decl_K_ + decl_kappa_ < bound ? "" : "  ** VIOLATED: Nyquist oscillation of neighbouring rings expected **");
+      << " cells, <g> over " << 2 * decl_win_ + 1 << " rings; explicit-spring bound (h_min/ppc)^2/(dxi^2 S^2) = " << bound
+      << "; stable in practice for K + kappa < ~bound/4 and K, kappa >~ bound/25 (K-kappa scan, ppc 4)"
+      << (decl_K_ + decl_kappa_ < 0.25 * bound ? "" : "  ** K + kappa > bound/4: unstable in the scan **");
     return o.str();
 }
 
