@@ -23,9 +23,14 @@ struct Element {
 // Bethe parameters: Rieke & Prepejchal, PRA 6, 1507 (1972), Table II, quality-A entries (He: the
 // H2-additive run, the pair behind their minimum cross-section 1.86e-19 cm^2; Ar, Xe: pure gas).  They
 // reproduce the measured minimum primary ionization (Blum, Riegler & Rolandi, Particle Detection with
-// Drift Chambers, Table 1.2) to < 0.3 %: ~25 (Ar), ~43 (Xe) primary ion pairs/cm at NTP.  No data for
-// H atoms and the alkali vapours (Li, Rb, Cs) and the atomic C, N, O: give <species>.impact.M2 and
-// <species>.impact.C, or <species>.impact.sigma_cm2.
+// Drift Chambers, Table 1.2) to < 0.3 %: ~25 (Ar), ~43 (Xe) primary ion pairs/cm at NTP.
+// Rb (no gas-cell data): high-energy limit of the counting cross-section of Kim, Migdalek, Siegel & Bieron,
+// PRA 57, 246 (1998) (5s BED + core BEB + 4s, 4p excitation-autoionization in the Born approximation; agrees with
+// the absolute MOT data of Schappe et al., PRL 76, 4328 (1996) up to 500 eV), n = 1, 2 shells added by BEB:
+// M^2 = 5.89, C = 65.8 (sigma = 2.46e-18 cm^2 at gamma = 427, +-15 %). The dipole integral of the Henke
+// photoabsorption tables gives M^2 = 6.01 independently. These are prompt atomic values: for He-Xe the gas-cell
+// M^2 of Rieke & Prepejchal lies 9-50 % above the dipole (Henke) M^2.  No data for H atoms, Li, Cs and the atomic
+// C, N, O: give <species>.impact.M2 and <species>.impact.C, or <species>.impact.sigma_cm2.
 // J: Opal, Peterson & Beaty, J. Chem. Phys. 55, 4100 (1971), fits to the measured secondary-electron
 // spectra (the authors call the fits for Ar, Kr, Xe poor); for others give <species>.impact.J_eV.
 // Inner subshells: X-ray Data Booklet (LBNL), Table 1-1; Kr n = 1, 2 and Xe n = 1-3.  The 1/W^2 tail of
@@ -43,7 +48,7 @@ const std::map<std::string, Element>& elements() {
                          618.26, 686.10, 755.74, 854.77, 918.03, 4120.8857, 4426.2296}, 4.22, 37.93, 10.0}},
         {"Kr", {83.798, {13.99961, 24.35985, 36.950, 52.5, 64.7, 78.5, 111.0, 125.802}, 6.09, 52.38, 9.6,
                 {{14326, 2}, {1921, 2}, {1730.9, 2}, {1678.4, 4}}}},
-        {"Rb", {85.468, {4.17713, 27.2895, 40.0}, 0, 0, 0}},
+        {"Rb", {85.468, {4.17713, 27.2895, 40.0}, 5.89, 65.8, 0}},
         {"Xe", {131.293, {12.1298, 20.975, 32.1230}, 8.04, 72.35, 8.7,
                 {{34561, 2}, {5453, 2}, {5107, 2}, {4786, 4}, {1148.7, 2}, {1002.1, 2}, {940.6, 4}, {689.0, 4}, {676.4, 6}}}},
         {"Cs", {132.905, {3.8939, 23.15744}, 0, 0, 0}},

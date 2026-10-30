@@ -206,6 +206,10 @@ sec12() {
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) > /dev/null
     echo " impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):"
     python3 ion_check.py impact out_ion_impact 1e15 4.22:37.93 10 1 15 50 427 1
+    $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) gas.element=Rb output.dir=out_ion_impact_rb > /dev/null
+    echo " built-in Bethe data for Rb vapour (M^2 = 5.89, C = 65.8: Kim et al. PRA 57, 246 (1998), high-energy limit;"
+    echo " sigma = 2.46e-18 cm^2 at gamma = 427):"
+    python3 ion_check.py impact out_ion_impact_rb 1e15 2.46e-18 10 1 15 50 427 1
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) gas.ionization.quiet=1 output.dir=out_ion_impact_q > /dev/null
     echo " the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):"
     python3 ion_check.py impact out_ion_impact_q 1e15 4.22:37.93 10 1 15 50 427 1

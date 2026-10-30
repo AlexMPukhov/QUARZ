@@ -82,6 +82,14 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
     xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 5.0465e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.4456e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.8155e-03 / 1.6021e-03  r/sr in [2.0,3.0): 3.1224e-04 / 2.5598e-04
     xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 8.0185e-03 / 7.9391e-03  r/sr in [0.5,1.0): 5.4797e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.6843e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.6321e-04 / 4.2995e-04
     xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.3460e-03 / 9.4161e-03  r/sr in [0.5,1.0): 6.7290e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.1222e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.7840e-04 / 5.1029e-04
+ built-in Bethe data for Rb vapour (M^2 = 5.89, C = 65.8: Kim et al. PRA 57, 246 (1998), high-energy limit;
+ sigma = 2.46e-18 cm^2 at gamma = 427):
+  sigma = 2.4600e-18 cm^2,  dP/dxi = 4.1339e-05 n_b
+  total ionized charge at the end of the box: code 9.62577e-02   analytic 9.72456e-02   (rel. diff -1.0e-02)
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 2.2128e-03 / 2.3330e-03  r/sr in [0.5,1.0): 1.7654e-03 / 1.8357e-03  r/sr in [1.0,2.0): 8.7119e-04 / 7.8902e-04  r/sr in [2.0,3.0): 2.3533e-04 / 1.2602e-04
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.4686e-03 / 7.3163e-03  r/sr in [0.5,1.0): 5.5102e-03 / 5.7598e-03  r/sr in [1.0,2.0): 2.6395e-03 / 2.4781e-03  r/sr in [2.0,3.0): 5.2680e-04 / 3.9611e-04
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.2063e-02 / 1.2259e-02  r/sr in [0.5,1.0): 8.8484e-03 / 9.6564e-03  r/sr in [1.0,2.0): 4.1734e-03 / 4.1587e-03  r/sr in [2.0,3.0): 7.7856e-04 / 6.6526e-04
+    xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4200e-02 / 1.4534e-02  r/sr in [0.5,1.0): 1.0690e-02 / 1.1451e-02  r/sr in [1.0,2.0): 4.7687e-03 / 4.9338e-03  r/sr in [2.0,3.0): 9.6357e-04 / 7.8955e-04
  the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):
   sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
   total ionized charge at the end of the box: code 6.28088e-02   analytic 6.29239e-02   (rel. diff -1.8e-03)

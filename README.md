@@ -402,6 +402,7 @@ an initially empty species). Three channels:
     | Ar | 4.22 | 37.93 | 90.3 | 22.6 |
     | Kr | 6.09 | 52.38 | 126 | 31.4 |
     | Xe | 8.04 | 72.35 | 172 | 43.1 |
+    | Rb | 5.89 | 65.8 | 152 | — |
 
     They reproduce the measured minimum cross-sections (Blum, Riegler & Rolandi, *Particle
     Detection with Drift Chambers*, Table 1.2) to < 0.3 % and the measured primary ionization
@@ -409,7 +410,16 @@ an initially empty species). Three channels:
     ionization is on by default (`<name>.ionization.impact = 0` turns it off). For other gases
     give `impact.M2` and `impact.C`, or `impact.sigma_cm2`; molecular gases from the same paper
     (give `ionization_energies_eV` and these): H₂ 0.695, 8.115; N₂ 3.74, 34.84; O₂ 4.20, 38.84;
-    CO₂ 5.75, 55.92; CH₄ 4.28, 41.85. No data for atomic H, C, N, O and the alkali vapours.
+    CO₂ 5.75, 55.92; CH₄ 4.28, 41.85. Rb vapour (AWAKE) has no gas-cell data: its values are the
+    high-energy limit of the counting cross-section of Kim, Migdałek, Siegel & Bieroń, PRA 57, 246
+    (1998) (5s binary-encounter-dipole, core binary-encounter-Bethe, 4p → 4d, 5s, 5p
+    excitation-autoionization in the Born approximation; it agrees with the absolute data of Schappe
+    et al., PRL 76, 4328 (1996) up to 500 eV), with the n = 1, 2 shells added: σ = 2.46·10⁻¹⁸ cm² at
+    γ = 427, ±15 %. The dipole integral of the Henke photoabsorption tables gives M² = 6.01
+    independently. Note: these are prompt atomic values; the gas-cell M² of Rieke & Prepejchal for
+    He–Xe lie 9–50 % above the dipole M² from the same tables (He: 0.745 vs 0.49), so at γ ≫ 4 the
+    built-in noble-gas rates may be 10–15 % high for ionization within a short bunch. No data for
+    atomic H, C, N, O, Li, Cs.
   - these are *primary* ionizations (one ion pair per collision). dE/dx / W counts in addition
     the ionization by the delta electrons (3–4× more in Ar, 7× in Xe). By default the delta electron
     is born at rest; with `<name>.impact.secondary_energy = 1` it gets its energy and direction:
@@ -913,7 +923,7 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.trap_nphi` | 1 | `modes = 0`: beam particles per converted ring (equidistant azimuths, random offset) |
 | `<species>.ionization.field` | 1 | ADK by the plasma, beam and laser fields |
 | `<species>.ionization.impact` | 1 if a cross-section is known | beam impact ionization 0 → 1 |
-| `<species>.impact.M2`, `<species>.impact.C` | He, Ne, Ar, Kr, Xe: built in (§1) | Bethe parameters |
+| `<species>.impact.M2`, `<species>.impact.C` | He, Ne, Ar, Kr, Xe, Rb: built in (§1) | Bethe parameters |
 | `<species>.impact.sigma_cm2` | — | constant impact cross-section instead |
 | `<species>.impact.secondary_energy` | 0 | 1 = delta electrons: impact-born electrons get energy and direction (§1) |
 | `<species>.impact.J_eV` | He, Ne, Ar, Kr, Xe: built in (§1) | width J of the delta-electron spectrum 1/(J² + W²) |
@@ -1313,7 +1323,7 @@ and analytic beam densities.
 | The same with `nsplit = 64` | He +0.06 σ, H +0.15 σ (unbiased, less noise; 46× the run time, since every atom emits up to 64 pairs) |
 | Laser ionization of N up to N⁵⁺ (0.8 µm, a0 = 0.1, wide spot) | ⟨z⟩(ξ) on the axis vs the ADK rate integrated over the true oscillating field: within 0.033 everywhere (Monte Carlo noise of the 4800 rings near the axis; converged in Δξ). Mean p⊥² of the born electrons vs test particles (p = −a(t_birth)): ratio 0.98. With the usual Laplace closed form the rates were 5–40 % high and p⊥² 13 % high, so it was replaced. |
 | Impact ionization of Ar by a rigid 400 GeV proton beam (σ = 1.59·10⁻¹⁸ cm²), `nsplit = 2000` | ionized fraction vs 1 − exp(−σ n₀ k_p⁻¹ β ∫n_b dξ) in radial bands along the beam: within 1–3 %. Total at the end of the box: +0.9 %. |
-| Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). |
+| Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). Rb vapour (Kim et al. 1998 limit, M² = 5.89, C = 65.8) by a 400 GeV proton beam: ionized charge vs the analytic σ = 2.46·10⁻¹⁸ cm²: +0.6 % (Monte Carlo noise ≈ 0.7 %). |
 | Delta electrons (section 22): dilute Xe, rigid beam, `ionization.born_dump` | energy spectrum of the impact-born electrons vs the model (independent Python: OPB part atan(W/J)/atan(W_max/J) plus the free-electron tails of the Xe n = 1–3 subshells): Kolmogorov-Smirnov p = 0.57 (protons, γ = 3.39, 66 000 electrons; fraction with W > 1 keV 0.00737 vs 0.00735 ± 0.00033, without the inner shells it would be 0.0055); artificial subshells with 9 % of the rate: p = 0.13; electrons at γ = 20 with J = 2 MeV (the cut-off W_max = (γ − 1)mc²/2 is reached): p = 0.75. Binary-collision angle cos θ = κ√(W/(W+2)) to 3·10⁻¹³; isotropic option: p = 0.13, ⟨cos θ⟩ = 0.003. 400 GeV protons with J = 5.11 MeV: of 121 554 electrons 22 138 are born beyond γ/Δ = 35 and 22 137 become beam particles (the conversion tests the state after the first push; 54 are born within 0.1 % of the threshold). The ion charge density is bit-identical with and without delta electrons; with the fast deltas ionizing as beam electrons, restart and 2 ranks are bit-identical. The same kernel on an RTX 5090 (CUDA 13) gives the same samples. |
 | Electron-impact ionization (section 23): dilute Xe in mono-energetic electrons (two counter-streaming species, no fields) | ionized fraction along ξ vs 1 − exp(−n_e σ v ξ) with Lotz's formula implemented independently in Python: 30 eV, 100 eV, 1 keV and Xe⁺ → Xe²⁺ within 0.5 % (Monte Carlo noise; three seeds at 100 eV: −0.5, −0.5, −0.02 %); a σ(E) table: 0.5 %. Dense Xe (10¹⁶ cm⁻³), dilute 100 eV electrons: energy loss 11.52 and 11.09 eV for u_z = ±0.0198 vs RK4 of dE/dξ = −nσ(Ip + ⟨W⟩)|u|/Δ to 3·10⁻⁵; energy lost by all electrons / Σ(Ip + W) over 66 728 births = 0.9956 (Monte Carlo error 0.004). Restart, 2 and 3 ranks bit-identical, also with `ionization.quiet = 1`. |
 | Quiet ionization (section 12) | Bethe impact of Ar (ppc 32, nsplit 2000): total ionized charge −8.9·10⁻⁴ vs analytic (random draws +8.7·10⁻³); ADK of H and He (whole particles, several levels): He +0.20 σ (three seeds +0.20, −0.23, 0.00 σ), H +0.01 σ. |
