@@ -49,7 +49,7 @@ protons.cut = 5.
 output.dir = out
 output.field_files = 1
 output.rmax = 1.5
-output.fields ez er bth
+output.fields = ez er bth
 output.every = 150
 output.beam_every = 0
 
