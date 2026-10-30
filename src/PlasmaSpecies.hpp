@@ -118,6 +118,7 @@ public:
     View1D x_, y_, px_, py_, dl_, w_;
     IView1D fresh_;        // 1: (re)start the Adams-Bashforth history at the next push (born / charge changed)
     View1D lev_, wq_;      // ionizable species: charge state, split quantum (0: no splitting)
+    View1D acc_;           // ionization.quiet: accumulated expected ionization (quanta or probability) in [0, 1)
 
 private:
     std::string name_;

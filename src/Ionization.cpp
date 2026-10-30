@@ -269,6 +269,7 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
         P.s_in = 2 * PI * R_E_CM * R_E_CM * ME_C2_EV * tot * n0_cm3 * kp_inv_cm;
     }
     I.born_dump = cfg.get_bool(name + ".ionization.born_dump", false);
+    I.quiet = cfg.get_bool(name + ".ionization.quiet", false);
     // electron-impact ionization by the plasma electrons: cross-section parameters of every level
     P.eimp = cfg.get_bool(name + ".ionization.electron_impact", false);
     if (P.eimp) {
@@ -432,6 +433,7 @@ std::string IonSpeciesInfo::description() const {
     }
     o << "; electrons -> '" << product << "'";
     if (nsplit > 1) o << "; first ionization split in " << nsplit << " quanta";
+    if (quiet) o << "; quiet (accumulator emission, stratified draws)";
     return o.str();
 }
 

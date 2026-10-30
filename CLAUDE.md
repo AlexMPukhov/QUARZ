@@ -40,7 +40,7 @@ cmake -B build -DKokkos_ENABLE_OPENMP=ON \
 cmake --build build -j2 && (cd build && ctest)
 export OMP_PROC_BIND=false            # needed here, otherwise OpenMP runs badly
 cd validation && ./run_validation.sh -q -j 2 -c       # quick regression, ~2 min: after EVERY code change
-cd validation && ./run_validation.sh -j 2 -c          # full suite (sections 1-15), ~7-10 min: milestones / new physics
+cd validation && ./run_validation.sh -j 2 -c          # full suite (sections 1-25), ~10-15 min: milestones / new physics
 ```
 CUDA compile check (no GPU here):
 `PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cu13/bin:$PATH CUDA_HOME=/usr/local/lib/python3.11/dist-packages/nvidia/cu13 make -C build-cuda -j2 quarz`

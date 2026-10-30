@@ -301,6 +301,7 @@ struct IonSpeciesInfo {
     double J_eV = 0;              // delta electrons: width of the energy spectrum
     std::vector<std::pair<double, int>> shells;   // inner subshells: binding energy (eV), electrons
     bool born_dump = false;       // <name>.ionization.born_dump: write the new electrons of every sweep
+    bool quiet = false;           // <name>.ionization.quiet: accumulator emission + stratified draws (no sampling noise)
     // electron impact: per level z0 .. zmax-1 the parameters of EITargets::par (host) and the table
     std::vector<std::vector<double>> ei_par;
     std::vector<std::vector<double>> ei_tabE, ei_tabS;

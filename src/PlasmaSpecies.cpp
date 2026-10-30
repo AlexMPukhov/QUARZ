@@ -159,6 +159,7 @@ PlasmaSpecies::PlasmaSpecies(const Config& cfg, const std::string& name, const R
     if (ionizable_) {
         lev_ = View1D(name + ".z", cap_);
         wq_ = View1D(name + ".wq", cap_);
+        if (ion_.quiet) acc_ = View1D(name + ".acc", cap_);
         cnt_e_ = IView1D(name + ".cnt_e", cap_);
         cnt_c_ = IView1D(name + ".cnt_c", cap_);
     }
@@ -249,6 +250,19 @@ void PlasmaSpecies::load(Real z, unsigned long long seed) {
         auto wq = wq_; auto w = w_;
         const Real f = ion_.nsplit > 1 ? Real(1) / ion_.nsplit : Real(0);
         Kokkos::parallel_for("ion.init_wq", Range(0, cap_), KOKKOS_LAMBDA(int i) { wq(i) = w(i) * f; });
+        if (ion_.quiet) {
+            // initial phases of the accumulators interleaved along the particle index (neighbours in r): golden-ratio
+            // sequence with a random offset, so that the emissions of the atoms in a region follow each other evenly
+            // (random phases would leave the shot noise of the emitted quanta). The offset changes from step to step
+            // (z of the box front), not between ranks.
+            auto acc = acc_;
+            const uint64_t key = ion_mix(seed_ ^ 0x9e3779b97f4a7c15ULL ^ ion_mix(static_cast<uint64_t>(std::llround(double(z) * 1024.0))));
+            const Real s0 = ion_rand(key, 0, 7);
+            Kokkos::parallel_for("ion.init_acc", Range(0, cap_), KOKKOS_LAMBDA(int i) {
+                const Real v = s0 + Real(i) * Real(0.61803398874989485);
+                acc(i) = v - Kokkos::floor(v);
+            });
+        }
     }
 }
 
@@ -262,6 +276,7 @@ void PlasmaSpecies::ensure_capacity(int n) {
     if (ionizable_) {
         Kokkos::resize(lev_, nc);
         Kokkos::resize(wq_, nc);
+        if (ion_.quiet) Kokkos::resize(acc_, nc);
         Kokkos::resize(cnt_e_, nc);
         Kokkos::resize(cnt_c_, nc);
     }
@@ -272,7 +287,7 @@ void PlasmaSpecies::ensure_capacity(int n) {
 void PlasmaSpecies::pack_state(std::vector<double>& buf) const {
     buf.push_back(static_cast<double>(Np_));
     std::vector<View1D> vs = {x_, y_, px_, py_, dl_, w_};
-    if (ionizable_) { vs.push_back(lev_); vs.push_back(wq_); }
+    if (ionizable_) { vs.push_back(lev_); vs.push_back(wq_); if (ion_.quiet) vs.push_back(acc_); }
     for (const View1D& v : vs) {
         auto h = Kokkos::create_mirror_view_and_copy(HostSpace(), v);
         buf.insert(buf.end(), h.data(), h.data() + Np_);
@@ -292,7 +307,7 @@ size_t PlasmaSpecies::unpack_state(const double* p) {
     Np_ = static_cast<int>(p[off++]);
     ensure_capacity(Np_);
     std::vector<View1D> vs = {x_, y_, px_, py_, dl_, w_};
-    if (ionizable_) { vs.push_back(lev_); vs.push_back(wq_); }
+    if (ionizable_) { vs.push_back(lev_); vs.push_back(wq_); if (ion_.quiet) vs.push_back(acc_); }
     for (View1D v : vs) {
         auto h = Kokkos::create_mirror_view(v);
         for (int i = 0; i < Np_; ++i) h(i) = p[off + i];
@@ -807,6 +822,18 @@ struct IonizeKernel {
     View3D eimp;                                  // electron impact: rates per target, energy bin, node
     EITargets eit;
     bool has_e = false;
+    bool quiet = false;                           // ionization.quiet: accumulator emission, stratified draws
+    View1D acc;                                   //   accumulated expected ionization of every particle
+    Real qs[7] = {0, 0, 0, 0, 0, 0, 0};           //   random offsets of the R_7 sequence in this slice
+
+    // quiet draws: point j of the R_7 low-discrepancy sequence (Roberts), dimension dim, shifted by qs: the
+    // draws of the electrons born in a slice (index j in the slice) fill [0, 1) evenly instead of at random
+    KOKKOS_INLINE_FUNCTION Real qr(int dim, uint64_t j) const {
+        const Real A[7] = {0.91159235348205492, 0.83100061892695187, 0.75753380995266428, 0.69056202865697702,
+                           0.62951106492875597, 0.57385747322139935, 0.52312408457716075};
+        const Real v = qs[dim] + Real(j) * A[dim];
+        return v - Kokkos::floor(v);
+    }
 
     // electron-impact rate of level l at the particle (per unit xi)
     KOKKOS_INLINE_FUNCTION Real erate(const PGeo& pg, int l) const {
@@ -845,14 +872,17 @@ struct IonizeKernel {
     // + the delta-electron momentum (impact-born, P.delta; lnwm = ln W_max, kap: see Ionization.hpp)
     KOKKOS_INLINE_FUNCTION void electron(int j, Real X, Real Y, Real PX, Real PY, Real D, Real wgt, const IonRate& R,
                                          bool laser_born, Real Aamp, Real Ex, Real Ey, Real Ez, Real EL, int l,
-                                         uint64_t i, uint64_t d, int kind, Real lnwm, Real kap, Real pin, Real Je) const {
+                                         uint64_t i, uint64_t d, int kind, Real lnwm, Real kap, Real pin, Real Je,
+                                         uint64_t qj) const {
         // kind: 0 field-born, 1 beam impact (delta electron if P.delta), 2 electron impact (always energy,
         // isotropic; lnwm = ln W_max, Je = J, both in m c^2)
         if (eflag.extent(0) > 0) eflag(j - ne0) = Real(kind);
         if ((kind == 1 && P.delta) || kind == 2) {
+            // draws: random (counter-based), or with ionization.quiet the point qj of the R_7 sequence
+            auto U = [&](int dim, uint64_t dd) { return quiet ? qr(dim, qj) : ion_rand(key, i, dd); };
             const bool ib = kind == 1;
             const Real J = ib ? P.dJ : Je, wm = Kokkos::exp(lnwm);
-            const Real u0 = ion_rand(key, i, d + 4096);
+            const Real u0 = U(2, d + 4096);
             Real W = -1;
             if (ib && P.nsh > 0 && u0 < pin) {
                 // inner subshell (~ n_i/B_i), energy transfer E ~ 1/E^2 on [B_i, W_max], ejected W = E - B_i
@@ -861,18 +891,18 @@ struct IonizeKernel {
                 while (sh < P.nsh - 1 && us > P.shP[sh]) ++sh;
                 const Real B = P.shB[sh];
                 if (wm > B) {
-                    const Real ue = ion_rand(key, i, d + 4099);
+                    const Real ue = U(3, d + 4099);
                     W = Real(1) / (Real(1) / B - ue * (Real(1) / B - Real(1) / wm)) - B;
                 }
             }
             // otherwise W = J tan(u atan(W_max/J)): exact sampling of dsigma/dW ~ 1/(J^2 + W^2) on [0, W_max]
             if (W < Real(0))
-                W = J * Kokkos::tan((ib && P.nsh > 0 ? ion_rand(key, i, d + 4100) : u0) * Kokkos::atan(wm / J));
+                W = J * Kokkos::tan((ib && P.nsh > 0 ? U(4, d + 4100) : u0) * Kokkos::atan(wm / J));
             const Real u = Kokkos::sqrt(W * (W + Real(2)));
-            Real c = (!ib || P.delta_iso) ? Real(2) * ion_rand(key, i, d + 4097) - Real(1) : kap * Kokkos::sqrt(W / (W + Real(2)));
+            Real c = (!ib || P.delta_iso) ? Real(2) * U(5, d + 4097) - Real(1) : kap * Kokkos::sqrt(W / (W + Real(2)));
             c = Kokkos::fmin(c, Real(1));
             const Real s = Kokkos::sqrt(Kokkos::fmax(Real(1) - c * c, Real(0)));
-            const Real ph = Real(2) * Real(PI) * ion_rand(key, i, d + 4098);
+            const Real ph = Real(2) * Real(PI) * U(6, d + 4098);
             // parent velocity + delta momentum (the parent moves non-relativistically)
             const Real uzp = (Real(1) + PX * PX + PY * PY - D * D) / (Real(2) * D);
             const Real qx = PX + u * s * Kokkos::cos(ph), qy = PY + u * s * Kokkos::sin(ph), qz = uzp + u * c;
@@ -962,41 +992,72 @@ struct IonizeKernel {
             const Real dN = -wi * Kokkos::expm1(-a);
             Real we = 0;
             if (dN >= qq) we = dN;
+            else if (quiet) {
+                // a quantum whenever the accumulated dN/qq passes 1 (decided in the count pass; the create pass
+                // only sees the particles that emit)
+                if (create) we = qq;
+                else {
+                    const Real an = acc(i) + dN / qq;
+                    if (an >= Real(1)) { acc(i) = an - Real(1); we = qq; } else acc(i) = an;
+                }
+            }
             else if (ion_rand(key, ii, 0) * qq < dN) we = qq;
             if (we <= Real(0)) return;
             if (!create) { cnt_e(i) = 1; cnt_c(i) = 1; return; }
             const int jc = nc0 + cnt_c(i);
             x(jc) = X; y(jc) = Y; px(jc) = PX; py(jc) = PY; dl(jc) = D; w(jc) = we;
             lev(jc) = Real(z + 1); wq(jc) = Real(0); fresh(jc) = 1;
+            if (quiet) { const Real v = qs[0] + Real(jc) * Real(0.61803398874989485); acc(jc) = v - Kokkos::floor(v); }
             w(i) = wi - we;
-            const Real v = ion_rand(key, ii, 1) * a;   // which process: field, beam impact, electron impact
+            const uint64_t qj = static_cast<uint64_t>(cnt_e(i));   // index of the electron in this slice
+            const Real v = (quiet ? qr(0, qj) : ion_rand(key, ii, 1)) * a;   // which process: field, beam impact, electron impact
             const int kind = v < R.W * dtf ? 0 : (v < R.W * dtf + Rimp * dxi ? 1 : 2);
             Real lw = lnwm, Je = 0;
-            if (kind == 2) ekin(pg, z, ion_rand(key, ii, 2), lw, Je);
+            if (kind == 2) ekin(pg, z, quiet ? qr(1, qj) : ion_rand(key, ii, 2), lw, Je);
             electron(ne0 + cnt_e(i), X, Y, PX, PY, D, we, R, P.laser && kind == 0, Aamp, Ex, Ey, Ez, EL, z, ii, 1u << 20,
-                     kind, lw, kap, pin, Je);
+                     kind, lw, kap, pin, Je, qj);
             return;
         }
         // ---- whole macro-particle, possibly several levels in this slice
         int ne = 0;
+        // quiet: every particle ionizes when its accumulated optical depth sum(a) passes a threshold tau = -ln(1 - u),
+        // u from an interleaved sequence (exact Markov chain per level: the fraction ionized at depth A is 1 - e^-A),
+        // a new threshold for the next level; within a slice the depth left over goes on with the next level's rate.
+        // acc >= 0: a fresh uniform u (set at loading / birth, or the quantum path's fraction); acc < 0: -1 - (depth
+        // still missing). The count pass advances it, the create pass makes the counted electrons.
+        const int ne_create = create ? (i + 1 < nion ? cnt_e(i + 1) : tot_e) - cnt_e(i) : 0;
+        Real rem = 0, left = 1;   // depth missing to the threshold, fraction of the slice left
+        if (quiet && !create) {
+            const Real a0 = acc(i);
+            rem = a0 >= Real(0) ? -Kokkos::log1p(-Kokkos::fmin(a0, Real(1) - Real(1e-12))) : Real(-1) - a0;
+        }
         for (int l = z; l < P.zmax; ++l) {
             const IonRate R = P.field ? ion_field_rate(P, l, Ex, Ey, Ez, EL) : IonRate();
             const Real Ri = l == 0 ? Rimp : Real(0), Re = has_e ? erate(pg, l) : Real(0);
             const Real a = R.W * dtf + (Ri + Re) * dxi;
             if (!(a > Real(0))) break;
             const uint64_t d = 16 + 16 * static_cast<uint64_t>(l);
-            if (ion_rand(key, ii, d) >= -Kokkos::expm1(-a)) break;
+            if (quiet) {
+                if (create) { if (ne >= ne_create) break; }
+                else {
+                    if (rem > a * left) { rem -= a * left; break; }
+                    left -= rem / a;
+                    const Real v = qs[0] + Real(i) * Real(0.61803398874989485) + Real(l + 1) * Real(0.75487766624669276);
+                    rem = -Kokkos::log1p(-(v - Kokkos::floor(v)));   // threshold of the next level
+                }
+            } else if (ion_rand(key, ii, d) >= -Kokkos::expm1(-a)) break;
             if (create) {
-                const Real v = ion_rand(key, ii, d + 1) * a;   // which process: field, beam impact, electron impact
+                const uint64_t qj = static_cast<uint64_t>(cnt_e(i) + ne);
+                const Real v = (quiet ? qr(0, qj) : ion_rand(key, ii, d + 1)) * a;   // which process: field, beam impact, electron impact
                 const int kind = v < R.W * dtf ? 0 : (v < R.W * dtf + Ri * dxi ? 1 : 2);
                 Real lw = lnwm, Je = 0;
-                if (kind == 2) ekin(pg, l, ion_rand(key, ii, d + 2), lw, Je);
+                if (kind == 2) ekin(pg, l, quiet ? qr(1, qj) : ion_rand(key, ii, d + 2), lw, Je);
                 electron(ne0 + cnt_e(i) + ne, X, Y, PX, PY, D, wi, R, P.laser && kind == 0, Aamp, Ex, Ey, Ez, EL, l, ii,
-                         (2u + static_cast<uint64_t>(l)) << 20, kind, lw, kap, pin, Je);
+                         (2u + static_cast<uint64_t>(l)) << 20, kind, lw, kap, pin, Je, qj);
             }
             ++ne;
         }
-        if (!create) cnt_e(i) = ne;
+        if (!create) { cnt_e(i) = ne; if (quiet) acc(i) = Real(-1) - rem; }
         else if (ne > 0) { lev(i) = Real(z + ne); fresh(i) = 1; }
     }
 };
@@ -1025,6 +1086,8 @@ IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int 
         K.efresh = prod.fresh_;
         K.eflag = eflag;
         K.eimp = eimp; K.eit = eit; K.has_e = ion_.P.eimp && eimp.extent(0) > 0;
+        K.quiet = ion_.quiet; K.acc = acc_;
+        for (int dd = 0; dd < 7; ++dd) K.qs[dd] = ion_rand(key, 0x51ce0ffULL, 9000 + dd);
         return K;
     };
     Kokkos::parallel_for("ion.count", Range(0, N), make(false));

@@ -91,6 +91,18 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
     xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.6165e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.8248e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.6242e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.5770e-04 / 2.5598e-04
     xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.7814e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.3581e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.7223e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.3681e-04 / 4.2995e-04
     xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.1672e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.5021e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.2282e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.2788e-04 / 5.1029e-04
+ the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):
+  sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
+  total ionized charge at the end of the box: code 6.28677e-02   analytic 6.29239e-02   (rel. diff -8.9e-04)
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4998e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.1805e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.0720e-04 / 5.0993e-04  r/sr in [2.0,3.0): 8.0607e-05 / 8.1433e-05
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.7218e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.7168e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.5980e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.5587e-04 / 2.5598e-04
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.9269e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.2429e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.6869e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.2923e-04 / 4.2995e-04
+    xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.4117e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.4074e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.1892e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.0961e-04 / 5.1029e-04
+ ADK of H and He with ionization.quiet = 1 (whole particles: exponential thresholds of the optical depth):
+  gas (He): total ionized charge  code 2.03939e-03   expected 2.03605e-03 (+- 1.7e-05 stat.)   continuous rate eq. 2.03605e-03   -> +0.20 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.8221/0.8234+-0.0051  [0.50,1.00) 1.0542/1.0448+-0.0075  [1.00,1.50) 1.0087/1.0070+-0.0028  [1.50,2.00) 1.0000/0.9998+-0.0006  [2.00,2.50) 0.8046/0.7982+-0.0132  [2.50,3.00) 0.2147/0.2130+-0.0138
+  hyd (H): total ionized charge  code 5.02479e-03   expected 5.02479e-03 (+- 7.6e-08 stat.)   continuous rate eq. 5.02479e-03   -> +0.01 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.9771/0.9776+-0.0010  [0.50,1.00) 1.0000/1.0000+-0.0000  [1.00,1.50) 1.0000/1.0000+-0.0000  [1.50,2.00) 1.0000/1.0000+-0.0000  [2.00,2.50) 1.0000/1.0000+-0.0000  [2.50,3.00) 1.0000/1.0000+-0.0000
  built-in Bethe data (Rieke & Prepejchal): impact ionization of dilute He, Ne, Ar, Kr, Xe by a rigid beam at
  gamma = 3.39 (minimum) vs the measured minimum cross-sections (Blum, Riegler & Rolandi, Table 1.2, +-4 %):
   he : sigma code 1.8731e-19 cm^2  measured 1.860e-19  (rel. diff +7.1e-03);  primary ion pairs/cm at NTP:   4.7  (measured ~5.0)
@@ -292,9 +304,32 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 0.00e+00  (beams.txt col 0)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+ (f) with xe.ionization.quiet = 1: restart (expected: bit-identical):
+  6 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 0)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
 == 24. 0D electron cascade in Xe: ionization + excitation (W-value) vs an independent event-by-event Monte Carlo ==
  (a) 100 eV primaries (cascade_mc.py: same cross-sections, discrete collisions; measured W of Xe: 22.0 eV at high energy):
   E0 = 100.16 eV: W code 25.02 +- 0.26 eV (10336 births, 5120 primaries; energy left above threshold 1.4e-03), independent MC 24.38 +- 0.15 eV  (rel. diff +2.6e-02)
   E0 = 100.16 eV, no excitation: W code 17.19 +- 0.14 eV (14981 births, 5120 primaries; energy left above threshold 1.8e-02), independent MC 16.80 +- 0.04 eV  (rel. diff +2.3e-02)
  (b) 1 keV primaries:
   E0 = 999.94 eV: W code 22.65 +- 0.11 eV (112954 births, 320 primaries; energy left above threshold 2.1e-04), independent MC 22.48 +- 0.04 eV  (rel. diff +7.4e-03)
+== 25. beam shot noise: noise power of the macro-particle beam vs the real protons (Poisson), before and after 1 m of drift ==
+ quiet lattice (default loader): 1248000 macro-particles, 2.78e+05 protons each (mean); noise power / Poisson, <R> over k = 2pi/(1-10 mm), statistical error +-0.14:
+   K=1 (current)      z = 0:  2.28e-08   z = 1 m:  3.99e-06
+   K=exp(-r^2/2sr^2)  z = 0:  1.71e-08   z = 1 m:   7.1e+03
+   K=[r<sr/2]         z = 0:  2.63e-09   z = 1 m:  9.32e+04
+   K=[sr<r<1.5sr]     z = 0:  6.37e-09   z = 1 m:  1.78e+05
+   free drift over 1 m: r_rms growth 0.00825 (analytic 0.00825), emittance 0.07119 -> 0.07119
+ rods + shot noise (rods 8, dr 0.5, shot_noise 1): 1996363 macro-particles, 1.74e+05 protons each (mean); noise power / Poisson, <R> over k = 2pi/(1-10 mm), statistical error +-0.14:
+   K=1 (current)      z = 0:         1   z = 1 m:         1
+   K=exp(-r^2/2sr^2)  z = 0:     0.907   z = 1 m:     0.919
+   K=[r<sr/2]         z = 0:      0.81   z = 1 m:      1.12
+   K=[sr<r<1.5sr]     z = 0:      1.03   z = 1 m:     0.956
+   free drift over 1 m: r_rms growth 0.00827 (analytic 0.00825), emittance 0.07119 -> 0.07119
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)

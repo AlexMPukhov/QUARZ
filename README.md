@@ -489,6 +489,16 @@ an initially empty species). Three channels:
   The pair has weight dN if dN ≥ w₀/n; otherwise it has weight w₀/n, with probability
   dN n/w₀ (unbiased). This resolves small ionization fractions without the
   all-or-nothing noise of whole rings; the AWAKE case has fractions of ~10⁻⁴.
+- **Quiet ionization** (`<species>.ionization.quiet = 1`): no random choice of *whether* a particle ionizes.
+  With splitting, every atom accumulates dN/(w₀/n) and emits a quantum each time the sum passes 1; whole
+  particles accumulate the optical depth Σa and ionize when it passes a threshold τ = −ln(1 − u) (exact
+  Markov chain per level: the ionized fraction at depth A is 1 − e^−A). The initial phases u are interleaved
+  along the particle index (golden-ratio sequence, random offset per step), so the atoms of a region take
+  turns. The draws of the new electrons (process, energy, angles) come from an R₇ low-discrepancy sequence
+  over the electrons born in the slice. This removes the bias and most of the noise of the ionized
+  *amount* (Bethe impact, ppc 32, nsplit 2000: total charge −9·10⁻⁴ vs +9·10⁻³ with random draws). The
+  noise of the fields behind it is dominated by the sampling of the newborn electrons and still falls as
+  1/√(number of electrons).
 - Random numbers come from a counter-based hash of (seed, step, slice, species,
   particle, draw). New particles are appended at offsets from a prefix sum. Results
   therefore do not depend on the thread count or the MPI decomposition.
@@ -918,6 +928,7 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 | `<species>.excitation` | 1 where data exist (Xe) | excitation loss of the projectiles on the neutral atoms |
 | `<species>.excitation.table`, `.excitation.energy_eV` | — | own total excitation cross-section (`E_eV sigma_cm2`) and its energy loss |
 | `ionization.electron_loss` | `discrete` | `discrete` collisions (straggling) or `continuous` slowing down of the projectile electrons |
+| `<species>.ionization.quiet` | 0 | 1 = quiet ionization: accumulator emission with interleaved phases, low-discrepancy draws of the new electrons (see Ionization) |
 | `<species>.ionization.nsplit` | 1 | > 1: split the first ionization into quanta of w₀/nsplit. Use it when the ionized fraction is small; choose nsplit ≳ 1/P_total. The particle count grows up to nsplit-fold where the gas is fully ionized. |
 
 The `<species>.density` of an ionizable species is the atom density. Neutral gas does not
@@ -961,6 +972,9 @@ separate species.
 | `<beam>.r_max` | — | radius that is sampled |
 | `<beam>.ppc` | `1 1` | sub-rings per radial grid cell, sub-slices per ξ cell |
 | `<beam>.ntheta` | 1 (modes=0), 8 (modes=1) | particles per ring |
+| `<beam>.rods` | 0 | > 0 (even): *rods*: that many momentum samples per radial position (antithetic pairs ±g, scaled to exact second moments per shell), each kept at every ξ. The transverse mixing of the rods then stays smooth along ξ: no macro-particle noise along the beam, also after the bunch has evolved (the default loader, with independent momenta per particle, is quiet at t = 0 but 10⁴–10⁵ times above the real shot noise after 1 m of drift; section 25). |
+| `<beam>.dr` | grid cells | radial shell width of the loader (default: the cells of the radial grid) |
+| `<beam>.shot_noise` | 0 | amplitude factor of the shot noise of the real particles (1 = physical, needs `units.n0_cm3`): the weight of every macro-particle (N = w n₀ (c/ω_p)³ real particles) is redrawn from Poisson(N) (Gaussian above N = 100). Each phase-space cell then has the count noise of the real beam: the right noise power at every k up to 1/dξ and for every radial kernel (section 25). For the self-modulation instability without a seed. |
 | `<beam>.ux_mean(x,y,xi)`, `uy_mean`, `uz_mean` | 0, 0, √(γ²−1) | mean momenta p/mc (a plain number is accepted too); `uz_mean` or `gamma` is required |
 | `<beam>.ux_std(x,y,xi)`, `uy_std`, `uz_std` | 0 | Gaussian spread of p_x, p_y, p_z. Each may depend on position, e.g. `ux_std(x,y,xi) = "emit/sr * (1 + 0.5*xi)"`; a plain number is accepted. Negative values count as 0. |
 | `<beam>.u_std` | `0 0 0` | shorthand: three constant spreads (overridden component-wise by `ux_std`, etc.) |
@@ -1047,7 +1061,11 @@ frequent small dumps and rare full dumps can be combined (§6):
   the transverse force on the axis. Fixed-width columns (11 significant digits).
 - **`beams.txt`**, one line per beam per step, with columns:
   step, t, alive, N, charge, ⟨γ⟩, σ_γ, ⟨ξ⟩, σ_ξ, r_rms, ε_n,x, ⟨x⟩, ⟨y⟩, ε_n,y,
-  σ_x, σ_y. The emittances are about the centroid.
+  σ_x, σ_y. The emittances are about the centroid. With `modes = 0` a macro-particle stands for a ring,
+  and the x and y moments are those of the axisymmetric beam (azimuthal averages: ⟨x²⟩ = ⟨r²⟩/2,
+  ⟨p_x²⟩ = ⟨p⊥²⟩/2, ⟨x p_x⟩ = ⟨r·p⊥⟩/2, means 0). Before 2026-10-30 they were the projections of the
+  representative particles; for the parsed loader, which puts all of them at y = 0, σ_x was r_rms and
+  ε_n,x about √2 too large and not conserved under radial forces.
 - **`slices_<beam>_NNNNNN.txt`**: per-ξ-bin charge, ⟨x⟩, ⟨y⟩, σ_x, σ_y, ⟨γ⟩
   and ε_n,x, for hosing studies. Bins are `output.beam_slices` equal bins over
   `output.beam_slices_range` (empty bins are skipped).
@@ -1213,7 +1231,7 @@ All results can be reproduced with `validation/run_validation.sh`:
 
 ```bash
 cd validation
-./run_validation.sh -j 4 -c          # full suite (sections 1-16), compared with reference_full.txt
+./run_validation.sh -j 4 -c          # full suite (sections 1-25), compared with reference_full.txt
 ./run_validation.sh -q -j 4 -c       # quick regression test after code changes (~2 min on 2 cores)
 ./run_validation.sh -c 9 10          # selected sections only
 ```
@@ -1252,6 +1270,7 @@ A planted bug (π changed by 0.3 %) is caught by the quick mode in 4 of 6 sectio
 | Parsed plasma vs built-in profiles | uniform "1": 10⁻¹⁴; parabolic channel: 5·10⁻¹⁰; finite column via `if()`: identical; z up-ramp via `if()` vs `plasma.z_table`: identical witness energies over 8 steps |
 | Parsed analytic driver vs built-in analytic Gaussian | m = 0: 10⁻¹⁴. Offset driver with `modes = 1`: 10⁻⁸ (the built-in uses a 2·10⁻⁷ Bessel approximation, so the parsed one is the more accurate). |
 | Parsed particle driver (quiet start, ppc 2 2, 4.8·10⁵ particles) vs analytic | ρ_beam 3·10⁻⁴, fields ≤ 1 %. The random Gaussian loader with 10⁶ particles: ρ_beam 200 % local noise, fields up to 7 %. |
+| Beam shot noise (section 25): 400 GeV proton bunch, σ_r = 200 µm, ε_n = 2.2 µm, 1 m of drift in vacuum | noise power of Σ N_i K(r_i) e^{ikξ_i} relative to Poisson (real protons), averaged over λ = 1–10 mm, for K = 1, a Gaussian, the core r < σ_r/2 and a ring: default loader 10⁻⁸ at z = 0, 7·10³–1.8·10⁵ after 1 m; `rods = 8`, `shot_noise = 1`: 0.81–1.03 at z = 0, 0.88–1.00 after 1 m (statistical error ±0.14; three seeds 0.73–1.29). Free drift r_rms +0.827 % vs analytic +0.826 %, ε_n conserved. 2 ranks bit-identical. |
 | Position-dependent spreads (`test_profiles`) | beam std(p_x) follows 0.01 + 0.5\|x\| within 1–3 %, std(p_z) follows 10(ξ − 4) within 0.5 % together with a chirp, constant `uy_std` within 3 %; plasma std(p_x)/uth(r, z) = 1.00 ± 0.03 (modes 0 and 1); constant spreads reproduce earlier runs bit for bit |
 | Asymmetric plasma n = 1 + 0.2x with `modes = 1` | n_e0 = 1 to 2·10⁻¹¹; n_e,c = 0.2 r to 6·10⁻⁵; n_e,s ≤ 10⁻¹³ |
 | `modes = 1`: offset beam (x₀ = 0.05) in an ion channel, γ = 1000 | centroid x_c(t) = x₀ cos(t/√(2γ)) to 0.26 %; ⟨y⟩ ≤ 2·10⁻⁷ |
@@ -1296,7 +1315,8 @@ and analytic beam densities.
 | Impact ionization of Ar by a rigid 400 GeV proton beam (σ = 1.59·10⁻¹⁸ cm²), `nsplit = 2000` | ionized fraction vs 1 − exp(−σ n₀ k_p⁻¹ β ∫n_b dξ) in radial bands along the beam: within 1–3 %. Total at the end of the box: +0.9 %. |
 | Built-in Bethe data (Rieke & Prepejchal 1972) of He, Ne, Ar, Kr, Xe: impact ionization of the dilute gases by a rigid beam at γ = 3.39 (the minimum), `nsplit = 2000` | cross-section recovered from the ionized charge vs the measured minimum primary cross-sections (Blum, Riegler & Rolandi, Table 1.2, ±4 %): He +0.7 %, Ne +0.06 %, Ar −0.003 %, Xe +0.07 % (Kr: no independent value; 1.26·10⁻¹⁸ cm²). Primary ion pairs per cm at NTP: He 4.7, Ne 10.8, Ar 22.6, Kr 31.5, Xe 43.1 (measured ≈ 5.0, 12.4, 25–28, —, 41–44). |
 | Delta electrons (section 22): dilute Xe, rigid beam, `ionization.born_dump` | energy spectrum of the impact-born electrons vs the model (independent Python: OPB part atan(W/J)/atan(W_max/J) plus the free-electron tails of the Xe n = 1–3 subshells): Kolmogorov-Smirnov p = 0.57 (protons, γ = 3.39, 66 000 electrons; fraction with W > 1 keV 0.00737 vs 0.00735 ± 0.00033, without the inner shells it would be 0.0055); artificial subshells with 9 % of the rate: p = 0.13; electrons at γ = 20 with J = 2 MeV (the cut-off W_max = (γ − 1)mc²/2 is reached): p = 0.75. Binary-collision angle cos θ = κ√(W/(W+2)) to 3·10⁻¹³; isotropic option: p = 0.13, ⟨cos θ⟩ = 0.003. 400 GeV protons with J = 5.11 MeV: of 121 554 electrons 22 138 are born beyond γ/Δ = 35 and 22 137 become beam particles (the conversion tests the state after the first push; 54 are born within 0.1 % of the threshold). The ion charge density is bit-identical with and without delta electrons; with the fast deltas ionizing as beam electrons, restart and 2 ranks are bit-identical. The same kernel on an RTX 5090 (CUDA 13) gives the same samples. |
-| Electron-impact ionization (section 23): dilute Xe in mono-energetic electrons (two counter-streaming species, no fields) | ionized fraction along ξ vs 1 − exp(−n_e σ v ξ) with Lotz's formula implemented independently in Python: 30 eV, 100 eV, 1 keV and Xe⁺ → Xe²⁺ within 0.5 % (Monte Carlo noise; three seeds at 100 eV: −0.5, −0.5, −0.02 %); a σ(E) table: 0.5 %. Dense Xe (10¹⁶ cm⁻³), dilute 100 eV electrons: energy loss 11.52 and 11.09 eV for u_z = ±0.0198 vs RK4 of dE/dξ = −nσ(Ip + ⟨W⟩)|u|/Δ to 3·10⁻⁵; energy lost by all electrons / Σ(Ip + W) over 66 728 births = 0.9956 (Monte Carlo error 0.004). Restart, 2 and 3 ranks bit-identical. |
+| Electron-impact ionization (section 23): dilute Xe in mono-energetic electrons (two counter-streaming species, no fields) | ionized fraction along ξ vs 1 − exp(−n_e σ v ξ) with Lotz's formula implemented independently in Python: 30 eV, 100 eV, 1 keV and Xe⁺ → Xe²⁺ within 0.5 % (Monte Carlo noise; three seeds at 100 eV: −0.5, −0.5, −0.02 %); a σ(E) table: 0.5 %. Dense Xe (10¹⁶ cm⁻³), dilute 100 eV electrons: energy loss 11.52 and 11.09 eV for u_z = ±0.0198 vs RK4 of dE/dξ = −nσ(Ip + ⟨W⟩)|u|/Δ to 3·10⁻⁵; energy lost by all electrons / Σ(Ip + W) over 66 728 births = 0.9956 (Monte Carlo error 0.004). Restart, 2 and 3 ranks bit-identical, also with `ionization.quiet = 1`. |
+| Quiet ionization (section 12) | Bethe impact of Ar (ppc 32, nsplit 2000): total ionized charge −8.9·10⁻⁴ vs analytic (random draws +8.7·10⁻³); ADK of H and He (whole particles, several levels): He +0.20 σ (three seeds +0.20, −0.23, 0.00 σ), H +0.01 σ. |
 | 0D electron cascade in Xe (section 24): dense Xe (10¹⁹ cm⁻³), dilute primaries, ionization + excitation, discrete collisions | mean energy per ion pair W = E₀ N_primaries/N_ions vs an independent event-by-event Monte Carlo with the same cross-sections (`cascade_mc.py`): 1 keV: 22.53 ± 0.09 vs 22.48 ± 0.04 eV (measured 22.0 eV); 100 eV: 25.0 vs 24.4 eV, without excitation 17.2, 17.0, 16.8, 16.9 eV (four seeds / steps) vs 16.8 eV (seed-to-seed scatter ~1 %). Continuous slowing down instead: 24.4 eV at 1 keV (+8 %). |
 | MPI 2, 3 ranks vs serial, with laser ionization of N (LWFA example + 1 % N, `nsplit = 4`) and with impact ionization (proton bunch in Ar) | all outputs incl. `ionization.txt` bit-identical |
 | MPI 2, 3 ranks vs serial, `modes = 1`, field ionization of H/He (8 particles per ring) by an offset driver | bit-identical |

@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..24 (default: all)
+#   sections   numbers 1..25 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 24)}
+SECTIONS=${*:-$(seq 1 25)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -206,6 +206,12 @@ sec12() {
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) > /dev/null
     echo " impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):"
     python3 ion_check.py impact out_ion_impact 1e15 4.22:37.93 10 1 15 50 427 1
+    $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) gas.ionization.quiet=1 output.dir=out_ion_impact_q > /dev/null
+    echo " the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):"
+    python3 ion_check.py impact out_ion_impact_q 1e15 4.22:37.93 10 1 15 50 427 1
+    $QS ion_adk.in gas.ionization.quiet=1 hyd.ionization.quiet=1 output.dir=out_ion_adk_q > /dev/null
+    echo " ADK of H and He with ionization.quiet = 1 (whole particles: exponential thresholds of the optical depth):"
+    python3 ion_check.py adk out_ion_adk_q 1e17 16 0.01 gas:He:1e-4 hyd:H:1e-4
     local G=""; for s in he ne ar kr xe; do G="$G $s.ppc=$(q 32 16) $s.ionization.nsplit=$(q 2000 1000)"; done
     $QS ion_impact_gases.in $G xi.step=$(q 0.1 0.25) > /dev/null
     echo " built-in Bethe data (Rieke & Prepejchal): impact ionization of dilute He, Ne, Ar, Kr, Xe by a rigid beam at"
@@ -566,6 +572,16 @@ sec23() {
         echo " 2 ranks vs serial (expected: bit-identical):"
         python3 cmp_runs.py out_eimp_A out_eimp_P 1e-14 || true
     fi
+    M="$M xe.ionization.quiet=1"
+    $QS $M checkpoint.every=2 checkpoint.keep=0 checkpoint.dir=out_eimp_chkq output.dir=out_eimp_qA > /dev/null
+    $QS $M restart.from=out_eimp_chkq/chk_000002 output.dir=out_eimp_qB > /dev/null
+    echo " (f) with xe.ionization.quiet = 1: restart (expected: bit-identical):"
+    python3 restart_check.py out_eimp_qA out_eimp_qB 0 || true
+    if [ -n "$MPIRUN" ]; then
+        $MPIRUN 2 $QS $M output.dir=out_eimp_qP > /dev/null
+        echo " 2 ranks vs serial (expected: bit-identical):"
+        python3 cmp_runs.py out_eimp_qA out_eimp_qP 1e-14 || true
+    fi
     unset OMP_NUM_THREADS
     rm -rf out_eimp*
 }
@@ -585,6 +601,23 @@ sec24() {
         python3 eimpact_check.py cascade out_casc_1k 999.94
     fi
     rm -rf out_casc*
+}
+
+sec25() {
+    echo "== 25. beam shot noise: noise power of the macro-particle beam vs the real protons (Poisson), before and after 1 m of drift =="
+    $QS shot_noise.in output.dir=out_shot_lat > /dev/null
+    python3 shot_check.py out_shot_lat "quiet lattice (default loader)"
+    $QS shot_noise.in p.rods=8 p.dr=0.5 p.shot_noise=1 output.dir=out_shot_rods > /dev/null
+    python3 shot_check.py out_shot_rods "rods + shot noise (rods 8, dr 0.5, shot_noise 1)"
+    if [ -n "$MPIRUN" ]; then
+        export OMP_NUM_THREADS=1
+        local M="shot_noise.in p.rods=8 p.dr=0.5 p.shot_noise=1 time.steps=2 output.every=1 output.beam_every=0 beams.xi_shape=ngp"
+        $QS $M output.dir=out_shot_s > /dev/null
+        $MPIRUN 2 $QS $M output.dir=out_shot_p > /dev/null
+        echo " 2 ranks vs serial (expected: bit-identical):"
+        python3 cmp_runs.py out_shot_s out_shot_p 1e-14 || true
+    fi
+    rm -rf out_shot*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

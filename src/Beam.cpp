@@ -297,37 +297,110 @@ void Beam::init_parsed(const Config& cfg) {
     std::mt19937_64 rng(cfg.get_int(p + ".seed", 12345));
     std::normal_distribution<double> N01(0.0, 1.0);
 
+    // Rods: <beam>.rods = momentum samples per radial position (even: antithetic pairs +-g). A rod keeps its
+    // transverse sample (r, theta, the unit Gaussian draws g of the momentum spreads) at every xi, so the
+    // transverse mixing of the rods stays smooth along xi: no macro-particle noise in xi, also after the
+    // bunch has evolved. <beam>.dr: radial shell width of the loader (default: the cells of the grid).
+    const int nrod = cfg.get_int(p + ".rods", 0);
+    if (nrod < 0 || nrod % 2) throw std::runtime_error(p + ".rods must be an even number (antithetic pairs)");
+    const double drl = cfg.get_double(p + ".dr", 0.0);
+    // Shot noise of the real particles: the macro-particle stands for N = w nu real particles (nu per unit
+    // weight); its weight is redrawn from Poisson(N) (Gaussian N + sqrt(N) g above N = 100). Each phase-space
+    // cell then carries the count noise of the real beam: the right noise power at every k (up to the
+    // sampling limit 1/dxi) and for every radial kernel.  <beam>.shot_noise = amplitude factor (1 = physical).
+    const double shot = cfg.get_double(p + ".shot_noise", 0.0);
+    double nu = 0;
+    if (shot > 0) {
+        const double n0 = cfg.get_double("units.n0_cm3", 0.0);
+        if (!(n0 > 0)) throw std::runtime_error(p + ".shot_noise needs the density unit units.n0_cm3");
+        const double kp_inv = 2.99792458e10 / (5.64146e4 * std::sqrt(n0));   // c/omega_p in cm
+        nu = n0 * kp_inv * kp_inv * kp_inv;
+    }
+    std::mt19937_64 rng_shot(cfg.get_int(p + ".seed", 12345) ^ 0x5d1f2a3b7c4e9081ULL);
+    std::normal_distribution<double> G01(0.0, 1.0);
+    auto noisy = [&](double w) {
+        if (!(shot > 0)) return w;
+        const double N = w * nu;
+        double Nn;
+        if (N < 100 && shot == 1.0) Nn = static_cast<double>(std::poisson_distribution<long long>(N)(rng_shot));
+        else Nn = std::max(0.0, N + shot * std::sqrt(N) * G01(rng_shot));
+        return Nn / nu;
+    };
+
+    std::vector<std::array<double, 3>> shells;   // ra, rb, parity of the azimuthal offset
+    if (drl > 0) {
+        for (int j = 0; j * drl < rmax; ++j)
+            for (int m = 0; m < pr; ++m) {
+                const double ra = j * drl + m * drl / pr, rb = std::min(rmax, j * drl + (m + 1) * drl / pr);
+                if (rb > ra) shells.push_back({ra, rb, double((j * pr + m) % 2)});
+            }
+    } else {
+        for (int j = 0; j < grid_.N && grid_.r[j] < rmax; ++j) {
+            const double h = grid_.h[j];
+            for (int m = 0; m < pr; ++m) {
+                const double ra = grid_.r[j] + m * h / pr, rb = std::min(rmax, grid_.r[j] + (m + 1) * h / pr);
+                if (rb > ra) shells.push_back({ra, rb, double((j * pr + m) % 2)});
+            }
+        }
+    }
+
     const double dxs = bg_.dxi / pxi;
     const int nxs = std::max(1, static_cast<int>(std::lround((x1 - x0) / dxs)));
     std::vector<double> X, Y, PX, PY, PZ, XI, W;
-    for (int j = 0; j < grid_.N && grid_.r[j] < rmax; ++j) {
-        const double h = grid_.h[j];
-        for (int m = 0; m < pr; ++m) {
-            const double ra = grid_.r[j] + m * h / pr, rb = std::min(rmax, grid_.r[j] + (m + 1) * h / pr);
-            if (rb <= ra) continue;
-            const double r = (2.0 / 3.0) * (rb * rb * rb - ra * ra * ra) / (rb * rb - ra * ra);
-            const double vol = PI * (rb * rb - ra * ra) * (x1 - x0) / nxs / nth;
-            const double off = ((j * pr + m) % 2) * 0.5;
+    auto density = [&](double r, double x, double y, double xi) {
+        if (nth != 1) return dens_(x, y, xi);
+        double n = 0;   // axisymmetric run: azimuthal average (m = 0 part of the profile)
+        for (int q = 0; q < 16; ++q) n += dens_(r * std::cos(2 * PI * q / 16), r * std::sin(2 * PI * q / 16), xi);
+        return n / 16;
+    };
+    for (const auto& sh : shells) {
+        const double ra = sh[0], rb = sh[1];
+        const double r = (2.0 / 3.0) * (rb * rb * rb - ra * ra * ra) / (rb * rb - ra * ra);
+        const double vol = PI * (rb * rb - ra * ra) * (x1 - x0) / nxs / nth;
+        const double off = sh[2] * 0.5;
+        if (nrod == 0) {
             for (int k = 0; k < nxs; ++k) {
                 const double xi = x0 + (k + 0.5) * (x1 - x0) / nxs;
                 for (int l = 0; l < nth; ++l) {
                     const double th = 2 * PI * (l + off) / nth;
                     const double x = r * std::cos(th), y = r * std::sin(th);
-                    double n;
-                    if (nth == 1) {   // axisymmetric run: azimuthal average (m = 0 part of the profile)
-                        n = 0;
-                        for (int q = 0; q < 16; ++q) n += dens_(r * std::cos(2 * PI * q / 16), r * std::sin(2 * PI * q / 16), xi);
-                        n /= 16;
-                    } else {
-                        n = dens_(x, y, xi);
-                    }
+                    const double n = density(r, x, y, xi);
                     if (!(n > 0)) continue;
                     const double px = ux(x, y, xi) + spread(sx, x, y, xi) * N01(rng);
                     const double py = uy(x, y, xi) + spread(sy, x, y, xi) * N01(rng);
                     const double pz = uz(x, y, xi) + spread(sz, x, y, xi) * N01(rng);
                     if (pz <= 0) throw std::runtime_error(p + ": uz <= 0 at xi = " + std::to_string(xi));
                     X.push_back(x); Y.push_back(y); PX.push_back(px); PY.push_back(py); PZ.push_back(pz);
-                    XI.push_back(xi); W.push_back(n * vol);
+                    XI.push_back(xi); W.push_back(noisy(n * vol));
+                }
+            }
+            continue;
+        }
+        for (int l = 0; l < nth; ++l) {
+            const double th = 2 * PI * (l + off) / nth;
+            const double x = r * std::cos(th), y = r * std::sin(th);
+            // nrod/2 draws, each component scaled to unit variance over the set (with the antithetic partners:
+            // exact first and second moments of the momentum spreads in every shell)
+            std::vector<std::array<double, 3>> gs(nrod / 2);
+            double v2[3] = {0, 0, 0};
+            for (auto& g : gs)
+                for (int c = 0; c < 3; ++c) { g[c] = N01(rng); v2[c] += g[c] * g[c]; }
+            for (auto& g : gs)
+                for (int c = 0; c < 3; ++c) g[c] *= v2[c] > 0 ? std::sqrt(gs.size() / v2[c]) : 0.0;
+            for (int q = 0; q < nrod / 2; ++q) {
+                const auto& g = gs[q];
+                for (int s = 1; s >= -1; s -= 2) {
+                    for (int k = 0; k < nxs; ++k) {
+                        const double xi = x0 + (k + 0.5) * (x1 - x0) / nxs;
+                        const double n = density(r, x, y, xi);
+                        if (!(n > 0)) continue;
+                        const double px = ux(x, y, xi) + spread(sx, x, y, xi) * s * g[0];
+                        const double py = uy(x, y, xi) + spread(sy, x, y, xi) * s * g[1];
+                        const double pz = uz(x, y, xi) + spread(sz, x, y, xi) * s * g[2];
+                        if (pz <= 0) throw std::runtime_error(p + ": uz <= 0 at xi = " + std::to_string(xi));
+                        X.push_back(x); Y.push_back(y); PX.push_back(px); PY.push_back(py); PZ.push_back(pz);
+                        XI.push_back(xi); W.push_back(noisy(n * vol / nrod));
+                    }
                 }
             }
         }
@@ -922,9 +995,18 @@ BeamDiag Beam::from_sums(const std::array<double, 17>& S, Real t) const {
         d.r_rms = std::sqrt(m(4));
         d.x_mean = m(5);
         d.y_mean = m(6);
-        const double xx = m(7) - m(5) * m(5), yy = m(8) - m(6) * m(6);
-        const double pxx = m(11) - m(9) * m(9), pyy = m(12) - m(10) * m(10);
-        const double xpx = m(13) - m(5) * m(9), ypy = m(14) - m(6) * m(10);
+        double xx = m(7) - m(5) * m(5), yy = m(8) - m(6) * m(6);
+        double pxx = m(11) - m(9) * m(9), pyy = m(12) - m(10) * m(10);
+        double xpx = m(13) - m(5) * m(9), ypy = m(14) - m(6) * m(10);
+        if (!m1_) {
+            // m = 0: a macro-particle stands for a ring; its (x, y) is one point of it (the parsed loader puts all
+            // of them at y = 0). The moments of the axisymmetric beam are the averages over the azimuth:
+            // <x^2> = <r^2>/2, <p_x^2> = <p_perp^2>/2, <x p_x> = <r . p_perp>/2, means 0.
+            d.x_mean = d.y_mean = 0;
+            xx = yy = 0.5 * m(4);
+            pxx = pyy = 0.5 * (m(11) + m(12));
+            xpx = ypy = 0.5 * (m(13) + m(14));
+        }
         d.sigma_x = std::sqrt(std::max(0.0, xx));
         d.sigma_y = std::sqrt(std::max(0.0, yy));
         d.emit_nx = std::sqrt(std::max(0.0, xx * pxx - xpx * xpx));
