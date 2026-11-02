@@ -26,7 +26,7 @@ d = read_fields('out_im_stretched/fields_000000.bin')
 a = ax[0, 1]
 m = a.pcolormesh(d['xi'], d['r'], d['ne'].T, shading='auto', cmap='Greys', vmin=0, vmax=3)
 a.contour(d['xi'], d['r'], abs(d['rhob']).T, levels=[1, 1000], colors=['C1', 'C0'], linewidths=0.8)
-a.set_ylim(0, 3); a.set_xlabel(r'$\xi = t - z$'); a.set_ylabel('r'); a.set_title('Plasma electrons + beam contours (stretched grid, 512 cells)')
+a.set_ylim(0, 3); a.set_xlabel(r'$\xi = z - t$'); a.set_ylabel('r'); a.set_title('Plasma electrons + beam contours (stretched grid, 512 cells)')
 fig.colorbar(m, ax=a)
 # (c) AWAKE-like SMI: Ez on axis at three positions
 a = ax[1, 0]

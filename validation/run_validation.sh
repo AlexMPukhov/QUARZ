@@ -146,6 +146,7 @@ sec9() {
 
 sec10() {
     echo "== 10. openPMD output (needs openPMD-api in the build and the openpmd-api Python module) =="
+    rm -rf out_opmd_* out_opmd.log   # an aborted earlier run may have left other iterations behind
     if python3 -c "import openpmd_api" 2> /dev/null; then
     export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparisons
     H="../examples/hosing.in time.steps=$(q 4 2) output.every=2 output.beam_every=2 driver.nparticles=$(q 40000 8000) xi.min=-$(q 6 4) beams.xi_shape=ngp output.format=both units.n0_cm3=1e17"

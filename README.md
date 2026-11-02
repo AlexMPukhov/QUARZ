@@ -1130,7 +1130,9 @@ frequent small dumps and rare full dumps can be combined (§6):
     `rho_beam`, in geometry `thetaMode`, axes (r, z), shape [modes][r][z].
     The modes are (f₀) or (f₀, f_c, f_s) with f = f₀ + f_c cos θ + f_s sin θ
     (geometryParameters `m=2;imag=+`), the convention of openPMD-viewer, FBPIC and WarpX.
-  - **Longitudinal axis:** the lab-frame z = t + ξ, stored in increasing z (the same order as the native files).
+  - **Longitudinal axis:** co-moving, as in other quasi-static codes: the mesh axis `z` is ξ = z_lab − ct (the
+    same values and order as the native files; `gridGlobalOffset` = ξ_min). The lab position is z_lab = ξ + ct
+    with the iteration time t (series attribute `quarz_coordinates`). Until this version: lab z = t + ξ.
   - **Radial grid:** openPMD requires uniform spacing, so by default the fields are
     interpolated (piecewise linearly, consistent with the hat functions) onto a
     uniform radial grid. The default spacing is h_min, which can make the files much
@@ -1152,8 +1154,8 @@ frequent small dumps and rare full dumps can be combined (§6):
     meshes)": the fields appear on the true non-uniform nodes (see `tools/paraview/README.md`).
     The old attribute `quarz_r_nodes` is no longer written (HDF5 limits attributes to 64 KB, so it
     broke grids with more than ~8190 nodes); the data-set form has no size limit.
-  - **Particles:** every beam is a species with `position` (x, y, z = t + ξ),
-    `positionOffset` (0), `momentum` (per physical particle, in m_e c × `unitSI`, unlike the m_s c of the native files), `weighting`
+  - **Particles:** every beam is a species with `position` (x, y, z = ξ, co-moving like the meshes),
+    `positionOffset` (0, so openPMD-viewer also shows ξ), `momentum` (per physical particle, in m_e c × `unitSI`, unlike the m_s c of the native files), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.
   - **Units:** SI when `units.n0_cm3` is given, otherwise normalised units with
     `unitSI` = 1 (the series attribute `quarz_units` says which).

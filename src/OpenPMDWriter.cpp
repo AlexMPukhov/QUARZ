@@ -181,7 +181,8 @@ void OpenPMDWriter::Impl::open() {
     S.setParticlesPath("particles/");
     S.setAttribute("quarz_units", I.si ? std::string("SI") : std::string("normalised: c/omega_p, 1/omega_p, n0, m_e c omega_p/e"));
     if (I.si) S.setAttribute("quarz_n0_SI", I.n0);
-    S.setAttribute("quarz_coordinates", std::string("z = t + xi (lab frame); xi = z - t is the co-moving coordinate of the inputs and native outputs"));
+    S.setAttribute("quarz_coordinates", std::string("co-moving frame: the mesh axis z and the particle positions z are xi = z_lab - c t "
+                                                     "(as the inputs and native outputs); lab position z_lab = z + c t, t = iteration time"));
 }
 
 OpenPMDWriter::~OpenPMDWriter() {
@@ -230,7 +231,8 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
         if ((I.box.k0 + kl) % xs == 0) rows.push_back(kl);
     const int K = (I.box.nxi - 1) / xs + 1, KL = static_cast<int>(rows.size()), k0 = (I.box.k0 + xs - 1) / xs;
     const double dxi = I.box.dxi * xs;
-    const double zmin = t - (I.box.xi_min + (K - 1) * dxi);   // z = t - xi, increasing z = decreasing xi
+    // co-moving axis: z = user xi = -(internal xi); the last written slice has the smallest xi
+    const double zmin = xi_to_user(I.box.xi_min + (K - 1) * dxi);
 
     if (T) {
         const int nm = I.m1 ? 3 : 1;
@@ -395,7 +397,7 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
             weighted(pos, 0, 0.0);
             put(pos["x"], column(0, 0.0, 1.0), I.uL);
             put(pos["y"], column(1, 0.0, 1.0), I.uL);
-            put(pos["z"], column(5, t, -1.0), I.uL);   // z = t - xi
+            put(pos["z"], column(5, 0.0, -1.0), I.uL);   // co-moving: z = user xi = -(internal xi)
         }
         {
             Record po = sp["positionOffset"];

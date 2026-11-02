@@ -23,7 +23,7 @@ for n, it in S.iterations.items():
                 # native data in code units -> SI via the same unit
                 modes = [f[name]] + ([f[name + '_c'], f[name + '_s']] if a.shape[0] == 3 else [])
                 zoff = m.grid_global_offset[1]; dz = m.grid_spacing[1]
-                assert abs(zoff - (t + xi[0])) < 1e-9 * max(1, abs(t)), (zoff, t + xi[0])   # z = t + xi
+                assert abs(zoff - xi[0]) < 1e-9 * max(1, abs(xi[0])), (zoff, xi[0])   # co-moving: z = xi
                 for k, fm in enumerate(modes):
                     nat = fm.T * rc.unit_SI   # (r, z): native xi and z both increasing
                     if mode == 'native':
@@ -55,7 +55,7 @@ for n, it in S.iterations.items():
         uL = sp['position']['x'].unit_SI
         ia = np.argsort(b['x']); ib = np.argsort(x)
         e1 = np.abs(b['x'][ia] * uL - x[ib] * uL).max() / np.abs(b['x']).max() / uL
-        e2 = np.abs(np.sort(t + b['xi']) - np.sort(z)).max() / max(1, abs(t))
+        e2 = np.abs(np.sort(b['xi']) - np.sort(z)).max() / max(1, np.abs(b['xi']).max())   # co-moving: z = xi
         e3 = abs(w.sum() - b['w'].sum()) / b['w'].sum()
         print(f'  particles {sp_name}: N = {len(x)} (native {len(b["x"])}), x {e1:.1e}, z {e2:.1e}, sum w {e3:.1e}')
         worst = max(worst, e1, e2, e3)
