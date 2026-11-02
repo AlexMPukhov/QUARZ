@@ -987,7 +987,8 @@ separate species.
 | `<beam>.xp0`, `<beam>.yp0` | 0 | centroid angle, p_x = p_z·xp0 (modes = 1) |
 | `<beam>.nsym` | 1 | quiet start: replicate every particle at nsym azimuths (nparticles must be a multiple) |
 | `<beam>.mirror_y` | 0 | quiet start: also add the mirror image y → −y (keeps an x-only offset/tilt exactly y-symmetric) |
-| `<beam>.file` | | for `profile = file`: columns x y p_x p_y p_z ξ w (ξ = z − t; v1.0 files: `tools/convert_deck.py --beam-file`) |
+| `<beam>.file` | | for `profile = file`: a text file with columns x y p_x p_y p_z ξ w, or a native particle dump `beam_<name>_NNNNNN.bin` of a QUARZ run (binary, about 8× faster to read; spins are kept if the beam has `<beam>.spin`). Units in both: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the beam's species, w in n₀(c/ω_p)³, i.e. exactly the columns of the native dumps (openPMD particles differ: momentum in m_e c per physical particle, weighting in physical particles). v1.0 files (ξ = t − z): `tools/convert_deck.py --beam-file` |
+| `<beam>.file_format` | `auto` | `text`, `native` (dump), or `auto`: native if the name ends in `.bin` |
 
 **Parsed beams** (`<beam>.profile = parsed`)
 
@@ -1116,8 +1117,12 @@ frequent small dumps and rare full dumps can be combined (§6):
   (`*.partN`) and merged into the usual files by rank 0 at the end of the run;
   if a run is killed, the `.partN` files hold the data.
 - **`beam_<name>_NNNNNN.bin`**: int32 n, then n × (x, y, p_x, p_y, p_z, ξ, w), or n × (…, w, s_x, s_y, s_z)
-  for a beam with `<beam>.spin` (readers infer 7 or 10 doubles from the file size).
-  Particles removed from the beam (w = 0) are not written.
+  for a beam with `<beam>.spin` (readers infer 7 or 10 doubles from the file size). Code units: x, y, ξ in
+  c/ω_p, p in m_s c of the species, w in n₀(c/ω_p)³. Particles removed from the beam (w = 0) are not written.
+  A dump can be read back as a beam (`<beam>.profile = file`, `<beam>.file = beam_<name>_NNNNNN.bin`). The
+  momenta of a dump are half a time step behind the positions (leapfrog), so a run started from a dump is not
+  an exact continuation (use checkpoints for that); with `particle_stride` > 1 the dump holds a subset
+  with unchanged weights.
 - **openPMD** (`output.format = openpmd` or `both`): one file per output step,
   `openpmd/data_NNNNNN.h5` (or `.bp`, `.json`), following the
   [openPMD standard 1.1](https://github.com/openPMD/openPMD-standard).
@@ -1148,7 +1153,7 @@ frequent small dumps and rare full dumps can be combined (§6):
     The old attribute `quarz_r_nodes` is no longer written (HDF5 limits attributes to 64 KB, so it
     broke grids with more than ~8190 nodes); the data-set form has no size limit.
   - **Particles:** every beam is a species with `position` (x, y, z = t + ξ),
-    `positionOffset` (0), `momentum` (per physical particle), `weighting`
+    `positionOffset` (0), `momentum` (per physical particle, in m_e c × `unitSI`, unlike the m_s c of the native files), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.
   - **Units:** SI when `units.n0_cm3` is given, otherwise normalised units with
     `unitSI` = 1 (the series attribute `quarz_units` says which).
@@ -1260,7 +1265,7 @@ All results can be reproduced with `validation/run_validation.sh`:
 
 ```bash
 cd validation
-./run_validation.sh -j 4 -c          # full suite (sections 1-26), compared with reference_full.txt
+./run_validation.sh -j 4 -c          # full suite (sections 1-27), compared with reference_full.txt
 ./run_validation.sh -q -j 4 -c       # quick regression test after code changes (~2 min on 2 cores)
 ./run_validation.sh -c 9 10          # selected sections only
 ```
@@ -1440,6 +1445,15 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 |---|---|
 | v1.0.0 deck (parsed beams with functions of ξ, `xi_range`, chirp, slices) converted by `tools/convert_deck.py` vs `examples/parsed_profiles.in` | bit-identical (fields, axis, beam log, particles, slices). All 34 validation and example decks, run with QUARZ v1.0.0 and converted with this version: bit-identical (checked once, single thread, not part of the suite) |
 | γ = 3 beam drifting in vacuum, deck ξ0 = −2 | field file from `xi.min` to `xi.max` in increasing ξ; beam charge and particles centred at ξ = −1.9962 (sampling); every particle slips backwards by ∫(v_z − 1) dt to 7·10⁻⁷ |
+
+**Beam import from native dumps** (section 27):
+
+| test | result |
+|---|---|
+| dump read back (`<beam>.file = beam_*.bin`) and written again at step 0 | byte-identical to the file; also with spins (10 doubles per particle); without `<beam>.spin` the spins are dropped, the rest identical |
+| 2 steps from the dump vs from the same particles as a text file | bit-identical |
+| 2 ranks vs serial, from the dump | particles and fields bit-identical (beam log: summation order over the ranks) |
+| 2·10⁶ particles | whole run (load only) 0.27 s vs 2.1 s from the equivalent text file; file 112 vs 216 MB |
 
 **Two-stage runs** (section 19, `boundary.in`, `bnd_check.py`; driver in −5…0, witness at ξ = −7,
 stage 2 from ξ = −5.01):

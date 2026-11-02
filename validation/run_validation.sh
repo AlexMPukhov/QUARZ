@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..26 (default: all)
+#   sections   numbers 1..27 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 26)}
+SECTIONS=${*:-$(seq 1 27)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -641,6 +641,49 @@ sec26() {
     $QS betatron.in time.steps=2 output.every=2 output.beam_every=2 witness.gamma=3 "plasma.density(x,y,z)=0" output.dir=out_conv_c > /dev/null
     python3 convention_check.py out_conv_c -4 0 -2 2
     rm -rf out_conv_*
+}
+
+sec27() {
+    echo "== 27. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) =="
+    export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparisons
+    local B="betatron.in output.every=0 witness.nparticles=$(q 20000 4000)" F="witness.profile=file witness.file"
+    $QS $B time.steps=2 output.beam_every=2 output.dir=out_imp_src > /dev/null
+    $QS $B time.steps=0 output.beam_every=1 $F=out_imp_src/beam_witness_000002.bin output.dir=out_imp_re > /dev/null
+    cmp -s out_imp_src/beam_witness_000002.bin out_imp_re/beam_witness_000000.bin && r=identical || r=DIFFERENT
+    echo " imported dump written again at step 0 vs the file (expected identical): $r"
+    python3 -c "
+import numpy as np
+a = np.fromfile('out_imp_src/beam_witness_000002.bin', np.float64, offset=4).reshape(-1, 7)
+np.savetxt('out_imp_src/witness.txt', a, fmt='%.17g')"
+    $QS $B time.steps=2 output.every=1 output.beam_every=1 $F=out_imp_src/beam_witness_000002.bin output.dir=out_imp_bin > /dev/null
+    $QS $B time.steps=2 output.every=1 output.beam_every=1 $F=out_imp_src/witness.txt output.dir=out_imp_txt > /dev/null
+    echo " 2 steps from the dump vs from the same particles as a text file (expected bit-identical, 0):"
+    python3 cmp_runs.py out_imp_bin out_imp_txt 0 || true
+    # spins: kept with <beam>.spin, dropped without it
+    local S="spin.in time.steps=2 output.beam_every=2 beams=muons"
+    $QS $S output.dir=out_imp_ssrc > /dev/null
+    $QS $S time.steps=0 output.beam_every=1 muons.profile=file muons.file=out_imp_ssrc/beam_muons_000002.bin output.dir=out_imp_sre > /dev/null
+    cmp -s out_imp_ssrc/beam_muons_000002.bin out_imp_sre/beam_muons_000000.bin && r=identical || r=DIFFERENT
+    echo " beam with spin (10 doubles per particle), written again (expected identical): $r"
+    $QS $S time.steps=0 output.beam_every=1 muons.spin= muons.profile=file muons.file=out_imp_ssrc/beam_muons_000002.bin \
+        output.dir=out_imp_sno > /dev/null 2>&1
+    python3 -c "
+import numpy as np
+a = np.fromfile('out_imp_ssrc/beam_muons_000002.bin', np.float64, offset=4).reshape(-1, 10)[:, :7]
+b = np.fromfile('out_imp_sno/beam_muons_000000.bin', np.float64, offset=4).reshape(-1, 7)
+print(' the same dump into a beam without spin: %d particles, x y p xi w %s' % (len(b), 'identical' if np.array_equal(a, b) else 'DIFFERENT'))"
+    head -c 1000 out_imp_src/beam_witness_000002.bin > out_imp_cut.bin
+    $QS $B time.steps=0 $F=out_imp_cut.bin output.dir=out_imp_cut > out_imp_cut.log 2>&1 && r="no error (WRONG)" || r="$(grep -o 'is not a native beam dump' out_imp_cut.log | head -1)"
+    echo " truncated file: $r"
+    if [ -n "$MPIRUN" ]; then
+        local M="$B time.steps=2 output.every=1 output.beam_every=1 beams.xi_shape=ngp $F=out_imp_src/beam_witness_000002.bin"
+        $QS $M output.dir=out_imp_s > /dev/null
+        $MPIRUN 2 $QS $M output.dir=out_imp_p > /dev/null
+        echo " 2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of"
+        echo " the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):"
+        python3 cmp_runs.py out_imp_s out_imp_p 1e-5 || true
+    fi
+    rm -rf out_imp_*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

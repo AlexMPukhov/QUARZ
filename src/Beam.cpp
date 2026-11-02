@@ -9,7 +9,10 @@
 #include <cmath>
 #include <limits>
 #include <algorithm>
+#include <cstdio>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <iomanip>
 #include <random>
 #include <sstream>
@@ -140,7 +143,7 @@ Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, c
         for (View1D* v : {&x_, &y_, &px_, &py_, &pz_, &xi_, &w_}) *v = View1D(name + ".empty", 0);
         return;
     }
-    if (prof == "file") init_file(cfg.get_string(name + ".file"));
+    if (prof == "file") init_file(cfg.get_string(name + ".file"), cfg.get_string(name + ".file_format", "auto"));
     else init_gaussian(cfg);
 }
 
@@ -525,9 +528,9 @@ void Beam::accumulate(RefAcc& a, const double* p) const {
     a.wxi += w * p[5];
 }
 
-void Beam::finish_init(std::vector<double>& local, const RefAcc& a) {
+void Beam::finish_init(std::vector<double>& local, const RefAcc& a, bool have_spin) {
     np_global_ = a.n;
-    if (spin_) {   // generators give 7 doubles per particle; append the initial spin
+    if (spin_ && !have_spin) {   // generators give 7 doubles per particle; append the initial spin
         const size_t n = local.size() / 7;
         std::vector<double> e(10 * n);
         for (size_t i = 0; i < n; ++i) {
@@ -552,8 +555,15 @@ void Beam::adopt_local(const std::vector<double>& all) {
     finish_init(local, acc);
 }
 
-// text file, one particle per line:  x  y  p_x  p_y  p_z  xi  w   (xi in the user convention, Types.hpp)
-void Beam::init_file(const std::string& filename) {
+// <beam>.file: a text file, one particle per line  x  y  p_x  p_y  p_z  xi  w, or (file_format = native,
+// or auto and the name ends in .bin) a native particle dump beam_<name>_NNNNNN.bin of a QUARZ run.
+// Both: positions in c/omega_p, xi = z - t (user convention, Types.hpp), momenta in m c of the beam's
+// species, weights in n0 (c/omega_p)^3.
+void Beam::init_file(const std::string& filename, const std::string& format) {
+    const bool bin = filename.size() > 4 && filename.compare(filename.size() - 4, 4, ".bin") == 0;
+    if (format != "auto" && format != "text" && format != "native")
+        throw std::runtime_error(name_ + ".file_format must be auto|text|native");
+    if (format == "native" || (format == "auto" && bin)) { init_dump(filename); return; }
     std::ifstream in(filename);
     if (!in) throw std::runtime_error(name_ + ": cannot open beam file '" + filename + "'");
     std::vector<double> v[7];
@@ -570,6 +580,49 @@ void Beam::init_file(const std::string& filename) {
     for (size_t i = 0; i < v[0].size(); ++i)
         for (int c = 0; c < 7; ++c) all[7 * i + c] = v[c][i];
     adopt_local(all);
+}
+
+// native dump: int32 n, then n records of 7 doubles (x y px py pz xi w) or 10 (+ sx sy sz), as written by
+// dump(). Read in chunks; every rank keeps the particles of its slices (as adopt_local). Spins in the file
+// are used if the beam has <beam>.spin, otherwise <beam>.spin sets them (or a file with spins is read
+// without them).
+void Beam::init_dump(const std::string& filename) {
+    std::FILE* f = std::fopen(filename.c_str(), "rb");
+    if (!f) throw std::runtime_error(name_ + ": cannot open beam dump '" + filename + "'");
+    std::error_code ec;
+    const auto size = std::filesystem::file_size(filename, ec);
+    int32_t n = -1;
+    if (ec || std::fread(&n, 4, 1, f) != 1 || n < 0) { std::fclose(f); throw std::runtime_error(name_ + ": '" + filename + "' is not a native beam dump"); }
+    const unsigned long long body = size - 4, nn = static_cast<unsigned long long>(n);
+    const int nf = (body == 56ULL * nn) ? 7 : (body == 80ULL * nn ? 10 : 0);
+    if (nf == 0 || n == 0) {
+        std::fclose(f);
+        throw std::runtime_error(name_ + ": '" + filename + "' is not a native beam dump with particles (int32 n, then n x 7 or "
+                                 "10 doubles; size " + std::to_string(size) + " bytes for n = " + std::to_string(n) + ")");
+    }
+    const bool keep = spin_ && nf == 10;
+    if (bg_.k0 == 0 && nf == 10 && !spin_)
+        std::cout << "Beam '" << name_ << "': the dump has spins, read without them (no " << name_ << ".spin)\n";
+    RefAcc acc;
+    std::vector<double> local, buf;
+    const size_t chunk = size_t(1) << 18;   // particles per read
+    for (size_t done = 0; done < nn;) {
+        const size_t m = std::min(chunk, static_cast<size_t>(nn - done));
+        buf.resize(m * nf);
+        if (std::fread(buf.data(), sizeof(double), buf.size(), f) != buf.size()) {
+            std::fclose(f);
+            throw std::runtime_error(name_ + ": beam dump '" + filename + "' ends early");
+        }
+        for (size_t i = 0; i < m; ++i) {
+            double* p = &buf[nf * i];
+            p[5] = xi_from_user(p[5]);
+            accumulate(acc, p);
+            if (local_xi(p[5])) local.insert(local.end(), p, p + (keep ? 10 : 7));
+        }
+        done += m;
+    }
+    std::fclose(f);
+    finish_init(local, acc, keep);
 }
 
 void Beam::deposit(const View3D& src) const {

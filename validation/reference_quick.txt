@@ -340,3 +340,19 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):
   field file: xi = -4 ... 0, increasing: OK;  beam charge centred at -1.9962, particles at -1.9962 (deck xi0 = -2)
   slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07
+== 27. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) ==
+ imported dump written again at step 0 vs the file (expected identical): identical
+ 2 steps from the dump vs from the same particles as a text file (expected bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+ beam with spin (10 doubles per particle), written again (expected identical): identical
+ the same dump into a beam without spin: 20000 particles, x y p xi w identical
+ truncated file: is not a native beam dump
+ 2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of
+ the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 7.80e-07  (beams.txt col 11)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
