@@ -91,8 +91,9 @@ Once 2.0 is out, the geometry becomes `thetaMode` and the files conform.
 - **QUARZ** (`output.openpmd_grid = native`) writes through openPMD-api. Built against an openPMD-api with
   coordinate data sets (branch below; detected by CMake), it writes the data-set form: the radial nodes in
   `<basePath>gridCoordinates/r`, referenced by every mesh. With a released openPMD-api it keeps the interim
-  form: the nodes in the mesh attribute `gridCoordinates_r`, with `gridType = "rectilinear"`. Both forms
-  also carry the older `quarz_r_nodes`. Its ξ axis is regular.
+  form: the nodes in the mesh attribute `gridCoordinates_r`, with `gridType = "rectilinear"` (an HDF5
+  attribute holds at most 64 KB, ~8190 nodes; the data-set form has no limit). The older per-mesh copy
+  `quarz_r_nodes` is no longer written. Its ξ axis is regular.
 - **Readers:** `tools/openpmd_rectilinear.py` (Python, in both repositories) reads both forms, and so does
   GEM-PIC-RZ's `h5_extract`.
 

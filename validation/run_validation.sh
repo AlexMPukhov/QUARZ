@@ -151,6 +151,10 @@ sec10() {
     H="../examples/hosing.in time.steps=$(q 4 2) output.every=2 output.beam_every=2 driver.nparticles=$(q 40000 8000) xi.min=-$(q 6 4) beams.xi_shape=ngp output.format=both units.n0_cm3=1e17"
         if $QS $H output.openpmd_grid=native output.dir=out_opmd_nat > out_opmd.log 2>&1; then
             echo " native-node openPMD vs native files (expected 0):"; python3 check_openpmd.py out_opmd_nat native | tail -1
+            # more radial nodes than an HDF5 attribute can hold (64 KB = 8192 doubles): the nodes are a data set
+            $QS betatron.in time.steps=0 output.every=1 grid.type=uniform grid.dr=0.0004 output.format=both output.openpmd_grid=native \
+                units.n0_cm3=1e17 witness.nparticles=2000 output.dir=out_opmd_big > /dev/null
+            echo " native-node openPMD with 10001 radial nodes vs native files (expected 0):"; python3 check_openpmd.py out_opmd_big native | tail -1
             if python3 -c "import vtk" 2> /dev/null; then
                 python3 ../tools/paraview/make_rectilinear_testfiles.py out_opmd_pv > /dev/null
                 F=$(ls out_opmd_nat/openpmd/*.h5 | head -1)

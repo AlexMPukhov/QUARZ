@@ -1145,7 +1145,8 @@ frequent small dumps and rare full dumps can be combined (§6):
     openPMD-viewer. **ParaView:** load the plugin `tools/paraview/openPMDRectilinearReader.py`
     (Tools → Manage Plugins) and open a `.pmd` file with the reader "openPMD Reader (rectilinear
     meshes)": the fields appear on the true non-uniform nodes (see `tools/paraview/README.md`).
-    The old attribute `quarz_r_nodes` is still written (deprecated).
+    The old attribute `quarz_r_nodes` is no longer written (HDF5 limits attributes to 64 KB, so it
+    broke grids with more than ~8190 nodes); the data-set form has no size limit.
   - **Particles:** every beam is a species with `position` (x, y, z = t + ξ),
     `positionOffset` (0), `momentum` (per physical particle), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.
@@ -1309,6 +1310,7 @@ written together with the native files (`output.format = both`) and compared wit
 | check | result |
 |---|---|
 | openPMD on native nodes vs native files (hosing, m = 1, SI units) | fields, positions, weights identical (0) |
+| openPMD on native nodes with 10001 radial nodes (more than an HDF5 attribute holds: 64 KB = 8192 doubles) | written (nodes in the `gridCoordinates` data set), fields identical to the native files (0) |
 | uniform openPMD grid vs native data interpolated in Python | 4·10⁻¹⁶ |
 | openPMD-viewer `get_field('E','r', m='all', theta)` vs f₀ + f_c cos θ + f_s sin θ from the native file | 2·10⁻¹⁶–5·10⁻¹⁶ (θ = 0, 1, π/2); viewer reads u_z = 497 for a γ = 500 beam (momentum and mass units consistent) |
 | MPI 2 and 3 ranks vs serial (HDF5, all meshes and particles) | bit-identical |

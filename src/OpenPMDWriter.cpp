@@ -271,7 +271,8 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
                 m.setAttribute("gridType", std::string("rectilinear"));   // interim form: attribute
                 m.setAttribute("gridCoordinates_r", I.rout);
 #endif
-                m.setAttribute("quarz_r_nodes", I.rout);   // deprecated, for older QUARZ readers
+                // (the deprecated per-mesh copy quarz_r_nodes is no longer written: HDF5 attributes are
+                // limited to 64 KB, i.e. ~8190 nodes, and the run failed at the first output beyond that)
             } else {
                 m.setGeometry(Mesh::Geometry::thetaMode);
                 m.setGeometryParameters(std::string("m=") + (I.m1 ? "2" : "1") + ";imag=+");
