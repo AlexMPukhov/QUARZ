@@ -42,7 +42,8 @@ static void binned_std(const std::vector<double>& key, const std::vector<double>
 int main(int argc, char* argv[]) {
     Kokkos::ScopeGuard guard(argc, argv);
     RadialGrid g(RadialGrid::make_uniform(2.0, 0.01));
-    BeamGrid bg; bg.xi_min = 0; bg.dxi = 0.01; bg.nxi = 1001;
+    // internal box xi = t - z in [-10, 0], i.e. user xi = z - t in [0, 10] (deck keys and dumps use the user xi)
+    BeamGrid bg; bg.xi_min = -10; bg.dxi = 0.01; bg.nxi = 1001;
 
     std::printf("Parsed beam with position-dependent momentum spread\n");
     {

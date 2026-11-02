@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # ---------------------------------------------------------------------------
 # AWAKE-like seeded self-modulation of a long proton bunch (LCODE's classic use case)
 #   n0 = 7e14 cm^-3:  c/omega_p = 0.2 mm,  1/omega_p = 0.67 ps,  E0 = 2.54 GV/m
@@ -9,8 +10,8 @@ grid.rmax      = 10.0
 grid.regions   = 2.0:0.01  10.0:0.1
 grid.max_ratio = 1.05
 
-xi.min  = -2        # bunch head (cut) at xi = 0
-xi.max  = 300
+xi.min  = -300        # bunch head (cut) at xi = 0
+xi.max  = 2
 xi.step = 0.05
 
 time.dt    = 200     # 4 cm

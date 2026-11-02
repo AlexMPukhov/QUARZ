@@ -124,15 +124,16 @@ Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, c
         rigid_ = true;
         an_n0_ = cfg.get_double(name + ".n0");
         an_sr_ = cfg.get_double(name + ".sigma_r");
-        an_xi0_ = cfg.get_double(name + ".xi0");
+        an_xi0_ = xi_from_user(cfg.get_double(name + ".xi0"));
         an_gamma_ = cfg.get_double(name + ".gamma");
         an_flat_ = (prof == "flattop");
         if (an_flat_) an_len_ = cfg.get_double(name + ".length");
         else if (prof == "gaussian") an_sxi_ = cfg.get_double(name + ".sigma_xi");
         else throw std::runtime_error(name + ": analytic beams need profile gaussian|flattop");
-        an_cut_head_ = cfg.get_double(name + ".xi_cut_head", -1e300);
+        an_cut_head_ = cfg.has(name + ".xi_cut_head") ? xi_from_user(cfg.get_double(name + ".xi_cut_head")) : -1e300;
         an_x0_ = cfg.get_double(name + ".x0", 0.0); an_y0_ = cfg.get_double(name + ".y0", 0.0);
-        an_xs_ = cfg.get_double(name + ".x_slope", 0.0); an_ys_ = cfg.get_double(name + ".y_slope", 0.0);
+        // slopes d x_c / d xi_user -> internal d x_c / d xi = -slope
+        an_xs_ = -cfg.get_double(name + ".x_slope", 0.0); an_ys_ = -cfg.get_double(name + ".y_slope", 0.0);
         if (!m1_ && (an_x0_ != 0 || an_y0_ != 0 || an_xs_ != 0 || an_ys_ != 0))
             throw std::runtime_error(name + ": transverse offsets/tilts need azimuthal mode 1 (modes = 1)");
         Np_ = 0;
@@ -235,7 +236,7 @@ void Beam::deposit_analytic_parsed(const View3D& src) const {
         Real n0 = 0, nr = 0, ni = 0;
         for (int l = 0; l < NQ; ++l) {
             const Real th = Real(2) * Real(PI) * l / NQ, c = Kokkos::cos(th), s = Kokkos::sin(th);
-            const Real n = f(r * c, r * s, xi);
+            const Real n = f(r * c, r * s, xi_to_user(xi));   // parsed functions take the user xi
             n0 += n; nr += n * c; ni -= n * s;
         }
         n0 /= NQ; nr /= NQ; ni /= NQ;
@@ -265,7 +266,8 @@ void Beam::init_parsed(const Config& cfg) {
     const std::string p = name_;
     const auto xr = cfg.get_list(p + ".xi_range");
     if (xr.size() != 2) throw std::runtime_error(p + ".xi_range = xi_min xi_max is required for parsed beams");
-    const double x0 = std::stod(xr[0]), x1 = std::stod(xr[1]);
+    // xi_range in the user convention (xi_user = z - t); x0 < x1 are the internal bounds
+    const double x0 = xi_from_user(std::stod(xr[1])), x1 = xi_from_user(std::stod(xr[0]));
     const double rmax = cfg.get_double(p + ".r_max");
     const auto ppc = cfg.get_list(p + ".ppc");
     const int pr = ppc.size() > 0 ? std::stoi(ppc[0]) : 1;
@@ -361,15 +363,16 @@ void Beam::init_parsed(const Config& cfg) {
         if (nrod == 0) {
             for (int k = 0; k < nxs; ++k) {
                 const double xi = x0 + (k + 0.5) * (x1 - x0) / nxs;
+                const double xu = xi_to_user(xi);   // the parsed functions take the user xi
                 for (int l = 0; l < nth; ++l) {
                     const double th = 2 * PI * (l + off) / nth;
                     const double x = r * std::cos(th), y = r * std::sin(th);
-                    const double n = density(r, x, y, xi);
+                    const double n = density(r, x, y, xu);
                     if (!(n > 0)) continue;
-                    const double px = ux(x, y, xi) + spread(sx, x, y, xi) * N01(rng);
-                    const double py = uy(x, y, xi) + spread(sy, x, y, xi) * N01(rng);
-                    const double pz = uz(x, y, xi) + spread(sz, x, y, xi) * N01(rng);
-                    if (pz <= 0) throw std::runtime_error(p + ": uz <= 0 at xi = " + std::to_string(xi));
+                    const double px = ux(x, y, xu) + spread(sx, x, y, xu) * N01(rng);
+                    const double py = uy(x, y, xu) + spread(sy, x, y, xu) * N01(rng);
+                    const double pz = uz(x, y, xu) + spread(sz, x, y, xu) * N01(rng);
+                    if (pz <= 0) throw std::runtime_error(p + ": uz <= 0 at xi = " + std::to_string(xu));
                     X.push_back(x); Y.push_back(y); PX.push_back(px); PY.push_back(py); PZ.push_back(pz);
                     XI.push_back(xi); W.push_back(noisy(n * vol));
                 }
@@ -392,12 +395,13 @@ void Beam::init_parsed(const Config& cfg) {
                 for (int s = 1; s >= -1; s -= 2) {
                     for (int k = 0; k < nxs; ++k) {
                         const double xi = x0 + (k + 0.5) * (x1 - x0) / nxs;
-                        const double n = density(r, x, y, xi);
+                        const double xu = xi_to_user(xi);   // the parsed functions take the user xi
+                        const double n = density(r, x, y, xu);
                         if (!(n > 0)) continue;
-                        const double px = ux(x, y, xi) + spread(sx, x, y, xi) * s * g[0];
-                        const double py = uy(x, y, xi) + spread(sy, x, y, xi) * s * g[1];
-                        const double pz = uz(x, y, xi) + spread(sz, x, y, xi) * s * g[2];
-                        if (pz <= 0) throw std::runtime_error(p + ": uz <= 0 at xi = " + std::to_string(xi));
+                        const double px = ux(x, y, xu) + spread(sx, x, y, xu) * s * g[0];
+                        const double py = uy(x, y, xu) + spread(sy, x, y, xu) * s * g[1];
+                        const double pz = uz(x, y, xu) + spread(sz, x, y, xu) * s * g[2];
+                        if (pz <= 0) throw std::runtime_error(p + ": uz <= 0 at xi = " + std::to_string(xu));
                         X.push_back(x); Y.push_back(y); PX.push_back(px); PY.push_back(py); PZ.push_back(pz);
                         XI.push_back(xi); W.push_back(noisy(n * vol / nrod));
                     }
@@ -419,14 +423,15 @@ void Beam::init_gaussian(const Config& cfg) {
     const std::string lprof = cfg.get_string(p + ".profile", "gaussian");   // gaussian | flattop
     const double n0 = cfg.get_double(p + ".n0");
     const double sr = cfg.get_double(p + ".sigma_r");
-    const double xi0 = cfg.get_double(p + ".xi0");
+    const double xi0 = xi_from_user(cfg.get_double(p + ".xi0"));   // internal xi (Types.hpp)
     const double gamma0 = cfg.get_double(p + ".gamma");
     const double espread = cfg.get_double(p + ".espread", 0.0);
     const double emit = cfg.get_double(p + ".emit_n", 0.0);
     const double cut = cfg.get_double(p + ".cut", 3.0);
-    // transverse centroid:  x_c(xi) = x0 + x_slope (xi - xi0);  angles xp0, yp0 (p_x = p_z xp0)
+    // transverse centroid:  x_c = x0 + x_slope (xi_user - xi0_user) = x0 - x_slope (xi - xi0) (internal xi);
+    // angles xp0, yp0 (p_x = p_z xp0)
     const double cx0 = cfg.get_double(p + ".x0", 0.0), cy0 = cfg.get_double(p + ".y0", 0.0);
-    const double cxs = cfg.get_double(p + ".x_slope", 0.0), cys = cfg.get_double(p + ".y_slope", 0.0);
+    const double cxs = -cfg.get_double(p + ".x_slope", 0.0), cys = -cfg.get_double(p + ".y_slope", 0.0);
     const double xp0 = cfg.get_double(p + ".xp0", 0.0), yp0 = cfg.get_double(p + ".yp0", 0.0);
     if (!m1_ && (cx0 != 0 || cy0 != 0 || cxs != 0 || cys != 0 || xp0 != 0 || yp0 != 0))
         throw std::runtime_error(p + ": transverse offsets/tilts need azimuthal mode 1 (modes = 1)");
@@ -441,7 +446,8 @@ void Beam::init_gaussian(const Config& cfg) {
     if (nrot < 1 || Np_ % nsym != 0)
         throw std::runtime_error(p + ".nparticles must be a multiple of nsym (x2 with mirror_y)");
     const unsigned long long seed = cfg.get_int(p + ".seed", 12345);
-    const double xcut = cfg.get_double(p + ".xi_cut_head", -1e300);
+    // xi_cut_head: drop the particles ahead of it (xi_user > value, i.e. internal xi < -value)
+    const double xcut = cfg.has(p + ".xi_cut_head") ? xi_from_user(cfg.get_double(p + ".xi_cut_head")) : -1e300;
 
     double sxi = 0, len = 0;
     if (lprof == "gaussian") sxi = cfg.get_double(p + ".sigma_xi");
@@ -546,7 +552,7 @@ void Beam::adopt_local(const std::vector<double>& all) {
     finish_init(local, acc);
 }
 
-// text file, one particle per line:  x  y  p_x  p_y  p_z  xi  w
+// text file, one particle per line:  x  y  p_x  p_y  p_z  xi  w   (xi in the user convention, Types.hpp)
 void Beam::init_file(const std::string& filename) {
     std::ifstream in(filename);
     if (!in) throw std::runtime_error(name_ + ": cannot open beam file '" + filename + "'");
@@ -557,6 +563,7 @@ void Beam::init_file(const std::string& filename) {
         std::istringstream ss(line);
         double a[7];
         if (!(ss >> a[0] >> a[1] >> a[2] >> a[3] >> a[4] >> a[5] >> a[6])) continue;
+        a[5] = xi_from_user(a[5]);
         for (int c = 0; c < 7; ++c) v[c].push_back(a[c]);
     }
     std::vector<double> all(7 * v[0].size());
@@ -665,7 +672,7 @@ void Beam::deposit_impact(const View3D& imp) const {
                 Real n = 0;
                 for (int l = 0; l < NQ; ++l) {
                     const Real th = Real(2) * Real(PI) * l / NQ;
-                    n += f(r * Kokkos::cos(th), r * Kokkos::sin(th), xi);
+                    n += f(r * Kokkos::cos(th), r * Kokkos::sin(th), xi_to_user(xi));
                 }
                 n /= NQ;
                 imp(k, j, 0) += c0 * n; imp(k, j, 1) += c1 * n; imp(k, j, 2) += c2 * n;
@@ -990,7 +997,7 @@ BeamDiag Beam::from_sums(const std::array<double, 17>& S, Real t) const {
         d.charge = q * sw;
         d.gamma_mean = gref_ + m(0);
         d.gamma_rms = std::sqrt(std::max(0.0, m(1) - m(0) * m(0)));
-        d.xi_mean = xiref_ + m(2);
+        d.xi_mean = xi_to_user(xiref_ + m(2));   // user convention (Types.hpp)
         d.xi_rms = std::sqrt(std::max(0.0, m(3) - m(2) * m(2)));
         d.r_rms = std::sqrt(m(4));
         d.x_mean = m(5);
@@ -1032,7 +1039,7 @@ std::vector<double> Beam::slice_sums(double lo, double hi, int nbins) const {
     for (int i = 0; i < Np_; ++i) {
         const double w = hw(i);
         if (w == 0) continue;
-        const int b = static_cast<int>(std::floor((hxi(i) - lo) / db));
+        const int b = static_cast<int>(std::floor((xi_to_user(hxi(i)) - lo) / db));   // bins in the user xi
         if (b < 0 || b >= nbins) continue;
         const double g = std::sqrt(1 + hpx(i) * hpx(i) + hpy(i) * hpy(i) + hpz(i) * hpz(i));
         const double v[9] = {1.0, hx(i), hy(i), hx(i) * hx(i), hy(i) * hy(i), g, hpx(i), hpx(i) * hpx(i), hx(i) * hpx(i)};
@@ -1128,6 +1135,7 @@ void Beam::dump(const std::string& filename, int stride) const {
             q.insert(q.end(), p.begin() + nc * i, p.begin() + nc * i + nc);
         p.swap(q);
     }
+    for (size_t i = 5; i < p.size(); i += static_cast<size_t>(nc_)) p[i] = xi_to_user(p[i]);   // user xi
     // int32 n, then n records of 7 doubles (10 with spin: + s_x s_y s_z; readers infer it from the size)
     std::ofstream out(filename, std::ios::binary);
     const int32_t n = static_cast<int32_t>(p.size() / static_cast<size_t>(nc_));

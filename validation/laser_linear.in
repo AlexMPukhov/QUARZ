@@ -1,9 +1,10 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # linear laser wake: (d^2/dxi^2 + 1) psi = <a^2>/2,  <a^2> = |a|^2/2
 grid.type = uniform
 grid.rmax = 15
 grid.dr = 0.02
-xi.min = 0
-xi.max = 14
+xi.min = -14
+xi.max = 0
 xi.step = 0.01
 time.steps = 0
 plasma.species = electrons
@@ -13,5 +14,5 @@ laser.k0 = 20
 laser.a0 = 0.05
 laser.w0 = 3
 laser.L0 = 1.4142135623730951
-laser.xi0 = 4
+laser.xi0 = -4
 output.dir = out_laser_lin

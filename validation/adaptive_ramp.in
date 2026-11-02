@@ -1,11 +1,12 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Adaptive time step: betatron oscillation of a zero-emittance witness in a pure ion channel
 # whose density rises from 1 to 4 (z = 500 ... 1500). dt follows 2 pi / (N omega_beta(z)).
 grid.type = regions
 grid.rmax = 4
 grid.regions = 0.3:0.002 4:0.02
 grid.max_ratio = 1.05
-xi.min = 0
-xi.max = 3
+xi.min = -3
+xi.max = 0
 xi.step = 0.02
 time.adaptive = 1
 time.nt_per_betatron = 128
@@ -19,7 +20,7 @@ beams = witness
 witness.n0 = 1e-4
 witness.sigma_r = 0.1
 witness.sigma_xi = 0.02
-witness.xi0 = 1.5
+witness.xi0 = -1.5
 witness.gamma = 1000
 witness.emit_n = 0
 witness.nparticles = 20000

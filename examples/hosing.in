@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # ---------------------------------------------------------------------------
 # Electron hosing of a long, slightly offset driver in the blowout regime
 # (needs azimuthal mode 1).  Normalised units, xi = t - z.
@@ -10,8 +11,8 @@ grid.rmax      = 6.0
 grid.regions   = 0.5:0.005  2.0:0.01  6.0:0.04
 grid.max_ratio = 1.05
 
-xi.min  = 0
-xi.max  = 9
+xi.min  = -9
+xi.max  = 0
 xi.step = 0.01
 
 time.dt    = 5            # betatron period 2 pi sqrt(2 gamma) ~ 200
@@ -28,10 +29,10 @@ driver.n0         = 5
 driver.sigma_r    = 0.25
 driver.profile    = flattop
 driver.length     = 6.0
-driver.xi0        = 4.0
+driver.xi0        = -4.0
 driver.gamma      = 500
 driver.emit_n     = 0.05
-driver.x_slope    = 0.002         # centroid tilt x_c = x_slope (xi - xi0): seed of the instability
+driver.x_slope    = -0.002         # centroid tilt x_c = x_slope (xi - xi0): seed of the instability
                                   # (a uniform offset is no seed in a uniform plasma: translation invariance)
 driver.nparticles = 400000        # multiple of nsym x 2
 driver.nsym       = 4             # quiet start: removes the m=1 sampling noise

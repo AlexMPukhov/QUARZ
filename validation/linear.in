@@ -1,9 +1,10 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Linear wake of a weak Gaussian electron driver (validation against Green's function)
 grid.type   = uniform
 grid.rmax   = 8.0
 grid.dr     = 0.01
-xi.min  = 0
-xi.max  = 16
+xi.min  = -16
+xi.max  = 0
 xi.step = 0.01
 time.dt    = 0
 time.steps = 0
@@ -14,7 +15,7 @@ beams = driver
 driver.n0        = 0.01
 driver.sigma_r   = 0.5
 driver.sigma_xi  = 1.0
-driver.xi0       = 4.0
+driver.xi0       = -4.0
 driver.gamma     = 20000
 driver.cut       = 4
 driver.nparticles = 2000000

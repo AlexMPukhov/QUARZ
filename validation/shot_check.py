@@ -30,7 +30,7 @@ def load(fn):
 
 def ratios(fn):
     p = load(fn)
-    x, y, xi, w = p[:, 0], p[:, 1], p[:, 5], p[:, 6]
+    x, y, xi, w = p[:, 0], p[:, 1], -p[:, 5], p[:, 6]   # xi here: s = -xi, distance behind the head
     r = np.hypot(x, y)
     sel = (xi > 300) & (xi < 4700)
     h = np.i0(BETA * np.sqrt(1 - ((xi[sel] - 2500) / 2200) ** 2)) / np.i0(BETA)   # Kaiser: leakage of the profile < 1e-15

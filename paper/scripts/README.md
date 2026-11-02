@@ -13,3 +13,9 @@ containing the run outputs `out_<case>/`, `log_<case>.txt`):
 - `rf.py` — helper.
 
 The input decks of all paper runs are in `paper/inputs/` (see its README).
+
+**Convention:** the decks and scripts here use the ξ = z − t convention of this version (head of the
+box at `xi.max` = 0, the box extends to negative ξ). The paper (QUARZ v1.0.0) uses ξ = t − z, so its
+ξ values are the negatives of the ones here, and figures made with these scripts are mirrored in ξ
+relative to the published ones (head on the right). To reproduce the published decks and figures
+exactly, use QUARZ v1.0.0.

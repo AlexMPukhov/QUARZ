@@ -1,11 +1,12 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # beam impact ionization of dilute He, Ne, Ar, Kr, Xe (built-in Bethe data, Rieke & Prepejchal 1972) by
 # a rigid singly charged beam at gamma = 3.39, the minimum of the primary ionization cross-section
 units.n0_cm3 = 1e16
 grid.type = uniform
 grid.rmax = 4
 grid.dr = 0.02
-xi.min = 0
-xi.max = 100
+xi.min = -100
+xi.max = 0
 xi.step = 0.1
 time.dt = 0
 time.steps = 0
@@ -48,7 +49,7 @@ b.mass = 1836.15
 b.n0 = 40
 b.sigma_r = 1
 b.sigma_xi = 15
-b.xi0 = 50
+b.xi0 = -50
 b.gamma = 3.39
 output.dir = out_ion_gases
 output.every = 1

@@ -2,11 +2,11 @@
 uniform dr=0.01         : max|Ez|=3.5004e-04  rel.err Ez(r=0)=1.261e-03  psi(0)=6.393e-04  (Er-Bth)(r=0.5)=2.108e-03
 stretched 0.002 -> 0.05 : max|Ez|=3.5004e-04  rel.err Ez(r=0)=1.179e-03  psi(0)=3.740e-04  (Er-Bth)(r=0.5)=1.595e-03
 == 2. blowout: resolution study ==
-uniform_dr0.01_dxi0.01             Ez(5)=+0.1844 Ez(7)=-0.4468 Ez(8)=-0.8923 Ezmin=-16.145 @xi=8.850  Wr/r(r=.5,xi=6)=0.5000
-uniform_dr0.005_dxi0.005           Ez(5)=+0.1844 Ez(7)=-0.4467 Ez(8)=-0.8923 Ezmin=-8.081 @xi=8.840  Wr/r(r=.5,xi=6)=0.5000
-uniform_dr0.0025_dxi0.0025         Ez(5)=+0.1844 Ez(7)=-0.4467 Ez(8)=-0.8922 Ezmin=-9.919 @xi=8.838  Wr/r(r=.5,xi=6)=0.5000
-stretched_dxi0.005                 Ez(5)=+0.1843 Ez(7)=-0.4471 Ez(8)=-0.8930 Ezmin=-8.589 @xi=8.845  Wr/r(r=.5,xi=6)=0.5000
-stretched_dxi0.005_PCR             Ez(5)=+0.1843 Ez(7)=-0.4471 Ez(8)=-0.8930 Ezmin=-8.589 @xi=8.845  Wr/r(r=.5,xi=6)=0.5000
+uniform_dr0.01_dxi0.01             Ez(-5)=+0.1844 Ez(-7)=-0.4468 Ez(-8)=-0.8923 Ezmin=-16.145 @xi=-8.850  Wr/r(r=.5,xi=-6)=0.5000
+uniform_dr0.005_dxi0.005           Ez(-5)=+0.1844 Ez(-7)=-0.4467 Ez(-8)=-0.8923 Ezmin=-8.081 @xi=-8.840  Wr/r(r=.5,xi=-6)=0.5000
+uniform_dr0.0025_dxi0.0025         Ez(-5)=+0.1844 Ez(-7)=-0.4467 Ez(-8)=-0.8922 Ezmin=-9.919 @xi=-8.838  Wr/r(r=.5,xi=-6)=0.5000
+stretched_dxi0.005                 Ez(-5)=+0.1843 Ez(-7)=-0.4471 Ez(-8)=-0.8930 Ezmin=-8.589 @xi=-8.845  Wr/r(r=.5,xi=-6)=0.5000
+stretched_dxi0.005_PCR             Ez(-5)=+0.1843 Ez(-7)=-0.4471 Ez(-8)=-0.8930 Ezmin=-8.589 @xi=-8.845  Wr/r(r=.5,xi=-6)=0.5000
 == 3. betatron oscillation in an ion channel ==
 max |r_rms - r0 |cos(w_b t)|| / r0 = 2.62e-03
 == 4. witness energy gain in a rigid-driver blowout ==
@@ -76,36 +76,36 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   hyd (H): total ionized charge  code 5.02471e-03   expected 5.02479e-03 (+- 7.6e-08 stat.)   continuous rate eq. 5.02479e-03   -> -1.03 sigma
     <z> in r-bands, code/expected: [0.00,0.50) 0.9761/0.9776+-0.0010  [0.50,1.00) 1.0000/1.0000+-0.0000  [1.00,1.50) 1.0000/1.0000+-0.0000  [1.50,2.00) 1.0000/1.0000+-0.0000  [2.00,2.50) 1.0000/1.0000+-0.0000  [2.50,3.00) 1.0000/1.0000+-0.0000
  laser ionization of N (up to N5+), a0 = 0.1, 0.8 um at 1e17 cm^-3, wide spot: code vs cycle-resolved ADK and test particles:
-  <z> on axis vs xi: max |code - exact cycle-resolved| = 0.033 at xi - xi0 = -3.52  (final 5.0000 vs 5.0000)
-    xi - xi0 = -6.00:  code 0.000   exact 0.000
-    xi - xi0 = -4.50:  code 0.340   exact 0.349
-    xi - xi0 = -3.00:  code 2.251   exact 2.252
-    xi - xi0 = -1.50:  code 3.812   exact 3.814
+  <z> on axis vs xi: max |code - exact cycle-resolved| = 0.033 at xi - xi0 = +3.52  (final 5.0000 vs 5.0000)
+    xi - xi0 = +6.00:  code 0.000   exact 0.000
+    xi - xi0 = +4.50:  code 0.340   exact 0.349
+    xi - xi0 = +3.00:  code 2.251   exact 2.252
+    xi - xi0 = +1.50:  code 3.812   exact 3.814
     xi - xi0 = +0.00:  code 4.997   exact 4.997
-    xi - xi0 = +1.50:  code 5.000   exact 5.000
+    xi - xi0 = -1.50:  code 5.000   exact 5.000
   mean p_perp^2 of the born electrons: code 1.8390e-04   test particles (p = -a(t_birth)) 1.8754e-04   (ratio 0.981; for comparison <a^2> at the pulse peak 5.0e-03)
  impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):
   sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
   total ionized charge at the end of the box: code 6.34743e-02   analytic 6.29239e-02   (rel. diff +8.7e-03)
-    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.5019e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.2031e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.0288e-04 / 5.0993e-04  r/sr in [2.0,3.0): 7.9255e-05 / 8.1433e-05
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.5019e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.2031e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.0288e-04 / 5.0993e-04  r/sr in [2.0,3.0): 7.9255e-05 / 8.1433e-05
     xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.6165e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.8248e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.6242e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.5770e-04 / 2.5598e-04
-    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.7814e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.3581e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.7223e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.3681e-04 / 4.2995e-04
-    xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.1672e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.5021e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.2282e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.2788e-04 / 5.1029e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.7814e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.3581e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.7223e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.3681e-04 / 4.2995e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.1672e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.5021e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.2282e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.2788e-04 / 5.1029e-04
  built-in Bethe data for Rb vapour (M^2 = 5.89, C = 65.8: Kim et al. PRA 57, 246 (1998), high-energy limit;
  sigma = 2.46e-18 cm^2 at gamma = 427):
   sigma = 2.4600e-18 cm^2,  dP/dxi = 4.1339e-05 n_b
   total ionized charge at the end of the box: code 9.78407e-02   analytic 9.72456e-02   (rel. diff +6.1e-03)
-    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 2.3633e-03 / 2.3330e-03  r/sr in [0.5,1.0): 1.8346e-03 / 1.8357e-03  r/sr in [1.0,2.0): 7.9061e-04 / 7.8902e-04  r/sr in [2.0,3.0): 1.2938e-04 / 1.2602e-04
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 2.3633e-03 / 2.3330e-03  r/sr in [0.5,1.0): 1.8346e-03 / 1.8357e-03  r/sr in [1.0,2.0): 7.9061e-04 / 7.8902e-04  r/sr in [2.0,3.0): 1.2938e-04 / 1.2602e-04
     xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.1921e-03 / 7.3163e-03  r/sr in [0.5,1.0): 5.8123e-03 / 5.7598e-03  r/sr in [1.0,2.0): 2.4780e-03 / 2.4781e-03  r/sr in [2.0,3.0): 4.0346e-04 / 3.9611e-04
-    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.2148e-02 / 1.2259e-02  r/sr in [0.5,1.0): 9.7553e-03 / 9.6564e-03  r/sr in [1.0,2.0): 4.1993e-03 / 4.1587e-03  r/sr in [2.0,3.0): 6.7514e-04 / 6.6526e-04
-    xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4389e-02 / 1.4534e-02  r/sr in [0.5,1.0): 1.1526e-02 / 1.1451e-02  r/sr in [1.0,2.0): 4.9654e-03 / 4.9338e-03  r/sr in [2.0,3.0): 8.1013e-04 / 7.8955e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.2148e-02 / 1.2259e-02  r/sr in [0.5,1.0): 9.7553e-03 / 9.6564e-03  r/sr in [1.0,2.0): 4.1993e-03 / 4.1587e-03  r/sr in [2.0,3.0): 6.7514e-04 / 6.6526e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4389e-02 / 1.4534e-02  r/sr in [0.5,1.0): 1.1526e-02 / 1.1451e-02  r/sr in [1.0,2.0): 4.9654e-03 / 4.9338e-03  r/sr in [2.0,3.0): 8.1013e-04 / 7.8955e-04
  the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):
   sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
   total ionized charge at the end of the box: code 6.28677e-02   analytic 6.29239e-02   (rel. diff -8.9e-04)
-    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4998e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.1805e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.0720e-04 / 5.0993e-04  r/sr in [2.0,3.0): 8.0607e-05 / 8.1433e-05
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4998e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.1805e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.0720e-04 / 5.0993e-04  r/sr in [2.0,3.0): 8.0607e-05 / 8.1433e-05
     xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.7218e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.7168e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.5980e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.5587e-04 / 2.5598e-04
-    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.9269e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.2429e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.6869e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.2923e-04 / 4.2995e-04
-    xi - xi0 =  +50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.4117e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.4074e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.1892e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.0961e-04 / 5.1029e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.9269e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.2429e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.6869e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.2923e-04 / 4.2995e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.4117e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.4074e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.1892e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.0961e-04 / 5.1029e-04
  ADK of H and He with ionization.quiet = 1 (whole particles: exponential thresholds of the optical depth):
   gas (He): total ionized charge  code 2.03939e-03   expected 2.03605e-03 (+- 1.7e-05 stat.)   continuous rate eq. 2.03605e-03   -> +0.20 sigma
     <z> in r-bands, code/expected: [0.00,0.50) 0.8221/0.8234+-0.0051  [0.50,1.00) 1.0542/1.0448+-0.0075  [1.00,1.50) 1.0087/1.0070+-0.0028  [1.50,2.00) 1.0000/0.9998+-0.0006  [2.00,2.50) 0.8046/0.7982+-0.0132  [2.50,3.00) 0.2147/0.2130+-0.0138
@@ -121,7 +121,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   largest |rel. diff| of sigma: 7.1e-03
 == 13. adaptive sub-slicing of the plasma push (pusher.max_cells_per_step) ==
  dxi = 0.01 without / with sub-slicing vs reference dxi = 0.000625 (relative r.m.s. errors on the axis):
-  reference out_ss_ref: integral of Ez over the closure spike (xi 8.9..9.2) = -0.341
+  reference out_ss_ref: integral of Ez over the closure spike (xi -9.2..-8.9) = -0.341
   out_ss_plain   extra sub-slices     0 | behind the spike: Ez 2.3e-02 psi 2.0e-02 | witness: Ez 4.5e-05 psi 5.4e-06 | spike integral -0.377
   out_ss_sub     extra sub-slices  1642 | behind the spike: Ez 1.7e-03 psi 5.0e-04 | witness: Ez 4.1e-05 psi 2.2e-06 | spike integral -0.516
  with sub-slicing, 2 MPI ranks vs serial (expected: bit-identical, 0):
@@ -204,14 +204,14 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   fields   max rel diff 3.57e-16  (fields_000005.bin:bth)
 == 19. two-stage runs: driver box -> rear boundary file -> witness box ==
  (a) rigid driver, same dt (expected: bit-identical):
-  fields of the stage-2 box (xi >= 5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
  (b) stage 2 with dt/4 between the stage-1 steps, rigid driver (expected: bit-identical):
-  fields of the stage-2 box (xi >= 5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
  (c) evolving driver: single run dt = 2.5 (reference) vs two-stage (driver dt = 10, witness dt = 2.5) vs single dt = 10:
-  out_bnd_two t = 60: witness <gamma> 58.1275 (rel. diff 2.1e-05), r_rms 1.1e-05, eps_n 5.6e-07
-  out_bnd_coarse t = 60: witness <gamma> 56.3183 (rel. diff 3.1e-02), r_rms 1.7e-01, eps_n 2.7e-03
+  out_bnd_two t = 60: witness <gamma> 58.1275 (rel. diff 2.1e-05), r_rms 1.1e-05, eps_n 8.4e-07
+  out_bnd_coarse t = 60: witness <gamma> 56.3183 (rel. diff 3.1e-02), r_rms 1.7e-01, eps_n 2.6e-03
  (a) with 2 ranks in each stage (expected: bit-identical to the single serial run):
-  fields of the stage-2 box (xi >= 5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
 == 20. beam spin (Thomas-BMT) ==
  (a) ion channel, analytic s_r = sin(kappa theta), kappa = gamma beta^2 (a + 1/(gamma+1)):
  electrons kappa   1.2269  max|s_r| 4.756e-03  rel. error of s_r = sin(kappa theta) 1.02e-06  s_z 2.3e-11  max|s_theta| 5.0e-17  max||s|-1| 2.0e-15
@@ -286,17 +286,17 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
  (a) dilute gas in mono-energetic electrons (u_z = +-u): ionized fraction vs 1 - exp(-n sigma v xi), Lotz formula
      implemented independently in Python:
   E = 30.00 eV, sigma(Xe -> +1) = 4.9397e-16 cm^2;  electron density (lab) code 9.99881e+12, expected 1.00012e+13 cm^-3
-  ionized fraction code / expected:  xi = 250: 7.1330e-05 / 7.1397e-05   xi = 500: 1.4326e-04 / 1.4250e-04   xi = 1000: 2.8469e-04 / 2.8470e-04   (max rel. diff 5.3e-03)
+  ionized fraction code / expected:  xi = -250: 7.1330e-05 / 7.1397e-05   xi = -500: 1.4326e-04 / 1.4250e-04   xi = -1000: 2.8469e-04 / 2.8470e-04   (max rel. diff 5.3e-03)
   E = 100.16 eV, sigma(Xe -> +1) = 4.8809e-16 cm^2;  electron density (lab) code 9.99454e+12, expected 1.00039e+13 cm^-3
-  ionized fraction code / expected:  xi = 250: 1.2830e-04 / 1.2892e-04   xi = 500: 2.5833e-04 / 2.5731e-04   xi = 1000: 5.1536e-04 / 5.1405e-04   (max rel. diff 4.8e-03)
+  ionized fraction code / expected:  xi = -250: 1.2830e-04 / 1.2892e-04   xi = -500: 2.5833e-04 / 2.5731e-04   xi = -1000: 5.1536e-04 / 5.1405e-04   (max rel. diff 4.8e-03)
   E = 999.94 eV, sigma(Xe -> +1) = 1.1628e-16 cm^2;  electron density (lab) code 9.94270e+12, expected 1.00392e+13 cm^-3
-  ionized fraction code / expected:  xi = 250: 9.7039e-05 / 9.7260e-05   xi = 500: 1.9407e-04 / 1.9412e-04   xi = 1000: 3.8728e-04 / 3.8782e-04   (max rel. diff 2.3e-03)
+  ionized fraction code / expected:  xi = -250: 9.7039e-05 / 9.7260e-05   xi = -500: 1.9407e-04 / 1.9412e-04   xi = -1000: 3.8728e-04 / 3.8782e-04   (max rel. diff 2.3e-03)
  (b) Xe+ -> Xe2+ (high-charge Lotz form, 5p^5):
   E = 100.16 eV, sigma(Xe+ -> +1) = 1.6745e-16 cm^2;  electron density (lab) code 9.99437e+12, expected 1.00039e+13 cm^-3
-  ionized fraction code / expected:  xi = 250: 4.4103e-05 / 4.4230e-05   xi = 500: 8.8753e-05 / 8.8282e-05   xi = 1000: 1.7628e-04 / 1.7638e-04   (max rel. diff 5.3e-03)
+  ionized fraction code / expected:  xi = -250: 4.4103e-05 / 4.4230e-05   xi = -500: 8.8753e-05 / 8.8282e-05   xi = -1000: 1.7628e-04 / 1.7638e-04   (max rel. diff 5.3e-03)
  (c) cross-section table (eimpact_table.txt):
   E = 100.16 eV, sigma(Xe -> +1) = 4.9988e-16 cm^2 (table);  electron density (lab) code 9.99455e+12, expected 1.00039e+13 cm^-3
-  ionized fraction code / expected:  xi = 250: 1.3162e-04 / 1.3204e-04   xi = 500: 2.6477e-04 / 2.6353e-04   xi = 1000: 5.2825e-04 / 5.2646e-04   (max rel. diff 4.7e-03)
+  ionized fraction code / expected:  xi = -250: 1.3162e-04 / 1.3204e-04   xi = -500: 2.6477e-04 / 2.6353e-04   xi = -1000: 5.2825e-04 / 5.2646e-04   (max rel. diff 4.7e-03)
  (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons, continuous loss with excitation: energy vs RK4 of
      dE/dxi = -n [sigma (Ip + <W>) + sum_j sigma_j W_j] |u|/Delta:
   ea (u_z = +0.0198): energy 100.16 eV -> code 86.3086 +- 0.0000 eV, RK4 86.3090 eV  (loss: code 13.8476, RK4 13.8472, rel. diff +2.6e-05)
@@ -341,3 +341,13 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 0.00e+00  (beams.txt col 1)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 26. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output ==
+ v1.0 deck converted by tools/convert_deck.py vs examples/parsed_profiles.in (expected bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+  slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
+ gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):
+  field file: xi = -4 ... 0, increasing: OK;  beam charge centred at -1.9962, particles at -1.9962 (deck xi0 = -2)
+  slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07

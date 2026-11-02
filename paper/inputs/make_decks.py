@@ -11,7 +11,7 @@ def stretched(s):
     return "0.05:%g  2.5:%g  8.0:%g" % (0.0005 * s, 0.01 * s, 0.05 * s)
 
 
-SINGLE = {"time.steps": "0", "xi.max": "7.3", "driver.analytic": "1", "witness.analytic": "1"}
+SINGLE = {"time.steps": "0", "xi.min": "-7.3", "driver.analytic": "1", "witness.analytic": "1"}
 EVO = {"output.every": "0", "output.beam_every": "0", "driver.analytic": "1"}
 
 cases = {}   # name -> (comment, overrides)
@@ -25,7 +25,7 @@ cases["conv_ref_s0.03125"] = ("Fig. conv: reference solution (stretched, steps x
                               dict(SINGLE, **{"grid.regions": stretched(0.03125)}))
 cases["conv_ref_u0.00025"] = ("Fig. conv: uniform cross-check of the reference (N = 32000; large memory)",
                               dict(SINGLE, **{"grid.type": "uniform", "grid.dr": "0.00025"}))
-cases["maps_s1"] = ("Fig. maps: full box xi = 0..9, stretched grid of the base deck",
+cases["maps_s1"] = ("Fig. maps: full box xi = -9..0, stretched grid of the base deck",
                     {"time.steps": "0", "driver.analytic": "1", "witness.analytic": "1"})
 cases["evo_s1"] = ("Fig. evo: 100 steps, analytic driver, particle witness, stretched x 1", dict(EVO))
 cases["evo_s0.5"] = ("Fig. evo: 100 steps, stretched x 0.5",

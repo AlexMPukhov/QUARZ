@@ -1,9 +1,10 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # low-power laser in a matched parabolic channel: spot size stays w0
 grid.type = regions
 grid.rmax = 20
 grid.regions = 2:0.02 8:0.05 20:0.2
-xi.min = 0
-xi.max = 12
+xi.min = -12
+xi.max = 0
 xi.step = 0.02
 time.dt = 5
 time.steps = 60
@@ -16,6 +17,6 @@ laser.k0 = 10
 laser.a0 = 0.02
 laser.w0 = 3
 laser.L0 = 2
-laser.xi0 = 5
+laser.xi0 = -5
 output.every = 0
 output.dir = out_laser_ch

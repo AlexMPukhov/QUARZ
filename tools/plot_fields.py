@@ -36,7 +36,7 @@ for a, (name, title, cmap, sym) in zip(ax.flat[:3], panels):
     v = np.percentile(abs(f), 99.5)
     kw = dict(vmin=-v, vmax=v) if sym else dict(vmin=0, vmax=min(v, 5))
     m = a.pcolormesh(xi, y, f.T, shading="auto", cmap=cmap, **kw)
-    a.set_xlabel(r"$\xi = t - z$  [$c/\omega_p$]"); a.set_ylabel(ylabel)
+    a.set_xlabel(r"$\xi = z - t$  [$c/\omega_p$]"); a.set_ylabel(ylabel)
     a.set_title(title)
     if rmax: a.set_ylim(-rmax if d["mode1"] else 0, rmax)
     fig.colorbar(m, ax=a)

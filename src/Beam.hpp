@@ -80,7 +80,7 @@ public:
     // weighted sums for (global) diagnostics: S[0] = sum w, S[1..15] moments, S[16] = live count
     std::array<double, 17> sums() const;
     BeamDiag from_sums(const std::array<double, 17>& S, Real t) const;   // S from sums() (any ranks summed)
-    std::vector<double> slice_sums(double lo, double hi, int nbins) const;
+    std::vector<double> slice_sums(double lo, double hi, int nbins) const;   // bins [lo, hi) in the user xi (Types.hpp)
     static void write_slices_file(const std::string& filename, Real t, Real q, double lo, double hi, int nbins,
                                   const std::vector<double>& sums);
     void dump(const std::string& filename, int stride = 1) const;   // every stride-th live particle

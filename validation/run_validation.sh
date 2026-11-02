@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..25 (default: all)
+#   sections   numbers 1..26 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 25)}
+SECTIONS=${*:-$(seq 1 26)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -33,7 +33,7 @@ sec1() {
 
 sec2() {
     echo "== 2. blowout: resolution study =="
-    run() { name=$1; shift; $QS blowout.in output.dir=out_b_$name xi.max=10 "$@" > /dev/null; python3 bsum.py out_b_$name $name; }
+    run() { name=$1; shift; $QS blowout.in output.dir=out_b_$name xi.min=-10 "$@" > /dev/null; python3 bsum.py out_b_$name $name; }
     run uniform_dr0.01_dxi0.01
     if [ "$QUICK" = 0 ]; then
         run uniform_dr0.005_dxi0.005 grid.dr=0.005 xi.step=0.005
@@ -73,28 +73,28 @@ sec5() {
         im stretched
         im u001 grid.type=uniform grid.dr=0.01
         im u0005 grid.type=uniform grid.dr=0.005
-        im u0001 grid.type=uniform grid.dr=0.00025 xi.max=7.3
+        im u0001 grid.type=uniform grid.dr=0.00025 xi.min=-7.3
         python3 im_compare.py
     else
-        im stretched xi.max=7.3
-        im u001 grid.type=uniform grid.dr=0.01 xi.max=7.3
-        im qref xi.max=7.3 "grid.regions=0.05:0.000125 2.5:0.0025 8.0:0.0125"
+        im stretched xi.min=-7.3
+        im u001 grid.type=uniform grid.dr=0.01 xi.min=-7.3
+        im qref xi.min=-7.3 "grid.regions=0.05:0.000125 2.5:0.0025 8.0:0.0125"
         python3 im_compare.py qref u001 stretched
     fi
 }
 
 sec6() {
     echo "== 6. azimuthal mode 1: displaced driver vs translated axisymmetric solution =="
-    $QS linear.in xi.max=12 driver.analytic=1 driver.n0=0.01 output.dir=out_m1_ref > /dev/null
-    $QS linear.in xi.max=12 driver.analytic=1 driver.n0=0.01 modes=1 driver.x0=0.01 output.dir=out_m1_shift > /dev/null
+    $QS linear.in xi.min=-12 driver.analytic=1 driver.n0=0.01 output.dir=out_m1_ref > /dev/null
+    $QS linear.in xi.min=-12 driver.analytic=1 driver.n0=0.01 modes=1 driver.x0=0.01 output.dir=out_m1_shift > /dev/null
     echo " linear regime (d = 0.01):"
     python3 check_shift2.py out_m1_ref out_m1_shift 0.01 3 -1e9 1e9 0.15 2>/dev/null
     [ "$QUICK" = 1 ] && { rm -rf out_m1_*; return 0; }
-    B="blowout.in xi.max=9 xi.step=0.005 grid.type=regions grid.max_ratio=1.05 driver.analytic=1"
+    B="blowout.in xi.min=-9 xi.step=0.005 grid.type=regions grid.max_ratio=1.05 driver.analytic=1"
     $QS $B "grid.regions=0.5:0.0025 2.5:0.01 8:0.05" output.dir=out_m1_bref > /dev/null
     $QS $B "grid.regions=0.5:0.0025 2.5:0.01 8:0.05" modes=1 driver.x0=0.002 output.dir=out_m1_bshift > /dev/null
     echo " blowout, inside the first bucket (d = 0.002):"
-    python3 check_shift2.py out_m1_bref out_m1_bshift 0.002 1.0 0 8 0.15 2>/dev/null
+    python3 check_shift2.py out_m1_bref out_m1_bshift 0.002 1.0 -8 0 0.15 2>/dev/null
     rm -rf out_m1_ref out_m1_shift out_m1_bref out_m1_bshift   # large files
 }
 
@@ -111,15 +111,15 @@ print('max |x_c - x0 cos(w_b t)|/x0 = %.2e,  max |y_c|/x0 = %.1e' % (abs(xc-xc[0
 
 sec8() {
     echo "== 8. function parser: parsed profiles vs built-in ones (must agree to round-off) =="
-    B="blowout.in xi.max=9 driver.analytic=1"
+    B="blowout.in xi.min=-9 driver.analytic=1"
     $QS $B output.dir=out_p_ref > /dev/null
     $QS $B "plasma.density(x,y,z)=1" output.dir=out_p_1 > /dev/null
-    python3 cmp_fields.py out_p_ref out_p_1 'uniform: built-in vs parsed "1"' 8.5
+    python3 cmp_fields.py out_p_ref out_p_1 'uniform: built-in vs parsed "1"' -8.5
     $QS $B plasma.radial=channel plasma.channel_depth=0.3 plasma.channel_radius=1.5 output.dir=out_p_c1 > /dev/null
     $QS $B my_constants.dn=0.3 my_constants.rc=1.5 "plasma.density(x,y,z)=1 + dn*(x^2+y^2)/rc^2" output.dir=out_p_c2 > /dev/null
-    python3 cmp_fields.py out_p_c1 out_p_c2 "channel: built-in vs parsed" 8.5
-    $QS $B driver.cut=99 driver.profile=parsed "driver.density(x,y,xi)=10*exp(-(x^2+y^2)/(2*0.3^2)-(xi-3)^2/2)" output.dir=out_p_b > /dev/null
-    python3 cmp_fields.py out_p_ref out_p_b "analytic driver: built-in vs parsed" 8.5
+    python3 cmp_fields.py out_p_c1 out_p_c2 "channel: built-in vs parsed" -8.5
+    $QS $B driver.cut=99 driver.profile=parsed "driver.density(x,y,xi)=10*exp(-(x^2+y^2)/(2*0.3^2)-(xi+3)^2/2)" output.dir=out_p_b > /dev/null
+    python3 cmp_fields.py out_p_ref out_p_b "analytic driver: built-in vs parsed" -8.5
     rm -rf out_p_*
 }
 
@@ -148,7 +148,7 @@ sec10() {
     echo "== 10. openPMD output (needs openPMD-api in the build and the openpmd-api Python module) =="
     if python3 -c "import openpmd_api" 2> /dev/null; then
     export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparisons
-    H="../examples/hosing.in time.steps=$(q 4 2) output.every=2 output.beam_every=2 driver.nparticles=$(q 40000 8000) xi.max=$(q 6 4) beams.xi_shape=ngp output.format=both units.n0_cm3=1e17"
+    H="../examples/hosing.in time.steps=$(q 4 2) output.every=2 output.beam_every=2 driver.nparticles=$(q 40000 8000) xi.min=-$(q 6 4) beams.xi_shape=ngp output.format=both units.n0_cm3=1e17"
         if $QS $H output.openpmd_grid=native output.dir=out_opmd_nat > out_opmd.log 2>&1; then
             echo " native-node openPMD vs native files (expected 0):"; python3 check_openpmd.py out_opmd_nat native | tail -1
             if python3 -c "import vtk" 2> /dev/null; then
@@ -182,7 +182,7 @@ sec11() {
     $QS laser_vacuum.in > /dev/null
     echo " diffraction in vacuum (k0 = 20, w0 = 2, through the focus):"; python3 laser_check.py vacuum out_laser_vac 20 2 40 0.1
     $QS laser_linear.in > /dev/null
-    echo " linear wake (a0 = 0.05) vs (d^2/dxi^2 + 1) psi = <a^2>/2 (difference = O(a0^2) nonlinearity):"; python3 laser_check.py linear out_laser_lin 0.05 3 1.4142135623730951 4
+    echo " linear wake (a0 = 0.05) vs (d^2/dxi^2 + 1) psi = <a^2>/2 (difference = O(a0^2) nonlinearity):"; python3 laser_check.py linear out_laser_lin 0.05 3 1.4142135623730951 -4
     $QS laser_channel.in time.dt=$(q 2.5 5) time.steps=$(q 120 60) > /dev/null
     echo " matched parabolic channel (stretched grid):"; python3 laser_check.py channel out_laser_ch 10 3
     [ "$QUICK" = 1 ] && { rm -rf out_laser_*; return 0; }
@@ -202,17 +202,17 @@ sec12() {
     python3 ion_check.py adk out_ion_adk 1e17 16 0.01 gas:He:1e-4 hyd:H:1e-4
     $QS ion_laser.in gas.ppc=$(q 96 16) > /dev/null
     echo " laser ionization of N (up to N5+), a0 = 0.1, 0.8 um at 1e17 cm^-3, wide spot: code vs cycle-resolved ADK and test particles:"
-    python3 ion_check.py laser out_ion_laser 1e17 132 0.1 3 10 N 1e-6 5 2>/dev/null
+    python3 ion_check.py laser out_ion_laser 1e17 132 0.1 3 -10 N 1e-6 5 2>/dev/null
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) > /dev/null
     echo " impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):"
-    python3 ion_check.py impact out_ion_impact 1e15 4.22:37.93 10 1 15 50 427 1
+    python3 ion_check.py impact out_ion_impact 1e15 4.22:37.93 10 1 15 -50 427 1
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) gas.element=Rb output.dir=out_ion_impact_rb > /dev/null
     echo " built-in Bethe data for Rb vapour (M^2 = 5.89, C = 65.8: Kim et al. PRA 57, 246 (1998), high-energy limit;"
     echo " sigma = 2.46e-18 cm^2 at gamma = 427):"
-    python3 ion_check.py impact out_ion_impact_rb 1e15 2.46e-18 10 1 15 50 427 1
+    python3 ion_check.py impact out_ion_impact_rb 1e15 2.46e-18 10 1 15 -50 427 1
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) gas.ionization.quiet=1 output.dir=out_ion_impact_q > /dev/null
     echo " the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):"
-    python3 ion_check.py impact out_ion_impact_q 1e15 4.22:37.93 10 1 15 50 427 1
+    python3 ion_check.py impact out_ion_impact_q 1e15 4.22:37.93 10 1 15 -50 427 1
     $QS ion_adk.in gas.ionization.quiet=1 hyd.ionization.quiet=1 output.dir=out_ion_adk_q > /dev/null
     echo " ADK of H and He with ionization.quiet = 1 (whole particles: exponential thresholds of the optical depth):"
     python3 ion_check.py adk out_ion_adk_q 1e17 16 0.01 gas:He:1e-4 hyd:H:1e-4
@@ -220,7 +220,7 @@ sec12() {
     $QS ion_impact_gases.in $G xi.step=$(q 0.1 0.25) > /dev/null
     echo " built-in Bethe data (Rieke & Prepejchal): impact ionization of dilute He, Ne, Ar, Kr, Xe by a rigid beam at"
     echo " gamma = 3.39 (minimum) vs the measured minimum cross-sections (Blum, Riegler & Rolandi, Table 1.2, +-4 %):"
-    python3 ion_check.py impact_gases out_ion_gases 1e16 40 1 15 50 3.39 he:1e-6:18.6:5.0 ne:1e-6:43.3:12.4 \
+    python3 ion_check.py impact_gases out_ion_gases 1e16 40 1 15 -50 3.39 he:1e-6:18.6:5.0 ne:1e-6:43.3:12.4 \
         ar:1e-6:90.3:25-28 kr:1e-6:-:- xe:1e-6:172:41-44
     rm -rf out_ion_*
 }
@@ -228,14 +228,14 @@ sec12() {
 sec13() {
     echo "== 13. adaptive sub-slicing of the plasma push (pusher.max_cells_per_step) =="
     # paper case (pinched witness, mobile ions, axis cell 5e-4), box to xi = 12, dxi = 0.01
-    local P="../paper/inputs/conv_s1.in xi.max=12 output.field_files=0"
+    local P="../paper/inputs/conv_s1.in xi.min=-12 output.field_files=0"
     $QS $P xi.step=$(q 0.000625 0.0025) output.dir=out_ss_ref > out_ss_ref.log
     $QS $P xi.step=0.01 output.dir=out_ss_plain > out_ss_plain.log
     $QS $P xi.step=0.01 pusher.max_cells_per_step=1 output.dir=out_ss_sub > out_ss_sub.log
     echo " dxi = 0.01 without / with sub-slicing vs reference dxi = $(q 0.000625 0.0025) (relative r.m.s. errors on the axis):"
     python3 subslice_check.py out_ss_ref out_ss_plain out_ss_sub
     if [ -n "$MPIRUN" ]; then
-        local S="$P xi.step=0.01 pusher.max_cells_per_step=1 beams.xi_shape=ngp xi.max=$(q 12 10)"
+        local S="$P xi.step=0.01 pusher.max_cells_per_step=1 beams.xi_shape=ngp xi.min=-$(q 12 10)"
         OMP_NUM_THREADS=1 $QS $S output.dir=out_ss_s > /dev/null
         OMP_NUM_THREADS=1 $MPIRUN 2 $QS $S output.dir=out_ss_p2 > /dev/null
         echo " with sub-slicing, 2 MPI ranks vs serial (expected: bit-identical, 0):"
@@ -248,7 +248,7 @@ sec14() {
     echo "== 14. regularization of the bubble back: radial smoothing of the plasma sources =="
     # paper case (pinched witness, mobile ions, axis cell 5e-4), box to xi = 12. Criterion: the fields
     # AFTER the closure spike converge in dxi and in the axis cell (the spike height need not).
-    local P="../paper/inputs/conv_s1.in xi.max=12 output.field_files=0" S="plasma.smooth_length=0.005"
+    local P="../paper/inputs/conv_s1.in xi.min=-12 output.field_files=0" S="plasma.smooth_length=0.005"
     local XR=$(q 0.000625 0.00125) G="2.5:0.01 8.0:0.05" d
     $QS $P xi.step=$XR output.dir=out_sm_cold_ref > /dev/null
     $QS $P $S xi.step=$XR output.dir=out_sm_a5e-3_ref > /dev/null
@@ -266,7 +266,7 @@ sec14() {
     echo " model difference a = 0.005 vs cold (both references; O(a)):"
     python3 smoothing_check.py out_sm_cold_ref out_sm_a5e-3_ref
     if [ -n "$MPIRUN" ]; then
-        local M="$P $S xi.step=0.01 beams.xi_shape=ngp xi.max=$(q 12 10)"
+        local M="$P $S xi.step=0.01 beams.xi_shape=ngp xi.min=-$(q 12 10)"
         OMP_NUM_THREADS=1 $QS $M output.dir=out_sm_s > /dev/null
         OMP_NUM_THREADS=1 $MPIRUN 2 $QS $M output.dir=out_sm_p2 > /dev/null
         echo " with smoothing, 2 MPI ranks vs serial (expected: bit-identical, 0):"
@@ -340,7 +340,7 @@ sec16() {
     local T=$(q 3000 1200)
     $QS adaptive_ramp.in time.t_end=$T > /dev/null
     echo " ion channel, density 1 -> 4, gamma 1000, 128 steps per betatron period:"
-    python3 adaptive_check.py ramp out_adapt_ramp 128 1000 1.5 0 3 $T
+    python3 adaptive_check.py ramp out_adapt_ramp 128 1000 -1.5 -3 0 $T
     local D="adaptive_decel.in time.t_end=$(q 100 60)"
     $QS $D time.adaptive_lag=1 output.dir=out_ad_l1 > /dev/null
     $QS $D time.adaptive_lag=6 output.dir=out_ad_l6 > /dev/null
@@ -405,7 +405,7 @@ sec18() {
 sec19() {
     echo "== 19. two-stage runs: driver box -> rear boundary file -> witness box =="
     export OMP_NUM_THREADS=1
-    local S1="xi.max=5 beams=driver" S2="xi.min=5.01 beams=witness"
+    local S1="xi.min=-5 beams=driver" S2="xi.max=-5.01 beams=witness"
     local N="driver.nparticles=$(q 200000 50000)"
     # (a) same time step: the stage-2 box reproduces the single run exactly
     $QS boundary.in $N output.dir=out_bnd_A > /dev/null
@@ -566,7 +566,7 @@ sec23() {
     python3 eimpact_check.py loss out_eimp_disc 1e16 0.0198 Xe:1:0 ea eb 2> /dev/null
     export OMP_NUM_THREADS=1
     local M="eimpact.in xe.density=1 ea.density=1e-5 eb.density=1e-5 xe.ionization.nsplit=1000000 xe.ionization.born_dump=0"
-    M="$M ea.tail_dump=0 eb.tail_dump=0 xi.max=200 time.steps=4 output.every=2"
+    M="$M ea.tail_dump=0 eb.tail_dump=0 xi.min=-200 time.steps=4 output.every=2"
     $QS $M checkpoint.every=2 checkpoint.keep=0 checkpoint.dir=out_eimp_chk output.dir=out_eimp_A > /dev/null
     $QS $M restart.from=out_eimp_chk/chk_000002 output.dir=out_eimp_B > /dev/null
     echo " (e) restart (expected: bit-identical):"
@@ -594,13 +594,13 @@ sec24() {
     echo "== 24. 0D electron cascade in Xe: ionization + excitation (W-value) vs an independent event-by-event Monte Carlo =="
     local C="eimpact.in xe.density=1000 ea.density=1e-6 eb.density=1e-6 ea.ppc=64 eb.ppc=64 xe.ppc=16 xi.step=0.1 sec.tail_dump=1"
     C="$C xe.ionization.nsplit=2000000000"
-    $QS $C xi.max=300 output.dir=out_casc_100 > /dev/null
-    $QS $C xi.max=300 xe.excitation=0 output.dir=out_casc_100n > /dev/null
+    $QS $C xi.min=-300 output.dir=out_casc_100 > /dev/null
+    $QS $C xi.min=-300 xe.excitation=0 output.dir=out_casc_100n > /dev/null
     echo " (a) 100 eV primaries (cascade_mc.py: same cross-sections, discrete collisions; measured W of Xe: 22.0 eV at high energy):"
     python3 eimpact_check.py cascade out_casc_100 100.16
     python3 eimpact_check.py cascade out_casc_100n 100.16 noexc
     if [ "$QUICK" = 0 ]; then
-        $QS $C xi.max=1000 ea.ppc=4 eb.ppc=4 xe.ppc=16 ea.u_drift="0 0 0.06259" eb.u_drift="0 0 -0.06259" output.dir=out_casc_1k > /dev/null
+        $QS $C xi.min=-1000 ea.ppc=4 eb.ppc=4 xe.ppc=16 ea.u_drift="0 0 0.06259" eb.u_drift="0 0 -0.06259" output.dir=out_casc_1k > /dev/null
         echo " (b) 1 keV primaries:"
         python3 eimpact_check.py cascade out_casc_1k 999.94
     fi
@@ -622,6 +622,21 @@ sec25() {
         python3 cmp_runs.py out_shot_s out_shot_p 1e-14 || true
     fi
     rm -rf out_shot*
+}
+
+sec26() {
+    echo "== 26. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output =="
+    export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparison
+    python3 ../tools/convert_deck.py v1_parsed_profiles.in -o out_conv_deck.in
+    local O="time.steps=1 output.every=1 output.beam_every=1 output.dir"
+    $QS out_conv_deck.in $O=out_conv_a > /dev/null
+    $QS ../examples/parsed_profiles.in $O=out_conv_b > /dev/null
+    echo " v1.0 deck converted by tools/convert_deck.py vs examples/parsed_profiles.in (expected bit-identical, 0):"
+    python3 cmp_runs.py out_conv_a out_conv_b 0 || true
+    echo " gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):"
+    $QS betatron.in time.steps=2 output.every=2 output.beam_every=2 witness.gamma=3 "plasma.density(x,y,z)=0" output.dir=out_conv_c > /dev/null
+    python3 convention_check.py out_conv_c -4 0 -2 2
+    rm -rf out_conv_*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

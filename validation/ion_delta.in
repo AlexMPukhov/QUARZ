@@ -1,11 +1,12 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # delta electrons of beam impact ionization: dilute Xe, rigid beam (protons at gamma = 3.39; electrons:
 # b.mass = 1, b.charge = -1), the electrons born in the sweep are written to born_xe_*.txt
 units.n0_cm3 = 1e20
 grid.type = uniform
 grid.rmax = 4
 grid.dr = 0.02
-xi.min = 0
-xi.max = 100
+xi.min = -100
+xi.max = 0
 xi.step = 0.1
 time.dt = 1
 time.steps = 1
@@ -26,7 +27,7 @@ b.mass = 1836.15
 b.n0 = 1e-3
 b.sigma_r = 1
 b.sigma_xi = 15
-b.xi0 = 50
+b.xi0 = -50
 b.gamma = 3.39
 output.dir = out_delta
 output.every = 1

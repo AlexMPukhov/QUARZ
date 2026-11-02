@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # ---------------------------------------------------------------------------
 # Flexible profiles with the function parser (HiPACE++ style).
 #   my_constants.<name> = expression        user constants (may use each other)
@@ -27,8 +28,8 @@ grid.rmax      = 8.0
 grid.regions   = 0.3:0.002  2.5:0.01  8.0:0.05
 grid.max_ratio = 1.05
 
-xi.min  = 0
-xi.max  = 9
+xi.min  = -9
+xi.max  = 0
 xi.step = 0.01
 
 time.dt    = 20
@@ -43,22 +44,22 @@ beams = driver witness
 
 # trapezoidal (ramped) driver current: rises linearly from xh to xh+Ld, then a sharp tail
 driver.profile  = parsed
-driver.density(x,y,xi) = "nd * exp(-(x^2+y^2)/(2*sd^2)) * (xi > xh) * (xi < xh + Ld) * (0.3 + 0.7*(xi - xh)/Ld)"
-driver.xi_range = 1.0 4.0
+driver.density(x,y,xi) = "nd * exp(-(x^2+y^2)/(2*sd^2)) * ((-xi) > xh) * ((-xi) < xh + Ld) * (0.3 + 0.7*((-xi) - xh)/Ld)"
+driver.xi_range = -4.0 -1.0
 driver.r_max    = 1.2             # 4.8 sigma
 driver.ppc      = 2 2             # sub-rings per radial cell, sub-slices per xi cell
 driver.gamma    = 20000
 driver.u_std    = 0.5 0.5 0       # thermal spread of p_x, p_y, p_z (m c)
 
 witness.profile  = parsed
-witness.density(x,y,xi) = "200 * exp(-(x^2+y^2)/(2*0.05^2) - (xi-xw)^2/(2*0.1^2))"
-witness.xi_range = 5.9 6.7
+witness.density(x,y,xi) = "200 * exp(-(x^2+y^2)/(2*0.05^2) - ((-xi)-xw)^2/(2*0.1^2))"
+witness.xi_range = -6.7 -5.9
 witness.r_max    = 0.2
 witness.ppc      = 1 2
-witness.uz_mean(x,y,xi) = "g0 + chirp*(xi - xw)"
+witness.uz_mean(x,y,xi) = "g0 + chirp*((-xi) - xw)"
 witness.ux_std(x,y,xi) = "0.05*(1 + (x^2+y^2)/0.05^2)"   # transverse spread growing with radius
 witness.uy_std(x,y,xi) = "0.05*(1 + (x^2+y^2)/0.05^2)"
-witness.uz_std(x,y,xi) = "2 + 10*abs(xi - xw)"            # slice energy spread, larger in head and tail
+witness.uz_std(x,y,xi) = "2 + 10*abs((-xi) - xw)"            # slice energy spread, larger in head and tail
 
 output.dir         = out_parsed
 output.every       = 10

@@ -181,7 +181,7 @@ void OpenPMDWriter::Impl::open() {
     S.setParticlesPath("particles/");
     S.setAttribute("quarz_units", I.si ? std::string("SI") : std::string("normalised: c/omega_p, 1/omega_p, n0, m_e c omega_p/e"));
     if (I.si) S.setAttribute("quarz_n0_SI", I.n0);
-    S.setAttribute("quarz_coordinates", std::string("z = t - xi (lab frame); xi = t - z is the code's co-moving coordinate"));
+    S.setAttribute("quarz_coordinates", std::string("z = t + xi (lab frame); xi = z - t is the co-moving coordinate of the inputs and native outputs"));
 }
 
 OpenPMDWriter::~OpenPMDWriter() {
@@ -349,7 +349,7 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
         if (T->find("a_re")) {   // laser envelope a^ (normalised vector potential, dimensionless)
             Mesh L = it.meshes["laserEnvelope"];
             setup_mesh(L, UD{});
-            L.setAttribute("quarz_convention", std::string("a = Re[(re + i im) exp(-i k0 xi)], xi = t - z"));
+            L.setAttribute("quarz_convention", std::string("a = Re[(re + i im) exp(i k0 xi)], xi = z - t"));
             store(L["re"], "a_re", 1.0);
             store(L["im"], "a_im", 1.0);
         }

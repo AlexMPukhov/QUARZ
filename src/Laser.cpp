@@ -43,7 +43,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     const double a0 = cfg.get_double("laser.a0");
     const double w0 = cfg.get_double("laser.w0");
     const double L0 = cfg.get_double("laser.L0");
-    const double xi0 = cfg.get_double("laser.xi0");
+    const double xi0 = xi_from_user(cfg.get_double("laser.xi0"));   // internal xi (Types.hpp)
     const double zf = cfg.get_double("laser.focus", 0.0);
     if (w0 <= 0 || L0 <= 0) throw std::runtime_error("laser: w0 and L0 must be positive");
     const double zR = 0.5 * k0_ * w0 * w0;
@@ -82,7 +82,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     if (box.k0 == 0) {
         const double xh = box.xi_min;
         if (std::exp(-(xh - xi0) * (xh - xi0) / (L0 * L0)) > 1e-2)
-            std::fprintf(stderr, "WARNING: the laser is not negligible at the head of the box (xi = %g): |a| > 1%% of a0 there\n", xh);
+            std::fprintf(stderr, "WARNING: the laser is not negligible at the head of the box (xi = %g): |a| > 1%% of a0 there\n", xi_to_user(xh));
     }
 }
 
@@ -224,7 +224,7 @@ std::array<double, 5> Laser::sums() const {
             const double m2 = h(kl, j, 0) * h(kl, j, 0) + h(kl, j, 1) * h(kl, j, 1);
             const double dv = grid_.V[j] * box_.dxi;
             S[0] += m2 * dv;
-            S[1] += m2 * xi * dv;
+            S[1] += m2 * xi_to_user(xi) * dv;   // centroid in the user xi
             S[2] += m2 * grid_.r[j] * grid_.r[j] * dv;
             S[3] = std::max(S[3], std::sqrt(m2));
             S[4] += m2 * xi * xi * dv;

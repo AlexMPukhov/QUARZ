@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Trojan-horse (plasma photocathode) injection, after Hidding et al., PRL 108, 035001 (2012):
 # a rigid electron driver blows out a bubble in a hydrogen plasma (n0 = 1e17 cm^-3) with an
 # admixture of neutral helium (1 %), which the driver's fields cannot ionize. A weak, tightly
@@ -11,8 +12,8 @@ grid.type = regions
 grid.rmax = 6
 grid.regions = 1:0.01 6:0.04
 grid.max_ratio = 1.05
-xi.min = 0
-xi.max = 10
+xi.min = -10
+xi.max = 0
 xi.step = 0.02
 time.dt = 0.2
 time.steps = 200
@@ -31,7 +32,7 @@ beams = driver
 driver.n0 = 5
 driver.sigma_r = 0.3
 driver.sigma_xi = 1
-driver.xi0 = 2.5
+driver.xi0 = -2.5
 driver.gamma = 20000
 driver.cut = 4
 driver.nparticles = 200000
@@ -40,7 +41,7 @@ laser.lambda0_um = 0.8
 laser.a0 = 0.06
 laser.w0 = 0.5
 laser.L0 = 0.3
-laser.xi0 = 5
+laser.xi0 = -5
 output.dir = out_trojan_horse
 output.every = 50
 output.beam_every = 50

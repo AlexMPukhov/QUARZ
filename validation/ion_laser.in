@@ -1,10 +1,11 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # laser field ionization of a dilute nitrogen gas, wide spot (1D on the axis)
 units.n0_cm3 = 1e17
 grid.type = uniform
 grid.rmax = 6
 grid.dr = 0.02
-xi.min = 0
-xi.max = 20
+xi.min = -20
+xi.max = 0
 xi.step = 0.02
 time.dt = 0
 time.steps = 0
@@ -19,6 +20,6 @@ laser.k0 = 132
 laser.a0 = 0.1
 laser.w0 = 40
 laser.L0 = 3
-laser.xi0 = 10
+laser.xi0 = -10
 output.dir = out_ion_laser
 output.every = 1

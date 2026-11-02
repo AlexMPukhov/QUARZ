@@ -526,8 +526,8 @@ namespace quarz {
 
 // ============================================================================ two-stage runs
 // File: "QZBOUND1", int32 version 1, int32 M, int32 m1, int32 nmobile, then per mobile species
-// int32 ionizable, int32 ab_order; float64 dxi, xi_head (stage-1 xi.min), xi_next (first slice of
-// stage 2), float64 r[M]; records: float64 t, int64 step, int64 len, float64 max |rho_b| of the
+// int32 ionizable, int32 ab_order; float64 dxi, xi_head (stage-1 head), xi_next (first slice of
+// stage 2), both in the internal xi = t - z (Types.hpp), float64 r[M]; records: float64 t, int64 step, int64 len, float64 max |rho_b| of the
 // last slice, float64 data[len] (mobile species pack_state ..., B+ 6 x M).
 namespace {
 constexpr char BMAGIC[8] = {'Q', 'Z', 'B', 'O', 'U', 'N', 'D', '1'};
@@ -584,7 +584,7 @@ void Simulation::open_boundary_write() {
         for (int j = 0; j < M; ++j) bput<double>(bwf_, grid_->r[j]);
     }
     if (!bwf_) throw std::runtime_error("boundary.write: cannot open " + bwrite_path_);
-    std::cout << "Boundary: the plasma state leaving the box (xi = " << box_.xi_min + box_.nxi * box_.dxi
+    std::cout << "Boundary: the plasma state leaving the box (xi = " << xi_to_user(box_.xi_min + box_.nxi * box_.dxi)
               << ") is written every step to " << bwrite_path_ << std::endl;
 }
 
@@ -633,7 +633,8 @@ void Simulation::open_boundary_read() {
     if (mine != sp) throw std::runtime_error("boundary.read: the mobile plasma species (or pusher.ab_order) differ from stage 1");
     if (std::abs(dxi - box_.dxi) > 1e-12 * dxi) throw std::runtime_error("boundary.read: xi.step differs from stage 1");
     if (std::abs(box_.xi_min - next) > 1e-9 * (1 + std::abs(next)))
-        throw std::runtime_error("boundary.read: xi.min must be " + std::to_string(next) + " (the slice after the stage-1 box)");
+        throw std::runtime_error("boundary.read: xi.max must be " + std::to_string(xi_to_user(next)) +
+                                 " (the slice behind the stage-1 box)");
     xi_head_ = head;
     // index of the records
     while (true) {
@@ -649,9 +650,9 @@ void Simulation::open_boundary_read() {
     double rbmax = 0;
     for (const auto& R : bindex_) rbmax = std::max(rbmax, R.rhob);
     if (comm_.root()) {
-        std::cout << "Boundary: plasma entering at xi = " << box_.xi_min << " from " << bread_path_ << " ("
+        std::cout << "Boundary: plasma entering at xi = " << xi_to_user(box_.xi_min) << " from " << bread_path_ << " ("
                   << bindex_.size() << " steps, t = " << bindex_.front().t << " ... " << bindex_.back().t
-                  << "); density profile at the stage-1 head xi = " << head << "\n";
+                  << "); density profile at the stage-1 head xi = " << xi_to_user(head) << "\n";
         if (rbmax > 1e-6)
             std::cout << "WARNING: the stage-1 beams reach its last slice (max |rho_b| = " << rbmax
                       << "); stage 2 does not see them\n";

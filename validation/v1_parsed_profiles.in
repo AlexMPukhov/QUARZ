@@ -1,0 +1,67 @@
+# QUARZ v1.0.0 deck (xi = t - z, head at the smallest xi), kept unconverted for section 26:
+# tools/convert_deck.py must turn it into examples/parsed_profiles.in
+# ---------------------------------------------------------------------------
+# Flexible profiles with the function parser (HiPACE++ style).
+#   my_constants.<name> = expression        user constants (may use each other)
+#   plasma.density(x,y,z)    = "..."         plasma density / n0, z = lab position (of the box head)
+#   <species>.density(x,y,z) = "..."         per-species profile (overrides plasma.density)
+#   <beam>.profile = parsed  with  <beam>.density(x,y,xi) = "..."   beam density / n0
+#   <beam>.ux_mean(x,y,xi), uy_mean, uz_mean  mean momenta (p/mc), e.g. an energy chirp
+#   <beam>.ux_std(x,y,xi),  uy_std,  uz_std   momentum spreads (Gaussian), position dependent
+#   <species>.uth(x,y,z)                      plasma temperature (isotropic momentum spread)
+# Functions: sqrt exp log log10 sin cos tan asin acos atan atan2 sinh cosh tanh abs floor ceil
+#            erf heaviside/step pow min max mod if(cond,a,b); operators + - * / ^ ** < > <= >= == != && || !
+# ---------------------------------------------------------------------------
+my_constants.Lramp = 200          # plasma up-ramp length (c/wp)
+my_constants.rch   = 2.0          # channel radius
+my_constants.dn    = 0.2          # channel depth
+my_constants.rcol  = 6.0          # plasma column radius
+my_constants.nd    = 6            # driver peak density
+my_constants.sd    = 0.25         # driver sigma_r
+my_constants.Ld    = 3.0          # driver length (trapezoidal current)
+my_constants.xh    = 1.0          # driver head position
+my_constants.xw    = 6.3          # witness centre
+my_constants.g0    = 2000         # witness gamma at its centre
+my_constants.chirp = -40          # witness d(gamma)/d(xi) (compensates the wake slope)
+
+grid.type      = regions
+grid.rmax      = 8.0
+grid.regions   = 0.3:0.002  2.5:0.01  8.0:0.05
+grid.max_ratio = 1.05
+
+xi.min  = 0
+xi.max  = 9
+xi.step = 0.01
+
+time.dt    = 20
+time.steps = 20
+
+plasma.species = electrons
+electrons.ppc  = 4
+# half-sine up-ramp, then a parabolic channel inside a finite plasma column
+plasma.density(x,y,z) = "if(z < Lramp, sin(0.5*pi*max(z,0)/Lramp)^2, 1) * (1 + dn*(x^2+y^2)/rch^2) * (x^2+y^2 < rcol^2)"
+
+beams = driver witness
+
+# trapezoidal (ramped) driver current: rises linearly from xh to xh+Ld, then a sharp tail
+driver.profile  = parsed
+driver.density(x,y,xi) = "nd * exp(-(x^2+y^2)/(2*sd^2)) * (xi > xh) * (xi < xh + Ld) * (0.3 + 0.7*(xi - xh)/Ld)"
+driver.xi_range = 1.0 4.0
+driver.r_max    = 1.2             # 4.8 sigma
+driver.ppc      = 2 2             # sub-rings per radial cell, sub-slices per xi cell
+driver.gamma    = 20000
+driver.u_std    = 0.5 0.5 0       # thermal spread of p_x, p_y, p_z (m c)
+
+witness.profile  = parsed
+witness.density(x,y,xi) = "200 * exp(-(x^2+y^2)/(2*0.05^2) - (xi-xw)^2/(2*0.1^2))"
+witness.xi_range = 5.9 6.7
+witness.r_max    = 0.2
+witness.ppc      = 1 2
+witness.uz_mean(x,y,xi) = "g0 + chirp*(xi - xw)"
+witness.ux_std(x,y,xi) = "0.05*(1 + (x^2+y^2)/0.05^2)"   # transverse spread growing with radius
+witness.uy_std(x,y,xi) = "0.05*(1 + (x^2+y^2)/0.05^2)"
+witness.uz_std(x,y,xi) = "2 + 10*abs(xi - xw)"            # slice energy spread, larger in head and tail
+
+output.dir         = out_parsed
+output.every       = 10
+output.beam_slices = 40
