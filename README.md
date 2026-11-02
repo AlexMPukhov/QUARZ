@@ -967,7 +967,7 @@ separate species.
 | key | default | meaning |
 |---|---|---|
 | `<beam>.charge`, `<beam>.mass` | −1, 1 | e.g. protons: 1, 1836.15 |
-| `<beam>.profile` | `gaussian` | `gaussian` \| `flattop` \| `file` \| `parsed` |
+| `<beam>.profile` | `gaussian` | `gaussian` \| `flattop` \| `file` \| `openpmd` \| `parsed` |
 | `<beam>.n0` | — | peak density / n₀ (of the uncut bunch) |
 | `<beam>.sigma_r` | — | rms size per transverse coordinate (σ_x = σ_y) |
 | `<beam>.sigma_xi` / `<beam>.length` | — | gaussian rms length / flat-top length |
@@ -989,6 +989,18 @@ separate species.
 | `<beam>.mirror_y` | 0 | quiet start: also add the mirror image y → −y (keeps an x-only offset/tilt exactly y-symmetric) |
 | `<beam>.file` | | for `profile = file`: a text file with columns x y p_x p_y p_z ξ w, or a native particle dump `beam_<name>_NNNNNN.bin` of a QUARZ run (binary, about 8× faster to read; spins are kept if the beam has `<beam>.spin`). Units in both: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the beam's species, w in n₀(c/ω_p)³, i.e. exactly the columns of the native dumps (openPMD particles differ: momentum in m_e c per physical particle, weighting in physical particles). v1.0 files (ξ = t − z): `tools/convert_deck.py --beam-file` |
 | `<beam>.file_format` | `auto` | `text`, `native` (dump), or `auto`: native if the name ends in `.bin` |
+| `<beam>.file` (`profile = openpmd`) | | a file of an openPMD series, e.g. `out/openpmd/data_000200.h5` (its iteration is taken from the name), or a pattern with `%T`. QUARZ output or another code's particles in the co-moving frame (needs openPMD-api in the build; ADIOS2 `.bp` untested) |
+| `<beam>.openpmd_iteration` | from the name, else the last | iteration to read |
+| `<beam>.openpmd_species` | the beam's name | particle species in the file |
+| `<beam>.openpmd_xi_shift` | 0 | ξ = z + `positionOffset`_z + shift (c/ω_p): for codes whose co-moving ξ = 0 lies elsewhere; QUARZ files need none |
+| `<beam>.openpmd_units` | `auto` | `auto`: QUARZ files say themselves (`quarz_units`), others are SI (the openPMD rule: value × `unitSI` is SI); `si`; `normalised` (lengths c/ω_p, momenta m_e c per physical particle, weighting in n₀(c/ω_p)³, as QUARZ writes them without `units.n0_cm3`) |
+| `<beam>.openpmd_n0_cm3` | the deck's | density a normalised file refers to, if not the deck's (lengths and weights are rescaled) |
+| `<beam>.openpmd_scale_stride` | 0 | 1: multiply the weights by the `particle_stride` recorded in a QUARZ file (`quarz_particle_stride`); otherwise a stride > 1 gives a warning (the charge is 1/stride of the original beam) |
+
+openPMD import: SI files need `units.n0_cm3`. Momenta stored per macro-particle (`macroWeighted = 1`) are divided
+by weighting^`weightingPower`; `positionOffset` is added; `charge` and `mass` (constant or per particle) must be
+those of the beam (otherwise an error); a `spin` record is read for a beam with `<beam>.spin`. Every rank reads the
+whole species and keeps its slices. As with native dumps, the momenta of a QUARZ file are half a step behind.
 
 **Parsed beams** (`<beam>.profile = parsed`)
 
@@ -1155,7 +1167,7 @@ frequent small dumps and rare full dumps can be combined (§6):
     The old attribute `quarz_r_nodes` is no longer written (HDF5 limits attributes to 64 KB, so it
     broke grids with more than ~8190 nodes); the data-set form has no size limit.
   - **Particles:** every beam is a species with `position` (x, y, z = ξ, co-moving like the meshes),
-    `positionOffset` (0, so openPMD-viewer also shows ξ), `momentum` (per physical particle, in m_e c × `unitSI`, unlike the m_s c of the native files), `weighting`
+    `positionOffset` (0, so openPMD-viewer also shows ξ), the species attribute `quarz_particle_stride`, `momentum` (per physical particle, in m_e c × `unitSI`, unlike the m_s c of the native files), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.
   - **Units:** SI when `units.n0_cm3` is given, otherwise normalised units with
     `unitSI` = 1 (the series attribute `quarz_units` says which).
@@ -1267,7 +1279,7 @@ All results can be reproduced with `validation/run_validation.sh`:
 
 ```bash
 cd validation
-./run_validation.sh -j 4 -c          # full suite (sections 1-27), compared with reference_full.txt
+./run_validation.sh -j 4 -c          # full suite (sections 1-28), compared with reference_full.txt
 ./run_validation.sh -q -j 4 -c       # quick regression test after code changes (~2 min on 2 cores)
 ./run_validation.sh -c 9 10          # selected sections only
 ```
@@ -1457,6 +1469,18 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | 2 ranks vs serial, from the dump | particles and fields bit-identical (beam log: summation order over the ranks) |
 | 2·10⁶ particles | whole run (load only) 0.27 s vs 2.1 s from the equivalent text file; file 112 vs 216 MB |
 
+**Beam import from openPMD** (section 28, `openpmd_import_check.py`):
+
+| test | result |
+|---|---|
+| QUARZ openPMD output imported and written again vs the native dump of the same step | SI: 2·10⁻¹⁶; normalised: bit-identical |
+| synthetic SI file of "another code": metres with `unitSI = 1`, origin in `positionOffset`, momenta per macro-particle, constant charge/mass records, a float32 component, `openpmd_xi_shift` | beam vs an independent Python conversion: 2·10⁻¹⁵ (ξ: the 1 mm offset), others ≤ 3·10⁻¹⁶ |
+| synthetic normalised file referring to 4·10¹⁷ cm⁻³ (deck 10¹⁷), antiprotons | ≤ 2·10⁻¹⁶ |
+| antiproton species into an electron beam | error (mass differs) |
+| `particle_stride = 4` | charge 0.25 of the beam with a warning; 1.0000 with `openpmd_scale_stride = 1` |
+| muons with spin | spins, positions, weights identical; momenta 2·10⁻¹⁶ (mass factor) |
+| 2 ranks vs serial | particles and fields bit-identical |
+
 **Two-stage runs** (section 19, `boundary.in`, `bnd_check.py`; driver in −5…0, witness at ξ = −7,
 stage 2 from ξ = −5.01):
 
@@ -1645,6 +1669,7 @@ comparison, the blowout on the stretched grid, and the SMI run.
 | `src/Pushers.hpp` | Boris, Vay, Higuera–Cary and the two schemes of the IMP note (+ radiation reaction) |
 | `src/Simulation.*` | slice sweep, pipelined time loop, MPI messages, output |
 | `src/Parallel.*` | thin MPI layer (point-to-point messages, offset file writes; serial stub without MPI) |
+| `src/OpenPMDReader.*` | beam import from openPMD particle data (units, conventions; stub without openPMD-api) |
 | `src/OpenPMDWriter.*`, `src/FieldTable.hpp` | openPMD output through openPMD-api (fields in thetaMode, beam particles; stub without openPMD-api) |
 | `src/Parser.*` | function parser (compiler to a device-evaluable stack program), `my_constants` |
 | `src/Profiles.*`, `src/Config.*` | density profiles, input parser |

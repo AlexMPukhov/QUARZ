@@ -372,6 +372,8 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
         if (ntot == 0) continue;   // same decision on every rank
         const long long poff = exscan_sum(nloc);
         ParticleSpecies sp = it.particles[bp->name()];
+        // every pstride-th particle with unchanged weights: recorded so that an import can scale them
+        sp.setAttribute("quarz_particle_stride", static_cast<int64_t>(pstride));
         const Dataset ds(Datatype::DOUBLE, {static_cast<uint64_t>(ntot)});
         const Offset o{static_cast<uint64_t>(poff)};
         const Extent e{static_cast<uint64_t>(nloc)};

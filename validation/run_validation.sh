@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..27 (default: all)
+#   sections   numbers 1..28 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 27)}
+SECTIONS=${*:-$(seq 1 28)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -685,6 +685,67 @@ print(' the same dump into a beam without spin: %d particles, x y p xi w %s' % (
         python3 cmp_runs.py out_imp_s out_imp_p 1e-5 || true
     fi
     rm -rf out_imp_*
+}
+
+sec28() {
+    echo "== 28. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions =="
+    export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparisons
+    if ! python3 -c "import openpmd_api" 2> /dev/null || ! $QS betatron.in time.steps=0 output.every=1 output.format=openpmd \
+            witness.nparticles=200 output.dir=out_op_probe > /dev/null 2>&1; then
+        echo " (no openPMD support in this build or no openpmd-api Python module - skipped)"; rm -rf out_op_*; return 0
+    fi
+    local B="betatron.in output.every=0 witness.nparticles=$(q 20000 4000)" R="time.steps=0 output.beam_every=1 witness.profile=openpmd"
+    for U in si normalised; do
+        local X=""; [ $U = si ] && X="units.n0_cm3=1e17"
+        $QS $B $X time.steps=2 output.beam_every=2 output.format=both output.dir=out_op_$U > /dev/null
+        $QS $B $X $R witness.file=out_op_$U/openpmd/data_000002.h5 output.dir=out_op_${U}_re > /dev/null
+    done
+    echo " QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:"
+    python3 -c "
+import numpy as np
+for U in ('si', 'normalised'):
+    a = np.fromfile(f'out_op_{U}/beam_witness_000002.bin', np.float64, offset=4).reshape(-1, 7)
+    b = np.fromfile(f'out_op_{U}_re/beam_witness_000000.bin', np.float64, offset=4).reshape(-1, 7)
+    d = max(np.abs(a[:, c] - b[:, c]).max() / np.abs(a[:, c]).max() for c in range(7)) if a.shape == b.shape else 1.0
+    print('  %-10s %d particles, max rel. difference %.1e  (expected: SI round-off, normalised 0)' % (U, len(b), d))"
+    python3 openpmd_import_check.py write out_op_syn
+    local G="betatron.in output.every=0 time.steps=0 output.beam_every=1 xi.min=-8 grid.rmax=4 units.n0_cm3=1e17"
+    $QS $G witness.profile=openpmd witness.file=out_op_syn/foreign_si_000007.h5 witness.openpmd_species=beam \
+        witness.openpmd_xi_shift=-0.5 output.dir=out_op_fsi > /dev/null
+    $QS $G beams=pbar pbar.mass=1836.15267343 pbar.charge=-1 pbar.profile=openpmd pbar.file=out_op_syn/foreign_norm_000003.h5 \
+        pbar.openpmd_units=normalised pbar.openpmd_n0_cm3=4e17 output.dir=out_op_fn > /dev/null
+    echo " synthetic files of other codes vs the expected beam (computed independently in Python; expected round-off):"
+    python3 openpmd_import_check.py compare out_op_fsi/beam_witness_000000.bin out_op_syn/expected_si.npy
+    python3 openpmd_import_check.py compare out_op_fn/beam_pbar_000000.bin out_op_syn/expected_norm.npy
+    $QS $G witness.profile=openpmd witness.file=out_op_syn/foreign_norm_000003.h5 witness.openpmd_species=pbar \
+        witness.openpmd_units=normalised output.dir=out_op_bad > out_op_bad.log 2>&1 && r="no error (WRONG)" || r="$(grep -o 'the mass (m_e) of species .pbar. ([0-9.]*) differs' out_op_bad.log)"
+    echo " antiprotons into an electron beam: $r"
+    # particle_stride: recorded in the file; weights unchanged unless <beam>.openpmd_scale_stride = 1
+    $QS $B units.n0_cm3=1e17 time.steps=0 output.every=0 output.beam_every=1 output.format=openpmd output.particle_stride=4 output.dir=out_op_st > /dev/null
+    $QS $B units.n0_cm3=1e17 $R witness.file=out_op_st/openpmd/data_000000.h5 output.dir=out_op_st0 > out_op_st0.log
+    $QS $B units.n0_cm3=1e17 $R witness.file=out_op_st/openpmd/data_000000.h5 witness.openpmd_scale_stride=1 output.dir=out_op_st1 > /dev/null
+    echo " particle_stride = 4: charge of the import / of the original beam: $(python3 openpmd_import_check.py charge \
+out_op_st0/beam_witness_000000.bin out_op_si/beam_witness_000000.bin), with openpmd_scale_stride = 1: $(python3 openpmd_import_check.py \
+charge out_op_st1/beam_witness_000000.bin out_op_si/beam_witness_000000.bin); warning given: $(grep -c 'every 4-th particle' out_op_st0.log)"
+    # spins
+    local S="spin.in time.steps=2 output.beam_every=2 beams=muons"
+    $QS $S output.format=both output.dir=out_op_sp > /dev/null
+    $QS $S time.steps=0 output.beam_every=1 muons.profile=openpmd muons.file=out_op_sp/openpmd/data_000002.h5 output.dir=out_op_spre > /dev/null
+    python3 -c "
+import numpy as np
+a = np.fromfile('out_op_sp/beam_muons_000002.bin', np.float64, offset=4).reshape(-1, 10)
+b = np.fromfile('out_op_spre/beam_muons_000000.bin', np.float64, offset=4).reshape(-1, 10)
+r = lambda c: max(np.abs(a[:, c] - b[:, c]).max() / np.abs(a[:, c]).max() for c in c)
+print(' muons with spin (normalised units) imported and written again vs the native dump: %d particles; spins %.1e,'
+      ' x y xi w %.1e, momenta %.1e (expected: 0, 0, round-off of the mass factor 206.77)' % (len(b), r([7, 8, 9]), r([0, 1, 5, 6]), r([2, 3, 4])))"
+    if [ -n "$MPIRUN" ]; then
+        local M="$B units.n0_cm3=1e17 time.steps=2 output.every=1 output.beam_every=1 beams.xi_shape=ngp witness.profile=openpmd witness.file=out_op_si/openpmd/data_000002.h5"
+        $QS $M output.dir=out_op_s > /dev/null
+        $MPIRUN 2 $QS $M output.dir=out_op_p > /dev/null
+        echo " 2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):"
+        python3 cmp_runs.py out_op_s out_op_p 1e-5 || true
+    fi
+    rm -rf out_op_*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

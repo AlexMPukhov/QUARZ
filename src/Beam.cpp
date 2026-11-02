@@ -2,6 +2,7 @@
 #include <functional>
 #include "Ionization.hpp"
 #include "Config.hpp"
+#include "OpenPMDReader.hpp"
 #include "Pushers.hpp"
 #include "SliceData.hpp"
 
@@ -144,6 +145,7 @@ Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, c
         return;
     }
     if (prof == "file") init_file(cfg.get_string(name + ".file"), cfg.get_string(name + ".file_format", "auto"));
+    else if (prof == "openpmd") init_openpmd(cfg);
     else init_gaussian(cfg);
 }
 
@@ -455,7 +457,7 @@ void Beam::init_gaussian(const Config& cfg) {
     double sxi = 0, len = 0;
     if (lprof == "gaussian") sxi = cfg.get_double(p + ".sigma_xi");
     else if (lprof == "flattop") len = cfg.get_double(p + ".length");
-    else throw std::runtime_error(p + ".profile must be gaussian|flattop|file");
+    else throw std::runtime_error(p + ".profile must be gaussian|flattop|file|openpmd|parsed");
 
     const double Pr = 1.0 - std::exp(-0.5 * cut * cut);
     auto Phi = [](double x) { return 0.5 * (1.0 + std::erf(x / std::sqrt(2.0))); };
@@ -622,6 +624,42 @@ void Beam::init_dump(const std::string& filename) {
         done += m;
     }
     std::fclose(f);
+    finish_init(local, acc, keep);
+}
+
+// <beam>.profile = openpmd: particles of an openPMD species (QUARZ output or another code's, co-moving
+// frame); every rank reads the species and keeps the particles of its slices
+void Beam::init_openpmd(const Config& cfg) {
+    const std::string p = name_;
+    OpenPMDBeamRequest r;
+    r.file = cfg.get_string(p + ".file");
+    r.iteration = cfg.get_int(p + ".openpmd_iteration", -1);
+    r.species = cfg.get_string(p + ".openpmd_species", p);
+    r.xi_shift = cfg.get_double(p + ".openpmd_xi_shift", 0.0);
+    r.n0_deck_cm3 = cfg.get_double("units.n0_cm3", 0.0);
+    r.n0_file_cm3 = cfg.get_double(p + ".openpmd_n0_cm3", 0.0);
+    r.units = cfg.get_string(p + ".openpmd_units", "auto");
+    if (r.units != "auto" && r.units != "si" && r.units != "normalised")
+        throw std::runtime_error(p + ".openpmd_units must be auto|si|normalised");
+    r.charge = q_; r.mass = m_;
+    r.want_spin = spin_;
+    r.scale_stride = cfg.get_bool(p + ".openpmd_scale_stride", false);
+    OpenPMDBeamData d = read_openpmd_beam(r);
+    if (bg_.k0 == 0) {
+        std::cout << "Beam '" << p << "': " << d.summary << "\n";
+        for (const auto& w : d.warnings) std::cout << "  WARNING (" << p << "): " << w << "\n";
+    }
+    const int nf = d.ncol;
+    const bool keep = nf == 10;
+    RefAcc acc;
+    std::vector<double> local;
+    for (size_t i = 0; i < d.p.size(); i += static_cast<size_t>(nf)) {
+        double* q = &d.p[i];
+        q[5] = xi_from_user(q[5]);
+        accumulate(acc, q);
+        if (local_xi(q[5])) local.insert(local.end(), q, q + nf);
+    }
+    std::vector<double>().swap(d.p);
     finish_init(local, acc, keep);
 }
 

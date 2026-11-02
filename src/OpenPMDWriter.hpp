@@ -5,7 +5,7 @@
 // Fields: geometry "thetaMode", axes (r, z), data order C, shape [modes][r][z] with
 //   modes = (f0)  or  (f0, f_c, f_s)  where f = f0 + f_c cos(theta) + f_s sin(theta)
 //   (the convention read by openPMD-viewer; geometryParameters "m=1;imag=+" or "m=2;imag=+").
-//   The longitudinal axis is the lab-frame z = t - xi, stored in increasing z.
+//   The longitudinal axis is co-moving: z = xi = z_lab - ct (as the native files), increasing.
 //   openPMD requires a uniform grid spacing.  By default the fields are therefore
 //   interpolated (piecewise linear, as the hat functions of the code) onto a uniform radial
 //   grid  r = 0, dr, 2dr, ... <= output.openpmd_rmax.  With output.openpmd_grid = native they
@@ -14,10 +14,11 @@
 //   coordinate data sets (QUARZ_OPENPMD_GRID_COORDINATES, detected by CMake) the radial nodes are the
 //   data set <basePath>gridCoordinates/r, referenced by the mesh attribute gridCoordinates (openPMD 2.0
 //   form); otherwise they are in the attribute "gridCoordinates_r" with gridType "rectilinear" (interim
-//   form). Both carry the deprecated "quarz_r_nodes", geometry "other" and geometryParameters
+//   form). Both carry geometry "other" and geometryParameters
 //   "thetaMode;m=...;imag=+" until the extension is in the standard.
-// Particles: every beam is a species with position (x, y, z = t - xi), positionOffset (0),
-//   momentum, weighting, charge and mass.
+// Particles: every beam is a species with position (x, y, z = xi, co-moving), positionOffset (0),
+//   momentum, weighting, charge and mass; the species attribute quarz_particle_stride records
+//   particle_stride (the file then holds every n-th particle with unchanged weights).
 // Units: SI (unitSI attributes) when the plasma density is given (units.n0_cm3); without it
 //   the data are in the code's normalised units and every unitSI is 1.
 //
