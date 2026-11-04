@@ -712,14 +712,19 @@ for U in ('si', 'normalised'):
     local G="betatron.in output.every=0 time.steps=0 output.beam_every=1 xi.min=-8 grid.rmax=4 units.n0_cm3=1e17"
     $QS $G witness.profile=openpmd witness.file=out_op_syn/foreign_si_000007.h5 witness.openpmd_species=beam \
         witness.openpmd_xi_shift=-0.5 output.dir=out_op_fsi > /dev/null
-    $QS $G beams=pbar pbar.mass=1836.15267343 pbar.charge=-1 pbar.profile=openpmd pbar.file=out_op_syn/foreign_norm_000003.h5 \
-        pbar.openpmd_units=normalised pbar.openpmd_n0_cm3=4e17 output.dir=out_op_fn > /dev/null
+    local N="beams=pbar pbar.profile=openpmd pbar.file=out_op_syn/foreign_norm_000003.h5 pbar.openpmd_units=normalised pbar.openpmd_n0_cm3=4e17"
+    $QS $G $N output.dir=out_op_fn > out_op_fn.log   # charge and mass from the file (not in the deck)
     echo " synthetic files of other codes vs the expected beam (computed independently in Python; expected round-off):"
     python3 openpmd_import_check.py compare out_op_fsi/beam_witness_000000.bin out_op_syn/expected_si.npy
     python3 openpmd_import_check.py compare out_op_fn/beam_pbar_000000.bin out_op_syn/expected_norm.npy
-    $QS $G witness.profile=openpmd witness.file=out_op_syn/foreign_norm_000003.h5 witness.openpmd_species=pbar \
-        witness.openpmd_units=normalised output.dir=out_op_bad > out_op_bad.log 2>&1 && r="no error (WRONG)" || r="$(grep -o 'the mass (m_e) of species .pbar. ([0-9.]*) differs' out_op_bad.log)"
-    echo " antiprotons into an electron beam: $r"
+    echo " charge and mass taken from the file when the deck has none: $(grep -o 'from the openPMD species:.*' out_op_fn.log)"
+    $QS $G $N pbar.mass=1 output.dir=out_op_m1 > out_op_m1.log
+    python3 -c "
+import numpy as np
+a = np.fromfile('out_op_m1/beam_pbar_000000.bin', np.float64, offset=4).reshape(-1, 7)
+e = np.load('out_op_syn/expected_norm.npy'); q = a[:, 2:5] / e[:, 2:5]
+print(' deck mass 1 instead of the file\'s: warning given: %d; momenta / file momenta (m_pbar c) = %.10f ... %.10f (expected 1836.15267343)'
+      % (open('out_op_m1.log').read().count('differs from pbar.mass'), q.min(), q.max()))"
     # particle_stride: recorded in the file; weights unchanged unless <beam>.openpmd_scale_stride = 1
     $QS $B units.n0_cm3=1e17 time.steps=0 output.every=0 output.beam_every=1 output.format=openpmd output.particle_stride=4 output.dir=out_op_st > /dev/null
     $QS $B units.n0_cm3=1e17 $R witness.file=out_op_st/openpmd/data_000000.h5 output.dir=out_op_st0 > out_op_st0.log

@@ -363,7 +363,8 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  synthetic files of other codes vs the expected beam (computed independently in Python; expected round-off):
   si: 3000 of 3000 particles; max rel. difference: x 1.4e-16, y 1.5e-16, px 2.8e-16, py 1.6e-16, pz 2.8e-16, xi 1.9e-15, w 2.6e-16
   norm: 3000 of 3000 particles; max rel. difference: x 0.0e+00, y 0.0e+00, px 1.3e-16, py 1.1e-16, pz 2.1e-16, xi 0.0e+00, w 2.1e-16
- antiprotons into an electron beam: the mass (m_e) of species 'pbar' (1836.15) differs
+ charge and mass taken from the file when the deck has none: from the openPMD species: charge -1.000000 e mass 1836.152673 m_e
+ deck mass 1 instead of the file's: warning given: 1; momenta / file momenta (m_pbar c) = 1836.1526734300 ... 1836.1526734300 (expected 1836.15267343)
  particle_stride = 4: charge of the import / of the original beam: 0.2500, with openpmd_scale_stride = 1: 1.0000; warning given: 1
  muons with spin (normalised units) imported and written again vs the native dump: 20000 particles; spins 0.0e+00, x y xi w 0.0e+00, momenta 1.8e-16 (expected: 0, 0, round-off of the mass factor 206.77)
  2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):

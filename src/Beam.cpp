@@ -22,11 +22,40 @@
 
 namespace quarz {
 
+namespace {
+// <beam>.profile = openpmd: the deck keys of the import (OpenPMDReader.hpp)
+OpenPMDBeamRequest openpmd_request(const Config& cfg, const std::string& p) {
+    OpenPMDBeamRequest r;
+    r.file = cfg.get_string(p + ".file");
+    r.iteration = cfg.get_int(p + ".openpmd_iteration", -1);
+    r.species = cfg.get_string(p + ".openpmd_species", p);
+    r.xi_shift = cfg.get_double(p + ".openpmd_xi_shift", 0.0);
+    r.n0_deck_cm3 = cfg.get_double("units.n0_cm3", 0.0);
+    r.n0_file_cm3 = cfg.get_double(p + ".openpmd_n0_cm3", 0.0);
+    r.units = cfg.get_string(p + ".openpmd_units", "auto");
+    if (r.units != "auto" && r.units != "si" && r.units != "normalised")
+        throw std::runtime_error(p + ".openpmd_units must be auto|si|normalised");
+    r.scale_stride = cfg.get_bool(p + ".openpmd_scale_stride", false);
+    return r;
+}
+} // namespace
+
 Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, const BeamGrid& bg, bool mode1,
            const double* qm)
     : name_(name), grid_(grid), bg_(bg), m1_(mode1) {
     q_ = qm ? qm[0] : cfg.get_double(name + ".charge", -1.0);
     m_ = qm ? qm[1] : cfg.get_double(name + ".mass", 1.0);
+    // an openPMD beam takes the charge and mass of the species in the file unless the deck sets them
+    // (needed here: the mass sets the defaults of the spin and the radiation reaction below)
+    if (!qm && cfg.get_string(name + ".profile", "gaussian") == "openpmd" && (!cfg.has(name + ".charge") || !cfg.has(name + ".mass"))) {
+        OpenPMDBeamRequest r = openpmd_request(cfg, name);
+        r.info_only = true;
+        const OpenPMDBeamData d = read_openpmd_beam(r);
+        std::string from;
+        if (!cfg.has(name + ".charge") && d.has_charge) { q_ = d.charge; from += " charge " + std::to_string(q_) + " e"; }
+        if (!cfg.has(name + ".mass") && d.has_mass) { m_ = d.mass; from += " mass " + std::to_string(m_) + " m_e"; }
+        if (bg_.k0 == 0 && !from.empty()) std::cout << "Beam '" << name << "': from the openPMD species:" << from << "\n";
+    }
     rigid_ = qm ? false : cfg.get_bool(name + ".rigid", false);
     adaptive_dt_ = cfg.get_bool(name + ".adaptive_dt", true);
     passive_ = cfg.get_bool(name + ".passive", false);
@@ -631,19 +660,9 @@ void Beam::init_dump(const std::string& filename) {
 // frame); every rank reads the species and keeps the particles of its slices
 void Beam::init_openpmd(const Config& cfg) {
     const std::string p = name_;
-    OpenPMDBeamRequest r;
-    r.file = cfg.get_string(p + ".file");
-    r.iteration = cfg.get_int(p + ".openpmd_iteration", -1);
-    r.species = cfg.get_string(p + ".openpmd_species", p);
-    r.xi_shift = cfg.get_double(p + ".openpmd_xi_shift", 0.0);
-    r.n0_deck_cm3 = cfg.get_double("units.n0_cm3", 0.0);
-    r.n0_file_cm3 = cfg.get_double(p + ".openpmd_n0_cm3", 0.0);
-    r.units = cfg.get_string(p + ".openpmd_units", "auto");
-    if (r.units != "auto" && r.units != "si" && r.units != "normalised")
-        throw std::runtime_error(p + ".openpmd_units must be auto|si|normalised");
-    r.charge = q_; r.mass = m_;
+    OpenPMDBeamRequest r = openpmd_request(cfg, p);
+    r.charge = q_; r.mass = m_;   // the deck's, or the file's (constructor)
     r.want_spin = spin_;
-    r.scale_stride = cfg.get_bool(p + ".openpmd_scale_stride", false);
     OpenPMDBeamData d = read_openpmd_beam(r);
     if (bg_.k0 == 0) {
         std::cout << "Beam '" << p << "': " << d.summary << "\n";

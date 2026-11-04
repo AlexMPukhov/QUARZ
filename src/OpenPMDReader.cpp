@@ -118,6 +118,66 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
     const size_t n = pos["x"].getExtent().empty() ? 0 : pos["x"].getExtent()[0];
     if (n == 0) throw std::runtime_error("openPMD import: species '" + req.species + "' has no particles");
 
+    // units
+    // value x unitSI is SI by the openPMD standard (unitSI = 1 for data already in SI). QUARZ files written
+    // without units.n0_cm3 hold code units with unitSI = 1 and say so in the series attribute quarz_units;
+    // files of other codes in normalised units must be declared (<beam>.openpmd_units = normalised).
+    bool si = true;
+    std::string how = "openPMD standard";
+    if (req.units == "si" || req.units == "normalised") { si = req.units == "si"; how = req.species + ".openpmd_units"; }
+    else if (S.containsAttribute("quarz_units")) {
+        si = S.getAttribute("quarz_units").get<std::string>().rfind("SI", 0) == 0;
+        how = "QUARZ file";
+    }
+    double fL = 1, fW = 1, fP = 1.0 / req.mass;   // file values -> code units
+    std::ostringstream u;
+    if (si) {
+        if (!(req.n0_deck_cm3 > 0) && !req.info_only)
+            throw std::runtime_error("openPMD import: '" + req.file + "' is in SI units (" + how + "): set units.n0_cm3 to "
+                                     "convert it, or " + req.species + ".openpmd_units = normalised if it is not");
+        const double L = req.n0_deck_cm3 > 0 ? skin_depth_m(req.n0_deck_cm3) : 1.0;
+        fL = 1.0 / L;
+        fW = 1.0 / (req.n0_deck_cm3 * 1e6 * L * L * L);
+        fP = 1.0 / (req.mass * me_SI * c_SI);
+        u << "SI (" << how << "), converted with n0 = " << req.n0_deck_cm3 << " cm^-3";
+    } else {
+        u << "normalised (" << how << ")";
+        if (req.n0_file_cm3 > 0 && req.n0_deck_cm3 > 0 && std::abs(req.n0_file_cm3 / req.n0_deck_cm3 - 1) > 1e-12) {
+            const double Lf = skin_depth_m(req.n0_file_cm3), Ld = skin_depth_m(req.n0_deck_cm3);
+            fL = Lf / Ld;
+            fW = req.n0_file_cm3 * Lf * Lf * Lf / (req.n0_deck_cm3 * Ld * Ld * Ld);
+            u << " to n0 = " << req.n0_file_cm3 << " cm^-3, rescaled to the deck's " << req.n0_deck_cm3;
+        }
+    }
+
+    // charge and mass of the species (uniform over its particles): used for the beam unless the deck sets them
+    auto species_value = [&](const char* rec, double scale, double& val) {
+        if (!sp.contains(rec)) return false;
+        const auto v = load(S, sp[rec][RecordComponent::SCALAR], n);
+        val = v[0] * scale;
+        for (double x : v)
+            if (std::abs(x * scale - val) > 1e-9 * std::abs(val))
+                throw std::runtime_error("openPMD import: the " + std::string(rec) + " of species '" + req.species +
+                                         "' varies between its particles (not supported)");
+        return true;
+    };
+    out.has_charge = species_value("charge", si ? 1.0 / e_SI : 1.0, out.charge);
+    out.has_mass = species_value("mass", si ? 1.0 / me_SI : 1.0, out.mass);
+    if (req.info_only) return out;
+    auto differs = [&](bool has, double file, double deck, const char* what, const char* key, const char* effect) {
+        if (!has) { out.warnings.push_back(std::string("no ") + what + " record in the file: " + req.species + "." + key + " = " +
+                                           std::to_string(deck) + " is used"); return; }
+        if (std::abs(file - deck) <= 1e-6 * std::abs(deck)) return;
+        std::ostringstream m;
+        m << "the file's " << what << " (" << file << ") differs from " << req.species << "." << key << " = " << deck
+          << ": the deck's value is used; " << effect;
+        out.warnings.push_back(m.str());
+    };
+    differs(out.has_charge, out.charge, req.charge, "charge (e)", "charge",
+            "positions, momenta and weights are taken unchanged");
+    differs(out.has_mass, out.mass, req.mass, "mass (m_e)", "mass",
+            "the momenta keep their physical value (p_file / (m_deck c)), i.e. gamma and the velocity change");
+
     auto comp3 = [&](Record r, const char* what) {
         std::vector<std::vector<double>> v;
         for (const char* c : {"x", "y", "z"}) {
@@ -141,53 +201,6 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
         for (int c = 0; c < 3; ++c)
             for (size_t i = 0; i < n; ++i) P[c][i] /= std::pow(W[i], pw);
     }
-
-    // units
-    // value x unitSI is SI by the openPMD standard (unitSI = 1 for data already in SI). QUARZ files written
-    // without units.n0_cm3 hold code units with unitSI = 1 and say so in the series attribute quarz_units;
-    // files of other codes in normalised units must be declared (<beam>.openpmd_units = normalised).
-    bool si = true;
-    std::string how = "openPMD standard";
-    if (req.units == "si" || req.units == "normalised") { si = req.units == "si"; how = req.species + ".openpmd_units"; }
-    else if (S.containsAttribute("quarz_units")) {
-        si = S.getAttribute("quarz_units").get<std::string>().rfind("SI", 0) == 0;
-        how = "QUARZ file";
-    }
-    double fL = 1, fW = 1, fP = 1.0 / req.mass;   // file values -> code units
-    std::ostringstream u;
-    if (si) {
-        if (!(req.n0_deck_cm3 > 0))
-            throw std::runtime_error("openPMD import: '" + req.file + "' is in SI units (" + how + "): set units.n0_cm3 to "
-                                     "convert it, or " + req.species + ".openpmd_units = normalised if it is not");
-        const double L = skin_depth_m(req.n0_deck_cm3);
-        fL = 1.0 / L;
-        fW = 1.0 / (req.n0_deck_cm3 * 1e6 * L * L * L);
-        fP = 1.0 / (req.mass * me_SI * c_SI);
-        u << "SI (" << how << "), converted with n0 = " << req.n0_deck_cm3 << " cm^-3";
-    } else {
-        u << "normalised (" << how << ")";
-        if (req.n0_file_cm3 > 0 && req.n0_deck_cm3 > 0 && std::abs(req.n0_file_cm3 / req.n0_deck_cm3 - 1) > 1e-12) {
-            const double Lf = skin_depth_m(req.n0_file_cm3), Ld = skin_depth_m(req.n0_deck_cm3);
-            fL = Lf / Ld;
-            fW = req.n0_file_cm3 * Lf * Lf * Lf / (req.n0_deck_cm3 * Ld * Ld * Ld);
-            u << " to n0 = " << req.n0_file_cm3 << " cm^-3, rescaled to the deck's " << req.n0_deck_cm3;
-        }
-    }
-
-    // charge and mass of the species must be the beam's
-    auto check = [&](const char* rec, double scale, double want, const char* what) {
-        if (!sp.contains(rec)) { out.warnings.push_back(std::string("no ") + rec + " record: assumed to be the beam's"); return; }
-        const auto v = load(S, sp[rec][RecordComponent::SCALAR], n);
-        for (double x : v)
-            if (std::abs(x * scale - want) > 1e-6 * std::abs(want)) {
-                std::ostringstream m;
-                m << "openPMD import: the " << what << " of species '" << req.species << "' (" << x * scale
-                  << ") differs from the beam's (" << want << ")";
-                throw std::runtime_error(m.str());
-            }
-    };
-    check("charge", si ? 1.0 / e_SI : 1.0, req.charge, "charge (e)");
-    check("mass", si ? 1.0 / me_SI : 1.0, req.mass, "mass (m_e)");
 
     // particle stride recorded by QUARZ (particle_stride: every n-th particle, unchanged weights)
     out.stride = static_cast<long>(attr_or(sp, "quarz_particle_stride", 1.0));
