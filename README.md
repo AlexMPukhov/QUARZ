@@ -1000,8 +1000,8 @@ separate species.
 openPMD import: SI files need `units.n0_cm3`. Momenta stored per macro-particle (`macroWeighted = 1`) are divided
 by weighting^`weightingPower`; `positionOffset` is added. The beam takes the `charge` and `mass` of the species
 in the file (constant records or uniform per-particle ones) unless the deck sets `<beam>.charge` / `<beam>.mass`;
-a deck value that differs from the file's is used with a warning (the momenta keep their physical value, so with
-another mass γ and the velocity change). A `spin` record is read for a beam with `<beam>.spin`. Every rank reads the
+a deck value that differs from the file's is used with a warning. With a different mass the velocities are kept:
+p/(m c) = γβ is computed with the file's mass, so the physical momenta scale with the mass. A `spin` record is read for a beam with `<beam>.spin`. Every rank reads the
 whole species and keeps its slices. As with native dumps, the momenta of a QUARZ file are half a step behind.
 
 **Parsed beams** (`<beam>.profile = parsed`)
@@ -1479,7 +1479,7 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | synthetic SI file of "another code": metres with `unitSI = 1`, origin in `positionOffset`, momenta per macro-particle, constant charge/mass records, a float32 component, `openpmd_xi_shift` | beam vs an independent Python conversion: 2·10⁻¹⁵ (ξ: the 1 mm offset), others ≤ 3·10⁻¹⁶ |
 | synthetic normalised file referring to 4·10¹⁷ cm⁻³ (deck 10¹⁷), antiprotons | ≤ 2·10⁻¹⁶ |
 | charge and mass not in the deck | taken from the file (antiprotons: −1 e, 1836.15 m_e) |
-| deck mass 1 for the antiproton file | used, with a warning; momenta = file momenta (m_p̄ c) × 1836.15267343 (physical momentum kept) |
+| deck mass 1 for the antiproton file | used, with a warning; γβ identical to the file's (velocity kept) |
 | `particle_stride = 4` | charge 0.25 of the beam with a warning; 1.0000 with `openpmd_scale_stride = 1` |
 | muons with spin | spins, positions, weights identical; momenta 2·10⁻¹⁶ (mass factor) |
 | 2 ranks vs serial | particles and fields bit-identical |

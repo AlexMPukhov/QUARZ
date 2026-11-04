@@ -176,7 +176,11 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
     differs(out.has_charge, out.charge, req.charge, "charge (e)", "charge",
             "positions, momenta and weights are taken unchanged");
     differs(out.has_mass, out.mass, req.mass, "mass (m_e)", "mass",
-            "the momenta keep their physical value (p_file / (m_deck c)), i.e. gamma and the velocity change");
+            "the velocities are kept (p / (m c) = gamma beta from the file's mass), so the physical momenta change");
+    // momenta -> gamma beta with the file's mass if it differs from the beam's (the velocity is kept); with equal
+    // masses (or no mass record) the beam's, so that a QUARZ file is read back exactly
+    if (out.has_mass && std::abs(out.mass - req.mass) > 1e-6 * std::abs(req.mass))
+        fP = si ? 1.0 / (out.mass * me_SI * c_SI) : 1.0 / out.mass;
 
     auto comp3 = [&](Record r, const char* what) {
         std::vector<std::vector<double>> v;

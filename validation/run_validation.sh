@@ -723,7 +723,7 @@ for U in ('si', 'normalised'):
 import numpy as np
 a = np.fromfile('out_op_m1/beam_pbar_000000.bin', np.float64, offset=4).reshape(-1, 7)
 e = np.load('out_op_syn/expected_norm.npy'); q = a[:, 2:5] / e[:, 2:5]
-print(' deck mass 1 instead of the file\'s: warning given: %d; momenta / file momenta (m_pbar c) = %.10f ... %.10f (expected 1836.15267343)'
+print(' deck mass 1 instead of the file\'s: warning given: %d; gamma beta / the file\'s = %.10f ... %.10f (expected 1: velocity kept)'
       % (open('out_op_m1.log').read().count('differs from pbar.mass'), q.min(), q.max()))"
     # particle_stride: recorded in the file; weights unchanged unless <beam>.openpmd_scale_stride = 1
     $QS $B units.n0_cm3=1e17 time.steps=0 output.every=0 output.beam_every=1 output.format=openpmd output.particle_stride=4 output.dir=out_op_st > /dev/null

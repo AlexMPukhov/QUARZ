@@ -13,7 +13,7 @@
 // Momenta stored per macro-particle (macroWeighted = 1) are divided by weighting^weightingPower.
 // Charge and mass: the beam takes the file's (constant or uniform per-particle records) unless the deck
 // sets <beam>.charge / <beam>.mass; a deck value that differs from the file's gives a warning (momenta keep
-// their physical value). info_only: only the species' charge and mass (for the Beam constructor).
+// the velocities, gamma beta, of the file). info_only: only the species' charge and mass (for the Beam constructor).
 #pragma once
 
 #include <string>
