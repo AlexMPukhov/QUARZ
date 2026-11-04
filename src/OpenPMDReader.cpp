@@ -6,7 +6,7 @@
 #ifndef QUARZ_USE_OPENPMD
 
 namespace quarz {
-OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
+OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req, const OpenPMDBlockSink&) {
     throw std::runtime_error(req.species + ": <beam>.profile = openpmd: this QUARZ build has no openPMD support "
                              "(install openPMD-api and reconfigure with -DopenPMD_ROOT=...)");
 }
@@ -34,32 +34,36 @@ double skin_depth_m(double n0_cm3) {   // c / omega_p
     return c_SI / std::sqrt(n * e_SI * e_SI / (eps0_SI * me_SI));
 }
 
-// values of a record component times its unitSI (constant components included; double or float data)
-std::vector<double> load(openPMD::Series& S, openPMD::RecordComponent rc, size_t n) {
-    std::vector<double> v(n);
+// the value of a constant record component (without unitSI)
+double constant_value(const openPMD::RecordComponent& rc) {
+    const auto a = rc.getAttribute("value");
+    if (auto d = a.getOptional<double>()) return *d;
+    if (auto f = a.getOptional<float>()) return *f;
+    if (auto i = a.getOptional<int64_t>()) return static_cast<double>(*i);
+    throw std::runtime_error("openPMD import: unsupported type of a constant record component");
+}
+
+// particles [i0, i0 + m) of a record component (of n) times its unitSI into v[0..m) (constant components
+// included; double or float data): the import reads block by block and never holds a whole species
+void load_block(openPMD::Series& S, openPMD::RecordComponent rc, size_t n, size_t i0, size_t m, double* v) {
     const double u = rc.unitSI();
     if (rc.constant()) {
-        const auto a = rc.getAttribute("value");
-        double c = 0;
-        if (auto d = a.getOptional<double>()) c = *d;
-        else if (auto f = a.getOptional<float>()) c = *f;
-        else if (auto i = a.getOptional<int64_t>()) c = static_cast<double>(*i);
-        else throw std::runtime_error("openPMD import: unsupported type of a constant record component");
-        std::fill(v.begin(), v.end(), c * u);
-        return v;
+        std::fill(v, v + m, constant_value(rc) * u);
+        return;
     }
     if (rc.getExtent().empty() || rc.getExtent()[0] != n)
         throw std::runtime_error("openPMD import: record components of different lengths");
+    const openPMD::Offset o{static_cast<uint64_t>(i0)};
+    const openPMD::Extent e{static_cast<uint64_t>(m)};
     if (rc.getDatatype() == openPMD::Datatype::FLOAT) {
-        auto d = rc.loadChunk<float>();
+        auto d = rc.loadChunk<float>(o, e);
         S.flush();
-        for (size_t i = 0; i < n; ++i) v[i] = d.get()[i] * u;
+        for (size_t i = 0; i < m; ++i) v[i] = d.get()[i] * u;
     } else {
-        auto d = rc.loadChunk<double>();
+        auto d = rc.loadChunk<double>(o, e);
         S.flush();
-        for (size_t i = 0; i < n; ++i) v[i] = d.get()[i] * u;
+        for (size_t i = 0; i < m; ++i) v[i] = d.get()[i] * u;
     }
-    return v;
 }
 
 template <class T> double attr_or(const T& obj, const std::string& name, double def) {
@@ -83,7 +87,7 @@ std::string series_pattern(const std::string& file, long& it_from_name) {
 }
 } // namespace
 
-OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
+OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req, const OpenPMDBlockSink& sink) {
     using namespace openPMD;
     OpenPMDBeamData out;
     long it_name = -1;
@@ -112,6 +116,7 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
     }
     ParticleSpecies sp = it.particles[req.species];
     out.iteration = n_it;
+    const size_t B = std::max<size_t>(1, req.block);   // particles per read
     for (const char* r : {"position", "momentum", "weighting"})
         if (!sp.contains(r)) throw std::runtime_error("openPMD import: species '" + req.species + "' has no " + r + " record");
     Record pos = sp["position"], mom = sp["momentum"], wr = sp["weighting"];
@@ -153,12 +158,18 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
     // charge and mass of the species (uniform over its particles): used for the beam unless the deck sets them
     auto species_value = [&](const char* rec, double scale, double& val) {
         if (!sp.contains(rec)) return false;
-        const auto v = load(S, sp[rec][RecordComponent::SCALAR], n);
-        val = v[0] * scale;
-        for (double x : v)
-            if (std::abs(x * scale - val) > 1e-9 * std::abs(val))
-                throw std::runtime_error("openPMD import: the " + std::string(rec) + " of species '" + req.species +
-                                         "' varies between its particles (not supported)");
+        RecordComponent rc = sp[rec][RecordComponent::SCALAR];
+        if (rc.constant()) { val = constant_value(rc) * rc.unitSI() * scale; return true; }
+        std::vector<double> v(std::min(B, n));
+        for (size_t i0 = 0; i0 < n; i0 += B) {   // per-particle record: must be uniform
+            const size_t m = std::min(B, n - i0);
+            load_block(S, rc, n, i0, m, v.data());
+            if (i0 == 0) val = v[0] * scale;
+            for (size_t i = 0; i < m; ++i)
+                if (std::abs(v[i] * scale - val) > 1e-9 * std::abs(val))
+                    throw std::runtime_error("openPMD import: the " + std::string(rec) + " of species '" + req.species +
+                                             "' varies between its particles (not supported)");
+        }
         return true;
     };
     out.has_charge = species_value("charge", si ? 1.0 / e_SI : 1.0, out.charge);
@@ -182,29 +193,13 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
     if (out.has_mass && std::abs(out.mass - req.mass) > 1e-6 * std::abs(req.mass))
         fP = si ? 1.0 / (out.mass * me_SI * c_SI) : 1.0 / out.mass;
 
-    auto comp3 = [&](Record r, const char* what) {
-        std::vector<std::vector<double>> v;
-        for (const char* c : {"x", "y", "z"}) {
-            if (!r.contains(c)) throw std::runtime_error(std::string("openPMD import: ") + what + " has no component " + c);
-            v.push_back(load(S, r[c], n));
-        }
-        return v;
-    };
-    auto X = comp3(pos, "position");
-    if (sp.contains("positionOffset")) {
-        const auto O = comp3(sp["positionOffset"], "positionOffset");
-        for (int c = 0; c < 3; ++c)
-            for (size_t i = 0; i < n; ++i) X[c][i] += O[c][i];
+    for (const char* c : {"x", "y", "z"}) {
+        if (!pos.contains(c)) throw std::runtime_error(std::string("openPMD import: position has no component ") + c);
+        if (!mom.contains(c)) throw std::runtime_error(std::string("openPMD import: momentum has no component ") + c);
     }
-    auto P = comp3(mom, "momentum");
-    std::vector<double> W = load(S, wr[RecordComponent::SCALAR], n);   // physical particles (SI) / code weight (normalised)
-
-    // macro-particle weighted momenta -> per physical particle
-    if (attr_or(mom, "macroWeighted", 0) != 0) {
-        const double pw = attr_or(mom, "weightingPower", 1.0);
-        for (int c = 0; c < 3; ++c)
-            for (size_t i = 0; i < n; ++i) P[c][i] /= std::pow(W[i], pw);
-    }
+    const bool offset = sp.contains("positionOffset");
+    const bool macro = attr_or(mom, "macroWeighted", 0) != 0;   // momenta per macro-particle
+    const double pw = attr_or(mom, "weightingPower", 1.0);
 
     // particle stride recorded by QUARZ (particle_stride: every n-th particle, unchanged weights)
     out.stride = static_cast<long>(attr_or(sp, "quarz_particle_stride", 1.0));
@@ -215,19 +210,46 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req) {
                                     "-th particle with unchanged weights: the charge is 1/" + std::to_string(out.stride) +
                                     " of the original beam (<beam>.openpmd_scale_stride = 1 multiplies the weights)");
     }
-
     const bool spin = req.want_spin && sp.contains("spin");
-    std::vector<std::vector<double>> Sv;
-    if (spin) Sv = comp3(sp["spin"], "spin");
     out.ncol = spin ? 10 : 7;
-    out.p.resize(static_cast<size_t>(out.ncol) * n);
-    for (size_t i = 0; i < n; ++i) {
-        double* q = &out.p[static_cast<size_t>(out.ncol) * i];
-        q[0] = X[0][i] * fL; q[1] = X[1][i] * fL;
-        q[2] = P[0][i] * fP; q[3] = P[1][i] * fP; q[4] = P[2][i] * fP;
-        q[5] = X[2][i] * fL + req.xi_shift;
-        q[6] = W[i] * fW * fS;
-        if (spin) { q[7] = Sv[0][i]; q[8] = Sv[1][i]; q[9] = Sv[2][i]; }
+
+    // block by block: read, convert to code units, hand to the sink (which keeps the particles of its rank)
+    const size_t nc = static_cast<size_t>(out.ncol);
+    std::vector<double> col[13];   // x y z, offset x y z, px py pz, w, sx sy sz
+    for (auto& c : col) c.resize(std::min(B, n));
+    std::vector<double> rows(nc * std::min(B, n));
+    const char* xyz[3] = {"x", "y", "z"};
+    for (size_t i0 = 0; i0 < n; i0 += B) {
+        const size_t m = std::min(B, n - i0);
+        for (int c = 0; c < 3; ++c) load_block(S, pos[xyz[c]], n, i0, m, col[c].data());
+        if (offset) {
+            Record off = sp["positionOffset"];
+            for (int c = 0; c < 3; ++c) {
+                if (!off.contains(xyz[c])) throw std::runtime_error(std::string("openPMD import: positionOffset has no component ") + xyz[c]);
+                load_block(S, off[xyz[c]], n, i0, m, col[3 + c].data());
+                for (size_t i = 0; i < m; ++i) col[c][i] += col[3 + c][i];
+            }
+        }
+        for (int c = 0; c < 3; ++c) load_block(S, mom[xyz[c]], n, i0, m, col[6 + c].data());
+        load_block(S, wr[RecordComponent::SCALAR], n, i0, m, col[9].data());   // physical particles (SI) / code weight
+        if (macro)   // macro-particle weighted momenta -> per physical particle
+            for (int c = 0; c < 3; ++c)
+                for (size_t i = 0; i < m; ++i) col[6 + c][i] /= std::pow(col[9][i], pw);
+        if (spin)
+            for (int c = 0; c < 3; ++c) {
+                Record sr = sp["spin"];
+                if (!sr.contains(xyz[c])) throw std::runtime_error(std::string("openPMD import: spin has no component ") + xyz[c]);
+                load_block(S, sr[xyz[c]], n, i0, m, col[10 + c].data());
+            }
+        for (size_t i = 0; i < m; ++i) {
+            double* q = &rows[nc * i];
+            q[0] = col[0][i] * fL; q[1] = col[1][i] * fL;
+            q[2] = col[6][i] * fP; q[3] = col[7][i] * fP; q[4] = col[8][i] * fP;
+            q[5] = col[2][i] * fL + req.xi_shift;
+            q[6] = col[9][i] * fW * fS;
+            if (spin) { q[7] = col[10][i]; q[8] = col[11][i]; q[9] = col[12][i]; }
+        }
+        sink(rows.data(), m, out.ncol);
     }
     if (req.want_spin && !spin) out.warnings.push_back("no spin record: the spins are set by <beam>.spin");
     std::ostringstream s;

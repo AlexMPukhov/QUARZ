@@ -23,6 +23,13 @@
 namespace quarz {
 
 namespace {
+// <beam>.read_block: particles per read of a beam file (native dump, openPMD); default 2^18
+size_t read_block(const Config& cfg, const std::string& p) {
+    const long b = cfg.get_int(p + ".read_block", 1 << 18);
+    if (b < 1) throw std::runtime_error(p + ".read_block must be >= 1");
+    return static_cast<size_t>(b);
+}
+
 // <beam>.profile = openpmd: the deck keys of the import (OpenPMDReader.hpp)
 OpenPMDBeamRequest openpmd_request(const Config& cfg, const std::string& p) {
     OpenPMDBeamRequest r;
@@ -36,6 +43,7 @@ OpenPMDBeamRequest openpmd_request(const Config& cfg, const std::string& p) {
     if (r.units != "auto" && r.units != "si" && r.units != "normalised")
         throw std::runtime_error(p + ".openpmd_units must be auto|si|normalised");
     r.scale_stride = cfg.get_bool(p + ".openpmd_scale_stride", false);
+    r.block = read_block(cfg, p);
     return r;
 }
 } // namespace
@@ -173,7 +181,7 @@ Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, c
         for (View1D* v : {&x_, &y_, &px_, &py_, &pz_, &xi_, &w_}) *v = View1D(name + ".empty", 0);
         return;
     }
-    if (prof == "file") init_file(cfg.get_string(name + ".file"), cfg.get_string(name + ".file_format", "auto"));
+    if (prof == "file") init_file(cfg.get_string(name + ".file"), cfg.get_string(name + ".file_format", "auto"), read_block(cfg, name));
     else if (prof == "openpmd") init_openpmd(cfg);
     else init_gaussian(cfg);
 }
@@ -590,14 +598,16 @@ void Beam::adopt_local(const std::vector<double>& all) {
 // or auto and the name ends in .bin) a native particle dump beam_<name>_NNNNNN.bin of a QUARZ run.
 // Both: positions in c/omega_p, xi = z - t (user convention, Types.hpp), momenta in m c of the beam's
 // species, weights in n0 (c/omega_p)^3.
-void Beam::init_file(const std::string& filename, const std::string& format) {
+void Beam::init_file(const std::string& filename, const std::string& format, size_t block) {
     const bool bin = filename.size() > 4 && filename.compare(filename.size() - 4, 4, ".bin") == 0;
     if (format != "auto" && format != "text" && format != "native")
         throw std::runtime_error(name_ + ".file_format must be auto|text|native");
-    if (format == "native" || (format == "auto" && bin)) { init_dump(filename); return; }
+    if (format == "native" || (format == "auto" && bin)) { init_dump(filename, block); return; }
     std::ifstream in(filename);
     if (!in) throw std::runtime_error(name_ + ": cannot open beam file '" + filename + "'");
-    std::vector<double> v[7];
+    // streamed: every particle is converted and kept (if it is in this rank's slices) as it is read
+    RefAcc acc;
+    std::vector<double> local;
     std::string line;
     while (std::getline(in, line)) {
         if (line.empty() || line[0] == '#') continue;
@@ -605,19 +615,17 @@ void Beam::init_file(const std::string& filename, const std::string& format) {
         double a[7];
         if (!(ss >> a[0] >> a[1] >> a[2] >> a[3] >> a[4] >> a[5] >> a[6])) continue;
         a[5] = xi_from_user(a[5]);
-        for (int c = 0; c < 7; ++c) v[c].push_back(a[c]);
+        accumulate(acc, a);
+        if (local_xi(a[5])) local.insert(local.end(), a, a + 7);
     }
-    std::vector<double> all(7 * v[0].size());
-    for (size_t i = 0; i < v[0].size(); ++i)
-        for (int c = 0; c < 7; ++c) all[7 * i + c] = v[c][i];
-    adopt_local(all);
+    finish_init(local, acc);
 }
 
 // native dump: int32 n, then n records of 7 doubles (x y px py pz xi w) or 10 (+ sx sy sz), as written by
 // dump(). Read in chunks; every rank keeps the particles of its slices (as adopt_local). Spins in the file
 // are used if the beam has <beam>.spin, otherwise <beam>.spin sets them (or a file with spins is read
 // without them).
-void Beam::init_dump(const std::string& filename) {
+void Beam::init_dump(const std::string& filename, size_t block) {
     std::FILE* f = std::fopen(filename.c_str(), "rb");
     if (!f) throw std::runtime_error(name_ + ": cannot open beam dump '" + filename + "'");
     std::error_code ec;
@@ -636,7 +644,7 @@ void Beam::init_dump(const std::string& filename) {
         std::cout << "Beam '" << name_ << "': the dump has spins, read without them (no " << name_ << ".spin)\n";
     RefAcc acc;
     std::vector<double> local, buf;
-    const size_t chunk = size_t(1) << 18;   // particles per read
+    const size_t chunk = block;   // particles per read
     for (size_t done = 0; done < nn;) {
         const size_t m = std::min(chunk, static_cast<size_t>(nn - done));
         buf.resize(m * nf);
@@ -663,23 +671,23 @@ void Beam::init_openpmd(const Config& cfg) {
     OpenPMDBeamRequest r = openpmd_request(cfg, p);
     r.charge = q_; r.mass = m_;   // the deck's, or the file's (constructor)
     r.want_spin = spin_;
-    OpenPMDBeamData d = read_openpmd_beam(r);
+    RefAcc acc;
+    std::vector<double> local;   // only this rank's particles are kept; the file is read in blocks
+    int nf = 7;
+    const OpenPMDBeamData d = read_openpmd_beam(r, [&](double* rows, size_t m, int ncol) {
+        nf = ncol;
+        for (size_t i = 0; i < m; ++i) {
+            double* q = rows + static_cast<size_t>(ncol) * i;
+            q[5] = xi_from_user(q[5]);
+            accumulate(acc, q);
+            if (local_xi(q[5])) local.insert(local.end(), q, q + ncol);
+        }
+    });
     if (bg_.k0 == 0) {
         std::cout << "Beam '" << p << "': " << d.summary << "\n";
         for (const auto& w : d.warnings) std::cout << "  WARNING (" << p << "): " << w << "\n";
     }
-    const int nf = d.ncol;
-    const bool keep = nf == 10;
-    RefAcc acc;
-    std::vector<double> local;
-    for (size_t i = 0; i < d.p.size(); i += static_cast<size_t>(nf)) {
-        double* q = &d.p[i];
-        q[5] = xi_from_user(q[5]);
-        accumulate(acc, q);
-        if (local_xi(q[5])) local.insert(local.end(), q, q + nf);
-    }
-    std::vector<double>().swap(d.p);
-    finish_init(local, acc, keep);
+    finish_init(local, acc, nf == 10);
 }
 
 void Beam::deposit(const View3D& src) const {

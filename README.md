@@ -989,6 +989,7 @@ separate species.
 | `<beam>.mirror_y` | 0 | quiet start: also add the mirror image y → −y (keeps an x-only offset/tilt exactly y-symmetric) |
 | `<beam>.file` | | for `profile = file`: a text file with columns x y p_x p_y p_z ξ w, or a native particle dump `beam_<name>_NNNNNN.bin` of a QUARZ run (binary, about 8× faster to read; spins are kept if the beam has `<beam>.spin`). Units in both: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the beam's species, w in n₀(c/ω_p)³, i.e. exactly the columns of the native dumps (openPMD particles differ: momentum in m_e c per physical particle, weighting in physical particles). v1.0 files (ξ = t − z): `tools/convert_deck.py --beam-file` |
 | `<beam>.file_format` | `auto` | `text`, `native` (dump), or `auto`: native if the name ends in `.bin` |
+| `<beam>.read_block` | 262144 | particles per read for native dumps and openPMD files. All beam files are read in blocks (text line by line): each rank keeps only its own particles, so no rank holds the whole file (results do not depend on the block size) |
 | `<beam>.file` (`profile = openpmd`) | | a file of an openPMD series, e.g. `out/openpmd/data_000200.h5` (its iteration is taken from the name), or a pattern with `%T`. QUARZ output or another code's particles in the co-moving frame (needs openPMD-api in the build; ADIOS2 `.bp` untested) |
 | `<beam>.openpmd_iteration` | from the name, else the last | iteration to read |
 | `<beam>.openpmd_species` | the beam's name | particle species in the file |
@@ -1002,7 +1003,7 @@ by weighting^`weightingPower`; `positionOffset` is added. The beam takes the `ch
 in the file (constant records or uniform per-particle ones) unless the deck sets `<beam>.charge` / `<beam>.mass`;
 a deck value that differs from the file's is used with a warning. With a different mass the velocities are kept:
 p/(m c) = γβ is computed with the file's mass, so the physical momenta scale with the mass. A `spin` record is read for a beam with `<beam>.spin`. Every rank reads the
-whole species and keeps its slices. As with native dumps, the momenta of a QUARZ file are half a step behind.
+species block by block and keeps its slices. As with native dumps, the momenta of a QUARZ file are half a step behind.
 
 **Parsed beams** (`<beam>.profile = parsed`)
 
@@ -1470,6 +1471,8 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | 2 steps from the dump vs from the same particles as a text file | bit-identical |
 | 2 ranks vs serial, from the dump | particles and fields bit-identical (beam log: summation order over the ranks) |
 | 2·10⁶ particles | whole run (load only) 0.27 s vs 2.1 s from the equivalent text file; file 112 vs 216 MB |
+| read in blocks of 777 particles vs the default | identical (also for openPMD, section 28) |
+| peak memory, 2·10⁶ particles (beam 112 MB) | serial: openPMD 275 → 239 MB, text 453 → 234 MB, dump 249 MB (the transfer to the device now dominates); 4 MPI ranks, openPMD: 257 MB per rank → 65–134 MB |
 
 **Beam import from openPMD** (section 28, `openpmd_import_check.py`):
 

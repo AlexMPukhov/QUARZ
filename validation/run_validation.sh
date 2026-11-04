@@ -652,6 +652,9 @@ sec27() {
     $QS $B time.steps=0 output.beam_every=1 $F=out_imp_src/beam_witness_000002.bin output.dir=out_imp_re > /dev/null
     cmp -s out_imp_src/beam_witness_000002.bin out_imp_re/beam_witness_000000.bin && r=identical || r=DIFFERENT
     echo " imported dump written again at step 0 vs the file (expected identical): $r"
+    $QS $B time.steps=0 output.beam_every=1 $F=out_imp_src/beam_witness_000002.bin witness.read_block=777 output.dir=out_imp_blk > /dev/null
+    cmp -s out_imp_re/beam_witness_000000.bin out_imp_blk/beam_witness_000000.bin && r=identical || r=DIFFERENT
+    echo " read in blocks of 777 particles vs the default block (expected identical): $r"
     python3 -c "
 import numpy as np
 a = np.fromfile('out_imp_src/beam_witness_000002.bin', np.float64, offset=4).reshape(-1, 7)
@@ -716,6 +719,10 @@ for U in ('si', 'normalised'):
     $QS $G $N output.dir=out_op_fn > out_op_fn.log   # charge and mass from the file (not in the deck)
     echo " synthetic files of other codes vs the expected beam (computed independently in Python; expected round-off):"
     python3 openpmd_import_check.py compare out_op_fsi/beam_witness_000000.bin out_op_syn/expected_si.npy
+    $QS $G witness.profile=openpmd witness.file=out_op_syn/foreign_si_000007.h5 witness.openpmd_species=beam \
+        witness.openpmd_xi_shift=-0.5 witness.read_block=777 output.dir=out_op_fsb > /dev/null
+    cmp -s out_op_fsi/beam_witness_000000.bin out_op_fsb/beam_witness_000000.bin && r=identical || r=DIFFERENT
+    echo "  si, read in blocks of 777 particles vs the default block (expected identical): $r"
     python3 openpmd_import_check.py compare out_op_fn/beam_pbar_000000.bin out_op_syn/expected_norm.npy
     echo " charge and mass taken from the file when the deck has none: $(grep -o 'from the openPMD species:.*' out_op_fn.log)"
     $QS $G $N pbar.mass=1 output.dir=out_op_m1 > out_op_m1.log

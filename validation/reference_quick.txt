@@ -342,6 +342,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07
 == 27. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) ==
  imported dump written again at step 0 vs the file (expected identical): identical
+ read in blocks of 777 particles vs the default block (expected identical): identical
  2 steps from the dump vs from the same particles as a text file (expected bit-identical, 0):
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 0.00e+00  (beams.txt col 1)
@@ -362,6 +363,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   normalised 4000 particles, max rel. difference 0.0e+00  (expected: SI round-off, normalised 0)
  synthetic files of other codes vs the expected beam (computed independently in Python; expected round-off):
   si: 3000 of 3000 particles; max rel. difference: x 1.4e-16, y 1.5e-16, px 2.8e-16, py 1.6e-16, pz 2.8e-16, xi 1.9e-15, w 2.6e-16
+  si, read in blocks of 777 particles vs the default block (expected identical): identical
   norm: 3000 of 3000 particles; max rel. difference: x 0.0e+00, y 0.0e+00, px 1.3e-16, py 1.1e-16, pz 2.1e-16, xi 0.0e+00, w 2.1e-16
  charge and mass taken from the file when the deck has none: from the openPMD species: charge -1.000000 e mass 1836.152673 m_e
  deck mass 1 instead of the file's: warning given: 1; gamma beta / the file's = 1.0000000000 ... 1.0000000000 (expected 1: velocity kept)

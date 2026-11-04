@@ -16,6 +16,8 @@
 // the velocities, gamma beta, of the file). info_only: only the species' charge and mass (for the Beam constructor).
 #pragma once
 
+#include <cstddef>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -33,11 +35,11 @@ struct OpenPMDBeamRequest {
     bool info_only = false;      // only read the species' charge and mass
     bool want_spin = false;      // the beam has <beam>.spin: read the spin record if present
     bool scale_stride = false;   // multiply the weights by the recorded particle stride
+    size_t block = size_t(1) << 18;   // particles per read (the species is never held as a whole)
 };
 
 struct OpenPMDBeamData {
-    std::vector<double> p;       // ncol doubles per particle: x y px py pz xi w (+ sx sy sz); xi = user xi
-    int ncol = 7;
+    int ncol = 7;                // doubles per particle handed to the sink
     long iteration = 0;
     long stride = 1;             // quarz_particle_stride of the species (1 if not recorded)
     bool has_charge = false, has_mass = false;   // the species has charge / mass records
@@ -46,6 +48,11 @@ struct OpenPMDBeamData {
     std::vector<std::string> warnings;
 };
 
-OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req);
+// receives the particles block by block: m rows of ncol doubles, x y px py pz xi w (+ sx sy sz), code units,
+// xi = user xi; the rows may be modified
+using OpenPMDBlockSink = std::function<void(double* rows, size_t m, int ncol)>;
+
+// reads the species and hands it to sink in blocks of req.block particles (not called with info_only)
+OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req, const OpenPMDBlockSink& sink = {});
 
 } // namespace quarz

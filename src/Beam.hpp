@@ -114,8 +114,8 @@ public:
 
 private:
     void init_gaussian(const Config& cfg);
-    void init_file(const std::string& filename, const std::string& format);   // text or native dump
-    void init_dump(const std::string& filename);   // native beam_<name>_NNNNNN.bin
+    void init_file(const std::string& filename, const std::string& format, size_t block);   // text or native dump
+    void init_dump(const std::string& filename, size_t block);   // native beam_<name>_NNNNNN.bin, in blocks
     void init_openpmd(const Config& cfg);           // <beam>.profile = openpmd (OpenPMDReader.hpp)
     void init_parsed(const Config& cfg);
 public:
