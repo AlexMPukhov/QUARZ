@@ -268,6 +268,27 @@ schemes agree with each other to ≤ 10⁻⁷.
 from the momentum before the push and applied implicitly as in the note. To
 enable it, set `pusher.rr_n0_cm3` to the physical plasma density.
 
+**Stochastic radiation reaction** (`pusher.rr_model = stochastic`, any pusher; needs
+`pusher.rr_n0_cm3`) replaces the deterministic drag by the quantum recoil of discrete photons, for
+long-scale lepton acceleration where the quantum noise of the emission adds energy spread. In the
+classical synchrotron limit (χ ≪ 1, local constant crossed field), with K = ħω_p/(m_e c²),
+χ = K (|Z|/M²) γ [(E + v×B)² − (v·E)²]^{1/2}, a step Δt emits on average
+Λ = (5/(2√3)) Z²α (M/K) χ Δt/γ photons with the one-photon moments m₁ = (4√3/15) χγ and
+m₂ = (11/12) χ²γ² (units M c²), so that Λm₁ is the Landau–Lifshitz loss of `imp_rr` and Λm₂ the
+Sokolov–Ternov quantum excitation. The loss S of the step is drawn from a zero-inflated Gamma law
+(method of N. Elkina and A. Pukhov): S = 0 with probability e^{−Λ}, otherwise
+S ~ Gamma(k, θ) matched to the conditional mean r₁ = Λm₁/q and variance
+σ² = (qΛm₂ − Λ²m₁²e^{−Λ})/q² of the compound-Poisson sum (q = 1 − e^{−Λ}, k = r₁²/σ², θ = σ²/r₁).
+Mean and variance are exact for every Λ, and S ≥ 0: a particle never gains energy by radiating.
+The classical synchrotron photon spectrum is itself close to a Gamma law (k = 0.30 for one photon),
+so the shape is good for any number of photons per step: the Wasserstein distance to the exact
+compound-Poisson distribution is ≤ 0.025 σ for Λ = 0.3…100 (`test_radiation`). S is removed
+along u after the Lorentz push; χ and Λ are taken from the momentum before it, as ν of `imp_rr`.
+The random numbers are a hash of the particle state and the step (MPI and restarts bit-identical).
+`pusher.rr_model = gaussian` draws S = Λm₁ + (Λm₂)^{1/2} N(0,1) (the Fokker–Planck model, which
+lets particles gain energy) for comparison. Validity: χ ≲ 10⁻² (the quantum reduction of the
+emitted power, ≈ 1 − 5.95 χ, is not included) and a loss per step small compared with γ.
+
 **Multiple Coulomb scattering** on the plasma: on by default for every non-rigid beam when the
 physical density `units.n0_cm3` is given (`<beam>.scattering = 0` switches it off; without
 `units.n0_cm3` it is off). Cost: about twice the time of a beam push without it (1 thread, 10⁶
@@ -867,6 +888,8 @@ The generated grid is written to `out/grid.txt` (j, r_j, h_j, V_j).
 | `pusher.beam` | `vay` | beam momentum pusher: `vay` \| `hc` \| `imp` \| `imp_rr` \| `boris`. Can be overridden per beam with `<beam>.pusher`. |
 | `pusher.rr_n0_cm3` | 0 | plasma density in cm⁻³. With `imp_rr`, a value > 0 switches on radiation reaction. |
 | `pusher.rr_scale` | 1 | multiplies the radiation-reaction strength (testing only) |
+| `pusher.rr_model` | `classical` | `classical` (deterministic Landau–Lifshitz drag, needs `imp_rr`) \| `stochastic` (quantum recoil of discrete photons, zero-inflated Gamma, any pusher) \| `gaussian` (Fokker–Planck recoil, for comparison), see §1. Can be overridden per beam with `<beam>.rr_model`. |
+| `pusher.rr_seed` | 1 | seed of the stochastic recoil |
 | `<beam>.scattering` | 1 if `units.n0_cm3` is given | multiple Coulomb scattering on the plasma ions and electrons (needs `units.n0_cm3`), see §1. The default Z = 1 is hydrogen: set `scattering.Z`, `ion_charge` for other gases |
 | `scattering.Z`, `scattering.ion_charge`, `scattering.A` | 1, Z, 1 (2Z for Z > 1) | nuclear charge, ion charge state, mass number of the background ions |
 | `scattering.coulomb_log_ions`, `scattering.coulomb_log_electrons` | computed | fixed Coulomb logarithms instead of the per-particle formulas |
@@ -1310,7 +1333,7 @@ All results can be reproduced with `validation/run_validation.sh`:
 
 ```bash
 cd validation
-./run_validation.sh -j 4 -c          # full suite (sections 1-25), compared with reference_full.txt
+./run_validation.sh -j 4 -c          # full suite (sections 1-26), compared with reference_full.txt
 ./run_validation.sh -q -j 4 -c       # quick regression test after code changes (~2 min on 2 cores)
 ./run_validation.sh -c 9 10          # selected sections only
 ```
@@ -1333,6 +1356,7 @@ A planted bug (π changed by 0.3 %) is caught by the quick mode in 4 of 6 sectio
 | test | result |
 |---|---|
 | Unit: pushers (`test_pushers`) | Identities: `imp` = HC to 5·10⁻¹⁴ and `imp_rr`(ν=0) = Vay exactly, over 10⁶ random states. Force-free γ = 2·10⁴ particle: Vay/HC/IMP exact, Boris drifts. Radiation-reaction energy loss equals ∫ν u·v dt to 0.05 %. |
+| Unit: stochastic radiation reaction (`test_radiation`) | zero-inflated Gamma sampler: exact zero probability, mean and variance; shape vs the exact compound-Poisson synchrotron emission (see section 26 below) |
 | Unit: tridiagonal (M = 16 … 9001) | Thomas, PCR and partition all at round-off level (≤ 7·10⁻¹⁶) |
 | Unit: L₀, L₁ (flux and Dirichlet wall), L₂ with χ, manufactured solutions | second order: measured 1.9–2.0 on uniform and 1.98–2.0 on stretched grids (h₀ = 0.01 → 0.00125, ratio ≤ 1.05) |
 | Cartesian particle rewrite, `modes = 0`, vs the earlier ring version | linear wake and blowout fields agree to 10⁻¹⁰–10⁻¹³; beam energies identical |
@@ -1471,6 +1495,23 @@ measurable, fixed Coulomb logarithms):
 | γ = 3 → 6 witness in a wake (E_r, E_z, B_θ), a = 2 (B term large), rms spin turn 0.49 rad, vs a Python RK4 of Lorentz + T-BMT in the stored fields | rms \|s − s_ref\| 1.3·10⁻³ at Δt = 0.5, 3.1·10⁻⁴ at Δt = 0.25 (second order, as the momenta: 1.6·10⁻³ → 4·10⁻⁴) |
 | Scattering only (section 18 deck, rate × 10⁶), spin along z | s_⊥ / (κ θ_⊥) = 0.999999 / 0.999998 (first-order small-angle result) |
 | Restart; 2 ranks vs serial | bit-identical; particles and spins bit-identical (fields 5·10⁻¹⁶, beam moments in `beams.txt` 10⁻⁹ at print precision) |
+
+**Stochastic radiation reaction** (section 26, `radiation.in`, `radiation_check.py`; unit test
+`test_radiation`). Matched 100 GeV electron beam (γ = 2·10⁵, ε_n = 1.55 c/ω_p, σ_r = 0.07 c/ω_p) in a
+pure ion channel at 10¹⁹ cm⁻³, t = 10⁴ ω_p⁻¹ (2.5 betatron periods, 40 steps per period, 10⁵
+particles): χ ≈ 2·10⁻³ (max 8·10⁻³), 4.6 photons per particle (Λ ≈ 0.05 per step), so the recoil is
+far from Gaussian. Independent reference: a Python RK4 of every particle's orbit with the
+Landau–Lifshitz drag, and the Sokolov–Ternov variance integrated along it.
+
+| test | result |
+|---|---|
+| sampler, 2·10⁶ draws at Λ = 0.02, 0.3, 3, 30 | P(S = 0) = e^{−Λ}, mean Λm₁ and variance Λm₂ within the statistical error; S ≥ 0 (Gaussian model: 47 %…0.4 % of the steps gain energy) |
+| sampler vs the exact compound-Poisson sum of synchrotron photons (spectrum ∫K₅/₃, 4·10⁵ draws) | Wasserstein distance / σ: 0.002, 0.008, 0.025, 0.021, 0.009 at Λ = 0.3, 1, 3, 10, 100 (Gaussian 0.71, 0.55, 0.35, 0.19, 0.06) |
+| photon statistics | Λm₁ = Landau–Lifshitz loss of `imp_rr` (3·10⁻¹¹), Λm₂ = Sokolov–Ternov excitation |
+| mean energy loss, ion channel: `imp_rr` / stochastic / Gaussian | 1.0035 / 1.0037 / 1.0009 × the RK4 orbits (statistical error 0.0033; `imp_rr` 1.0005 at Δt/4) |
+| Var(γ_stochastic − γ_imp_rr), particle by particle | 0.988 ± 0.010 × Sokolov–Ternov along the orbits (Gaussian model 0.995 ± 0.007) |
+| H = γ + r²/4 (conserved without radiation) increased | stochastic: no particle; Gaussian: 16.7 % of the particles |
+| restart; 2 ranks vs serial | bit-identical (random numbers from the particle state) |
 
 **Trapping → beam particles** (section 21, `trap.in`, `trap_check.py`): Trojan-horse injection,
 rigid driver (n_b = 5, σ_r = 0.3) in hydrogen with 0.1 % neutral helium, laser a0 = 0.06, w0 = 0.5
@@ -1672,12 +1713,13 @@ comparison, the blowout on the stretched grid, and the SMI run.
 | `src/Ionization.*` | element tables, ADK and cycle-averaged laser rates, Bethe impact cross-section; the ionization kernel is in `PlasmaSpecies.cpp` |
 | `src/Beam.*` | beam loading, 2D deposit, push, diagnostics |
 | `src/Pushers.hpp` | Boris, Vay, Higuera–Cary and the two schemes of the IMP note (+ radiation reaction) |
+| `src/Radiation.hpp` | stochastic radiation reaction: photon statistics, zero-inflated Gamma sampler of the step energy loss |
 | `src/Simulation.*` | slice sweep, pipelined time loop, MPI messages, output |
 | `src/Parallel.*` | thin MPI layer (point-to-point messages, offset file writes; serial stub without MPI) |
 | `src/OpenPMDWriter.*`, `src/FieldTable.hpp` | openPMD output through openPMD-api (fields in thetaMode, beam particles; stub without openPMD-api) |
 | `src/Parser.*` | function parser (compiler to a device-evaluable stack program), `my_constants` |
 | `src/Profiles.*`, `src/Config.*` | density profiles, input parser |
-| `tests/test_solvers.cpp`, `tests/test_pushers.cpp`, `tests/test_parser.cpp`, `tests/test_profiles.cpp` | unit tests (run by `ctest`) |
+| `tests/test_solvers.cpp`, `tests/test_pushers.cpp`, `tests/test_radiation.cpp`, `tests/test_parser.cpp`, `tests/test_profiles.cpp` | unit tests (run by `ctest`) |
 | `validation/` | physics validation inputs and scripts |
 | `tools/` | Python readers and plotting (optional); `quarz_gui.py` + `quarz_gui.html`: browser GUI (`quarz_machines.example.json`: clusters / remote hosts) |
 | `skills/`, `tools/sync_skills.sh`, `tests/agent_skill.sh` | agent skills `quarz-setup`, `quarz-simulation` (section "Agent skill"), their generated copies and the test that keeps them in step with the code |

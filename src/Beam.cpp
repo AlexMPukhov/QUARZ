@@ -1,4 +1,5 @@
 #include "Beam.hpp"
+#include "Radiation.hpp"
 #include <functional>
 #include "Ionization.hpp"
 #include "Config.hpp"
@@ -34,14 +35,32 @@ Beam::Beam(const Config& cfg, const std::string& name, const RadialGrid& grid, c
     else if (pm == "imp_rr") pusher_ = BeamPusher::IMP_RR;
     else throw std::runtime_error("pusher.beam must be vay|boris|hc|imp|imp_rr");
     const double n0cm3 = cfg.get_double("pusher.rr_n0_cm3", 0.0);
+    {
+        const std::string rm = cfg.get_string(name + ".rr_model", cfg.get_string("pusher.rr_model", "classical"));
+        if (rm == "classical") rrmodel_ = 0;
+        else if (rm == "stochastic") rrmodel_ = 1;
+        else if (rm == "gaussian") rrmodel_ = 2;
+        else throw std::runtime_error("pusher.rr_model must be classical|stochastic|gaussian");
+        if (rrmodel_ != 0 && !(n0cm3 > 0))
+            throw std::runtime_error("pusher.rr_model = " + rm + " needs the plasma density pusher.rr_n0_cm3");
+    }
     if (n0cm3 > 0) {
         const double re = 2.8179403262e-13;                              // cm
         const double kp = 5.64146e4 * std::sqrt(n0cm3) / 2.99792458e10;  // 1/cm
         rr_ = (2.0 / 3.0) * re * kp * q_ * q_ / m_;
-        if (pusher_ != BeamPusher::IMP_RR)
-            throw std::runtime_error("radiation reaction (pusher.rr_n0_cm3) requires pusher.beam = imp_rr");
+        if (rrmodel_ == 0 && pusher_ != BeamPusher::IMP_RR)
+            throw std::runtime_error("radiation reaction (pusher.rr_n0_cm3) requires pusher.beam = imp_rr "
+                                     "(or pusher.rr_model = stochastic with any pusher)");
+        // stochastic recoil: K = hbar omega_p / (m_e c^2) = k_p * reduced Compton wavelength
+        const double K = kp * 3.8615926796e-11;
+        const double sc = cfg.get_double("pusher.rr_scale", 1.0);
+        rr_chiK_ = K * std::abs(q_) / (m_ * m_);
+        rr_nK_ = sc * q_ * q_ * rad::ALPHA * m_ / K;
+        rr_seed_ = static_cast<uint64_t>(cfg.get_int("pusher.rr_seed", 1)) * 0xd1b54a32d192ed03ULL ^
+                   std::hash<std::string>{}(name + "#rr");
     }
     rr_ *= cfg.get_double("pusher.rr_scale", 1.0);
+    if (rrmodel_ != 0) rr_ = 0;   // the deterministic drag of imp_rr is replaced by the stochastic recoil
     // ---- spin (Thomas-BMT), <beam>.spin = sx sy sz (initial direction)
     {
         const auto sv = cfg.get_list(name + ".spin");
@@ -803,6 +822,9 @@ void Beam::advance(const View3D& fld, Real dt_kick, Real dt, bool move, const Vi
     const Real R = grid_.R;
     const int mode = static_cast<int>(pusher_);
     const Real rr = rr_;
+    const int rrmodel = move ? rrmodel_ : 0;
+    const Real chiK = rr_chiK_, nK = rr_nK_;
+    const uint64_t rkey = ion_mix(rr_seed_ ^ ion_mix(static_cast<uint64_t>(step) + 0x7a3c19ULL));
     const bool m1 = m1_;
     const bool spin = spin_;
     const Real an = anom_;
@@ -884,6 +906,21 @@ void Beam::advance(const View3D& fld, Real dt_kick, Real dt, bool move, const Vi
         }
         const push::V3 uold = u;
         u = u + (Real(0.5) * dt_kick) * Fp;   // half kick (Strang splitting around the Lorentz push)
+        // stochastic radiation reaction: chi and the photon statistics from the momentum before the push (as nu of
+        // imp_rr), the loss removed along u after it. Random numbers from a hash of the particle's state at the
+        // start of the step (independent of memory index, rank and thread)
+        Real rloss = Real(0);
+        if (rrmodel != 0) {
+            const Real g0 = Kokkos::sqrt(Real(1) + push::dot(u, u));
+            const push::V3 v = (Real(1) / g0) * u;
+            const push::V3 F = E + push::cross(v, B);
+            const Real ve = push::dot(v, E);
+            const Real wq = Kokkos::fmax(push::dot(F, F) - ve * ve, Real(0));
+            const rad::Step st = rad::step(g0, rad::chi(g0, wq, chiK), nK, Kokkos::fabs(dt_kick));
+            union { double d; uint64_t u; } bx{X}, by{Y}, bz{xi(i)}, bp{pz(i)};
+            const uint64_t id = ion_mix(bx.u ^ ion_mix(by.u ^ ion_mix(bz.u ^ ion_mix(bp.u + 0x2545f491ULL))));
+            rloss = rad::sample_loss(st, rrmodel, rkey, id);
+        }
         switch (mode) {
             case 0: u = push::vay(u, E, B, h); break;
             case 1: u = push::boris(u, E, B, h); break;
@@ -895,6 +932,7 @@ void Beam::advance(const View3D& fld, Real dt_kick, Real dt, bool move, const Vi
             }
         }
         u = u + (Real(0.5) * dt_kick) * Fp;
+        if (rloss != Real(0)) rad::apply_loss(u.x, u.y, u.z, rloss);
         if (spin) rotate_spin(Real(0.5) * (uold + u), dt_kick);
         if (scat) {
             // multiple Coulomb scattering, d<p_x^2>/dt = kappa [Z^2 n_i L_i + (n_e + (Z - zeta) n_i) L_e]

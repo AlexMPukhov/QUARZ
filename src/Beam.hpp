@@ -152,6 +152,9 @@ private:
     BeamPusher pusher_ = BeamPusher::Vay;
     Scatter sc_;   // <beam>.scattering
     Real rr_ = 0;   // (2/3) r_e k_p q^2/m, 0 = no radiation reaction
+    int rrmodel_ = 0;                       // pusher.rr_model: 0 classical (imp_rr), 1 stochastic, 2 gaussian
+    Real rr_chiK_ = 0, rr_nK_ = 0;          // see Radiation.hpp
+    uint64_t rr_seed_ = 1;
     int Np_ = 0;
     View1D x_, y_, px_, py_, pz_, xi_, w_;
     View1D sx_, sy_, sz_;           // spin (unit vector), with <beam>.spin
