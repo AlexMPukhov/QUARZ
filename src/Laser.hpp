@@ -81,6 +81,7 @@ private:
     Real k0_ = 1, dt_ = 0;
     bool circular_ = false;
     bool advanced_ = false;
+    int l_ = 0;          // laser.l: azimuthal index of an LG_0l vortex, a^ e^{i l theta} (0 = Gaussian)
     int xi_scheme_ = 0;  // laser.xi_scheme: 0 trapezoid (default), 1 bdf2, 2 euler (backward differences)
     View3D a_, an_;      // (KL, M, 2): envelope at time n and n+1
     View3D pond_;        // (KL, M, 3)

@@ -16,7 +16,7 @@ electrons.ppc  = 8
 laser.k0     = 20
 laser.a0     = 4.0
 laser.w0     = 4.0
-laser.L0     = 1.9195
+laser.L0     = 1.3573           # omega_p tau_FWHM = 2.26 is the FWHM of the field envelope: L0 = 2.26 / (2 sqrt(ln 2))
 laser.xi0    = 0
 laser.focus  = 0
 laser.polarization = linear

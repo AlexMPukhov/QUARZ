@@ -1,6 +1,7 @@
 #include "Laser.hpp"
 
 #include <cmath>
+#include <complex>
 #include <cstdio>
 #include <stdexcept>
 
@@ -57,6 +58,14 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     const double zR = 0.5 * k0_ * w0 * w0;
     const double s = -zf / zR;
     (void)t0;
+    // Laguerre-Gaussian vortex LG_0l (laser.l = l >= 1): a = Re[a^(r) e^{i l theta} e^{-i k0 xi}], so |a^|^2 and the
+    // plasma response stay axisymmetric and the envelope obeys the same equation with grad_perp^2 -> L_l = L_0 - l^2/r^2.
+    //   a^ = a0 N_l (sqrt(2) r / w0)^l / (1 + i s)^(l+1) exp(-r^2 / (w0^2 (1 + i s))) exp(-(xi - xi0)^2 / L0^2),
+    // N_l = (e / l)^(l/2): laser.a0 is the peak of |a^| over r at the focus (at r = w0 sqrt(l/2)).
+    l_ = cfg.get_int("laser.l", 0);
+    if (l_ < 0) throw std::runtime_error("laser.l must be >= 0 (the sense of rotation does not change |a|^2)");
+    if (cfg.get_int("laser.p", 0) != 0) throw std::runtime_error("laser.p: only radial index p = 0 is implemented");
+    const double lnorm = l_ > 0 ? std::pow(std::exp(1.0) / l_, 0.5 * l_) : 1.0;
 
     a_ = View3D("laser.a", KL, M, 2);
     an_ = View3D("laser.an", KL, M, 2);
@@ -66,7 +75,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     aa_tmp_ = View1D("laser.aa", M);
     cpr_ = View1D("laser.cpr", M); cpi_ = View1D("laser.cpi", M);
     dpr_ = View1D("laser.dpr", M); dpi_ = View1D("laser.dpi", M);
-    solver.l0_coefficients(la_, lb_, lc_);
+    solver.ln_coefficients(l_, la_, lb_, lc_);
 
     auto h = Kokkos::create_mirror_view(a_);
     for (int kl = 0; kl < KL; ++kl) {
@@ -82,6 +91,13 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
             const double amp = (j == M - 1) ? 0.0 : a0 * lon;   // a^ = 0 at the wall
             h(kl, j, 0) = amp * (pre_re * e_re - pre_im * e_im);
             h(kl, j, 1) = amp * (pre_re * e_im + pre_im * e_re);
+            if (l_ > 0) {   // LG_0l: times N_l (sqrt(2) r / w0)^l / (1 + i s)^l  (Gouy phase (l + 1) atan s)
+                const std::complex<double> f = lnorm * std::pow(std::sqrt(2.0) * r / w0, l_) *
+                                               std::pow(std::complex<double>(1.0, s), -l_) *
+                                               std::complex<double>(h(kl, j, 0), h(kl, j, 1));
+                h(kl, j, 0) = (j == 0) ? 0.0 : f.real();
+                h(kl, j, 1) = (j == 0) ? 0.0 : f.imag();
+            }
         }
     }
     Kokkos::deep_copy(a_, h);
@@ -95,11 +111,14 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
 }
 
 std::string Laser::description() const {
-    char b[256];
+    char b[320];
     static const char* xsn[] = {"Crank-Nicolson in t, trapezoid in xi", "Crank-Nicolson in t, BDF2 in xi",
                                 "Crank-Nicolson in t, backward Euler in xi"};
-    std::snprintf(b, sizeof(b), "Laser envelope: k0 = omega0/omega_p = %g, %s polarisation (m = 0 envelope, %s)",
-                  k0_, circular_ ? "circular" : "linear", xsn[xi_scheme_]);
+    char m[64];
+    if (l_ > 0) std::snprintf(m, sizeof(m), "LG_0%d vortex, a^ e^{i %d theta}", l_, l_);
+    else std::snprintf(m, sizeof(m), "m = 0 envelope");
+    std::snprintf(b, sizeof(b), "Laser envelope: k0 = omega0/omega_p = %g, %s polarisation (%s, %s)",
+                  k0_, circular_ ? "circular" : "linear", m, xsn[xi_scheme_]);
     return b;
 }
 
@@ -172,6 +191,7 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
     const Real dxi = box_.dxi, dt = dt_, k0 = k0_;
     const bool first = (kl == 0);
     const int scheme = xi_scheme_;
+    const bool axis0 = (l_ > 0);
     Kokkos::parallel_for("laser.advance", Range(0, 1), KOKKOS_LAMBDA(int) {
         // trapezoid: carry = (X_{k-1}, G_{k-1});  bdf2 / euler: carry = (X_{k-1}, X_{k-2})
         auto Xp = [&](int j) -> Cx { return first ? Cx{g(2, j, 0), g(2, j, 1)} : Cx{carry(0, j, 0), carry(0, j, 1)}; };
@@ -187,6 +207,10 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
         const Cx alpha{s1, -s2 * k0};   // trapezoid: 8/(dt dxi) - 4 i k0 / dt
         Cx dprev{0, 0}, cprev{0, 0};
         for (int j = 0; j < N; ++j) {
+            if (axis0 && j == 0) {   // vortex (l >= 1): a^ = 0 on the axis
+                cpr(0) = 0; cpi(0) = 0; dpr(0) = 0; dpi(0) = 0;
+                continue;   // cprev = dprev = 0
+            }
             const Real aj = j > 0 ? la(j) : Real(0), bj = lb(j), cj = lc(j);
             // H a^n at node j
             Cx Ha = cscale(bj - chi(j), A(j));

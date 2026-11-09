@@ -13,7 +13,32 @@ View1D to_device(const char* name, const std::vector<Real>& v) {
     Kokkos::deep_copy(d, h);
     return d;
 }
+
+// rows of the finite-volume operator L_n (n >= 1) with f(0) = 0 and f(R) = 0 (rows 0 and N: Dirichlet):
+//   L_n f = r^{n-1} (D_{j+1/2} - D_{j-1/2}) / dV,  D_{j+1/2} = (r_{j+1}^n f_{j+1} - r_j^n f_j) / (h_j r_{j+1/2}^{2n-1}).
+// Self-adjoint with the weights r_j dV_j and negative definite.
+void fv_rows(const RadialGrid& g, int n, std::vector<Real>& a, std::vector<Real>& b, std::vector<Real>& c) {
+    const int N = g.N, M = N + 1;
+    a.assign(M, 0); b.assign(M, 0); c.assign(M, 0);
+    b[0] = 1.0;   // f(0) = 0
+    b[N] = 1.0;   // f(R) = 0
+    auto kp = [&](int j) { return 1.0 / (g.h[j] * std::pow(g.rmid[j], 2 * n - 1)); };
+    for (int j = 1; j < N; ++j) {
+        const Real dV = 0.5 * (g.h[j] + g.h[j - 1]);
+        const Real pre = std::pow(g.r[j], n - 1) / dV;
+        c[j] = pre * std::pow(g.r[j + 1], n) * kp(j);
+        a[j] = pre * std::pow(g.r[j - 1], n) * kp(j - 1);
+        b[j] = -pre * std::pow(g.r[j], n) * (kp(j) + kp(j - 1));
+    }
+}
 } // namespace
+
+void FieldSolver::ln_coefficients(int n, View1D& a, View1D& b, View1D& c) const {
+    if (n == 0) { l0_coefficients(a, b, c); return; }
+    std::vector<Real> ha, hb, hc;
+    fv_rows(grid_, n, ha, hb, hc);
+    a = to_device("Ln.a", ha); b = to_device("Ln.b", hb); c = to_device("Ln.c", hc);
+}
 
 FieldSolver::FieldSolver(const RadialGrid& g, TridiagMethod method) : grid_(g), tri_(g.N + 1, method) {
     const int N = g.N;
@@ -36,16 +61,9 @@ FieldSolver::FieldSolver(const RadialGrid& g, TridiagMethod method) : grid_(g), 
     // ---- n >= 1: finite volume  L_n f = r^{n-1} (D_{j+1/2} - D_{j-1/2}) / dV,
     //      D_{j+1/2} = (r_{j+1}^n f_{j+1} - r_j^n f_j) / (h_j r_{j+1/2}^{2n-1})
     auto build_fv = [&](int n, bool flux, Op& op, const char* tag) {
-        std::vector<Real> a(M, 0), b(M, 0), c(M, 0);
-        b[0] = 1.0;   // f(0) = 0
+        std::vector<Real> a, b, c;
+        fv_rows(g, n, a, b, c);
         auto kp = [&](int j) { return 1.0 / (g.h[j] * std::pow(g.rmid[j], 2 * n - 1)); };
-        for (int j = 1; j < N; ++j) {
-            const Real dV = 0.5 * (g.h[j] + g.h[j - 1]);
-            const Real pre = std::pow(g.r[j], n - 1) / dV;
-            c[j] = pre * std::pow(g.r[j + 1], n) * kp(j);
-            a[j] = pre * std::pow(g.r[j - 1], n) * kp(j - 1);
-            b[j] = -pre * std::pow(g.r[j], n) * (kp(j) + kp(j - 1));
-        }
         if (flux) {   // (D_R - D_{N-1/2}) / (h_{N-1}/2) = rhs,  D_R = g  (n = 1 only)
             const Real dV = 0.5 * g.h[N - 1];
             const Real k = kp(N - 1) / dV;
