@@ -26,7 +26,8 @@
 // particles get the kick  du/dt = - qhat^2 grad <a^2> / (2 gamma_bar),  gamma_bar^2 = 1 + u^2 + qhat^2 <a^2>,
 // with d/dz = -d/dxi.  The ponderomotive potential is evaluated at time level n.
 //
-// Limitations: only the envelope's m = 0 mode (the laser is axisymmetric also with modes = 1);
+// Vortex: laser.l = l >= 1 gives an LG_0l pulse a^(r) e^{i l theta}; |a^|^2 stays axisymmetric, grad_perp^2 -> L_l.
+// Limitations: one azimuthal index per run (the laser drives only m = 0 of the plasma, also with modes = 1);
 // the d/dxi discretisation is accurate while the local wavenumber stays close to k0
 // (|k - k0| dxi << 1); no second time derivative (no backward-propagating light).
 #pragma once

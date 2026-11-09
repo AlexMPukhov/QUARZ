@@ -351,8 +351,16 @@ frequency shift (depletion).
   applied as two half kicks around the Lorentz push.
 - **MPI:** a rank passes â^n of its last two slices and the ξ-integration
   carry (X, G) of its last slice to the next rank (8 M numbers per step).
+- **Vortex lasers** (`laser.l = ℓ ≥ 1`): a Laguerre–Gaussian LG₀ℓ pulse with helical phase,
+  a = Re[â(r, ξ, t) e^{iℓθ} e^{−ik₀ξ}]. |â|², hence the ponderomotive force and χ, stay
+  axisymmetric (ring-shaped), so the plasma needs only m = 0. The envelope obeys the same
+  equation with ∇⊥² → L_ℓ = (1/r)∂_r r∂_r − ℓ²/r², discretized by the finite-volume operator
+  of the field solver (self-adjoint with the weights r dV, â = 0 on the axis); one complex
+  tridiagonal solve per slice as before.
 - **Limitations:**
-  - only the m = 0 envelope; with `modes = 1` the laser stays axisymmetric;
+  - only one azimuthal index per run: the m = 0 envelope, or one vortex e^{iℓθ}; no
+    superpositions (Hermite–Gaussian or offset/tilted lasers, which need an envelope coupled
+    to the plasma m = 1 mode); with `modes = 1` the laser stays axisymmetric;
   - no second time derivative, so no backward-propagating light;
   - the ξ discretization assumes the local wavenumber stays close to k₀,
     |k − k₀| Δξ ≪ 1. Strongly depleted, red-shifted pulses need a finer Δξ.
@@ -884,6 +892,8 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.xi0` | — | centre of the pulse in ξ (keep ≳ 3 L0 from the head of the box) |
 | `laser.focus` | 0 | distance from the initial position to the focal plane (> 0: the pulse is still converging) |
 | `laser.polarization` | `linear` | `linear` (⟨a²⟩ = \|â\|²/2) or `circular` (⟨a²⟩ = \|â\|²) |
+| `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
+| `laser.p` | 0 | radial index of the LG mode; only 0 is implemented |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets
@@ -1301,6 +1311,8 @@ written together with the native files (`output.format = both`) and compared wit
 | test | result |
 |---|---|
 | Diffraction in vacuum through the focus (k₀ = 20, w0 = 2, t = −Z_R … +Z_R) | spot size and peak amplitude within 7·10⁻⁴ of the Gaussian-beam formulas; ∫\|â\|² conserved exactly; the centroid slips by 0.0501 vs the group-velocity value t/(k₀w0)² = 0.0500 (the ∂_t∂_ξ term) |
+| LG₀ℓ vortex through the focus (`laser.l`; same case) | ℓ = 1: w_rms/(w(t)(ℓ+1)^{1/2}) within 5.7·10⁻⁴, peak 1.5·10⁻³ (ℓ = 2, 3: 1.2·10⁻³ / 2.1·10⁻³, 2.7·10⁻³ / 2.9·10⁻³); complex profile incl. the Gouy phase (ℓ+1) atan s within 0.4 % (ℓ = 1) to 1.1 % (ℓ = 3); ∫\|â\|² conserved exactly; slippage (ℓ+1)t/(k₀w0)² (0.1001 vs 0.1000) |
+| LWFA benchmarks of Meng et al., PPCF (2026) (QuickPIC laser module; `benchmarks/quickpic_laser`) vs FBPIC 0.27 with the same parameters | a0 = 2.5, k₀/k_p = 34: on-axis E_z in front of the bubble closure to 0.7–1.2 % up to s = 300 k_p⁻¹; a0 = 4, k₀/k_p = 20: E_z to 1.0–1.6 % up to s = 200 k_p⁻¹ (ξ < 7), laser energy to 0.5 %; LG₀₁ vortex (a0 = 2.1, k_p w0 = 6): E_z at r = 4 vs their OSIRIS curves 5–8 % (QuickPIC 4–5 %). Details in that directory's README |
 | Linear wake, a0 = 0.05, w0 = 3 | ψ and E_z vs (∂²_ξ + 1)ψ = ⟨a²⟩/2: 1.4·10⁻³; 2.2·10⁻⁴ for a0 = 0.02, i.e. the O(a0²) nonlinearity. The same on a stretched grid. |
 | Matched parabolic channel n = 1 + 4r²/w0⁴, stretched grid, 6.7 Z_R | spot size constant to 2·10⁻⁴; slippage 2.1653 vs (1 + 4/w0²) t/(2k₀²) = 2.1667 (Δt = 2.5; 2.5 % low at Δt = 5) |
 | Relativistic self-focusing of a long pulse, w0 = 20, over one Z_R | vacuum 1 → 0.707 (exact); P/P_c = 0.5: diffraction compensated (1.00); P/P_c = 2: focusing, a → 1.58 a0 |
