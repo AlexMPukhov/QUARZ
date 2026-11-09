@@ -1,0 +1,25 @@
+# Laser wakefield benchmark of Meng et al., PPCF (2026), doi 10.1088/1361-6587/aebd1b, case 4.1:
+# Strongly nonlinear case 4.1 (second part): |a| = 4.0, k_p w0 = 4.0, k0/k_p = 20, ds = 5, same
+# density and resolution; tau not stated in the paper: omega_p tau_FWHM = 2.26 assumed as in case 1.
+# Snapshots at s = 20, 50, 100, 150, 200 c/omega_p (their FFT solver goes unstable before s = 150).
+# OSIRIS self-injects at the back of the bubble: compare only k_p xi <~ 7. All lengths in c/omega_p.
+grid.type = uniform
+grid.rmax = 15
+grid.dr   = 0.1
+xi.min  = -5
+xi.max  = 12
+xi.step = 0.03
+time.dt    = 5
+time.steps = 40
+plasma.species = electrons
+electrons.ppc  = 8
+laser.k0     = 20
+laser.a0     = 4.0
+laser.w0     = 4.0
+laser.L0     = 1.9195
+laser.xi0    = 0
+laser.focus  = 0
+laser.polarization = linear
+output.every  = 2
+output.fields = psi ez er bth ne a
+output.dir = out_case2

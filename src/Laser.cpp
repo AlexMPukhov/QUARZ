@@ -37,6 +37,14 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     const std::string pol = cfg.get_string("laser.polarization", "linear");
     if (pol != "linear" && pol != "circular") throw std::runtime_error("laser.polarization must be linear or circular");
     circular_ = (pol == "circular");
+    // xi discretisation of the march (study option): trapezoid (box scheme, neutral) or backward
+    // differences towards the head of the box (BDF2 as in QuickPIC-FD, or backward Euler): A-stable
+    // march, dissipative in t (|g| < 1 except at kappa = 0).
+    const std::string xs = cfg.get_string("laser.xi_scheme", "trapezoid");
+    if (xs == "trapezoid") xi_scheme_ = 0;
+    else if (xs == "bdf2") xi_scheme_ = 1;
+    else if (xs == "euler") xi_scheme_ = 2;
+    else throw std::runtime_error("laser.xi_scheme must be trapezoid, bdf2 or euler");
 
     // ---- Gaussian pulse:  a^ = a0 / (1 + i s) exp(-r^2 / (w0^2 (1 + i s))) exp(-(xi - xi0)^2 / L0^2),
     //      s = (t - t_focus)/Z_R,  Z_R = k0 w0^2 / 2;  laser.focus = distance to the focal plane
@@ -88,8 +96,10 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
 
 std::string Laser::description() const {
     char b[256];
-    std::snprintf(b, sizeof(b), "Laser envelope: k0 = omega0/omega_p = %g, %s polarisation (m = 0 envelope, Crank-Nicolson in t and xi)",
-                  k0_, circular_ ? "circular" : "linear");
+    static const char* xsn[] = {"Crank-Nicolson in t, trapezoid in xi", "Crank-Nicolson in t, BDF2 in xi",
+                                "Crank-Nicolson in t, backward Euler in xi"};
+    std::snprintf(b, sizeof(b), "Laser envelope: k0 = omega0/omega_p = %g, %s polarisation (m = 0 envelope, %s)",
+                  k0_, circular_ ? "circular" : "linear", xsn[xi_scheme_]);
     return b;
 }
 
@@ -152,7 +162,7 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
     //     2 (i k0 - d/dxi) X / dt = -(1/2) H (X + 2 a^n),   H = L0 - chi,
     // i.e. the ODE in xi   dX/dxi = G,   G = i k0 X + (dt/4) H (X + 2 a^n),
     // integrated with the trapezoidal rule from slice k-1 to k (box scheme: second order and
-    // neutrally stable in xi and t; one-sided xi differences would make the scheme unstable).
+    // neutrally stable in xi and t). laser.xi_scheme = bdf2 | euler: backward differences instead (study option).
     // The carry (X, G) of the previous slice comes from the guard for the first local slice.
     const int N = grid_.N;
     auto a = a_; auto an = an_; auto g = guard_; auto carry = carry_;
@@ -161,12 +171,20 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
     auto cpr = cpr_, cpi = cpi_, dpr = dpr_, dpi = dpi_;
     const Real dxi = box_.dxi, dt = dt_, k0 = k0_;
     const bool first = (kl == 0);
+    const int scheme = xi_scheme_;
     Kokkos::parallel_for("laser.advance", Range(0, 1), KOKKOS_LAMBDA(int) {
+        // trapezoid: carry = (X_{k-1}, G_{k-1});  bdf2 / euler: carry = (X_{k-1}, X_{k-2})
         auto Xp = [&](int j) -> Cx { return first ? Cx{g(2, j, 0), g(2, j, 1)} : Cx{carry(0, j, 0), carry(0, j, 1)}; };
         auto Gp = [&](int j) -> Cx { return first ? Cx{g(3, j, 0), g(3, j, 1)} : Cx{carry(1, j, 0), carry(1, j, 1)}; };
         auto A = [&](int j) -> Cx { return Cx{a(kl, j, 0), a(kl, j, 1)}; };
-        const Real s1 = Real(8) / (dt * dxi), s2 = Real(4) / dt;
-        const Cx alpha{s1, -s2 * k0};   // 8/(dt dxi) - 4 i k0 / dt
+        // d/dxi X_k = (cd X_k - c1 X_{k-1} - c2 X_{k-2}) / (2 dxi) [trapezoid: 2 (X_k - X_{k-1}) / dxi - G_{k-1}];
+        // times 4/dt:  [cd 2/(dt dxi) - 4 i k0/dt - H] X_k = 2/(dt dxi) (c1 X_{k-1} + c2 X_{k-2}) (+ 4/dt G_{k-1}) + 2 H a^n
+        const Real cd = scheme == 0 ? Real(4) : (scheme == 1 ? Real(3) : Real(2));
+        const Real c1 = scheme == 0 ? Real(4) : (scheme == 1 ? Real(4) : Real(2));
+        const Real c2 = scheme == 1 ? Real(-1) : Real(0);
+        const Real s0 = Real(2) / (dt * dxi);
+        const Real s1 = cd * s0, s2 = Real(4) / dt;
+        const Cx alpha{s1, -s2 * k0};   // trapezoid: 8/(dt dxi) - 4 i k0 / dt
         Cx dprev{0, 0}, cprev{0, 0};
         for (int j = 0; j < N; ++j) {
             const Real aj = j > 0 ? la(j) : Real(0), bj = lb(j), cj = lc(j);
@@ -175,7 +193,9 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
             if (j > 0) Ha = cadd(Ha, cscale(aj, A(j - 1)));
             Ha = cadd(Ha, cscale(cj, A(j + 1)));
             // [8/(dt dxi) - 4 i k0/dt - H] X_k = 8/(dt dxi) X_{k-1} + 4/dt G_{k-1} + 2 H a^n_k
-            const Cx rhs = cadd(cadd(cscale(s1, Xp(j)), cscale(s2, Gp(j))), cscale(Real(2), Ha));
+            const Cx hist = scheme == 0 ? cadd(cscale(c1 * s0, Xp(j)), cscale(s2, Gp(j)))
+                                        : cadd(cscale(c1 * s0, Xp(j)), cscale(c2 * s0, Gp(j)));
+            const Cx rhs = cadd(hist, cscale(Real(2), Ha));
             const Cx diag = csub(alpha, Cx{bj - chi(j), Real(0)});
             const Real low = -aj, up = -cj;
             const Cx m = csub(diag, cscale(low, cprev));
@@ -194,7 +214,14 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
         }
         // carry for the next slice: X and G = i k0 X + (dt/4) H (X + 2 a^n); then a^(n+1) = a^n + X
         auto Y = [&](int j) -> Cx { return Cx{an(kl, j, 0) + Real(2) * a(kl, j, 0), an(kl, j, 1) + Real(2) * a(kl, j, 1)}; };
-        for (int j = 0; j <= N; ++j) {
+        if (scheme != 0) {   // bdf2 / euler: carry = (X_k, X_{k-1})
+            for (int j = 0; j <= N; ++j) {
+                const Cx xp = Xp(j);
+                carry(1, j, 0) = xp.re; carry(1, j, 1) = xp.im;
+                carry(0, j, 0) = an(kl, j, 0); carry(0, j, 1) = an(kl, j, 1);
+            }
+        }
+        for (int j = 0; j <= N && scheme == 0; ++j) {
             const Cx X{an(kl, j, 0), an(kl, j, 1)};
             Cx G{0, 0};
             if (j < N) {
