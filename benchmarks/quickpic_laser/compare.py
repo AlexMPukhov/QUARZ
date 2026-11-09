@@ -31,6 +31,7 @@ CASES = {1: dict(k0=34.0, dt=5.0, gdz=0.5, s=[50, 100, 200, 300, 400, 500], digi
          2: dict(k0=20.0, dt=5.0, gdz=0.5, s=[20, 50, 100, 150, 200], digit={200: "fig3b"}, xr=(-4, 7), xf=(-4, 7))}
 XI = np.arange(-4.0, 11.0001, 0.01)
 # QUARZ runs: out_c<case>_<name>; trap, bdf2, euler = the decks with laser.xi_scheme; intfwhm = tau as intensity FWHM;
+# case 3: trap = peak |a| = 2.1, energy = a0 of the same energy as a Gaussian (2.1 e^{-1/2});
 # fine = dxi/2, dr/2, ds/2, 2x ppc
 QRUNS = ["trap", "bdf2", "euler", "intfwhm", "fine"]
 
@@ -173,3 +174,37 @@ for case, P in CASES.items():
     np.savetxt(os.path.join(QDIR, "laser_case%d.txt" % case), np.array(rows), fmt="%.5f",
                header="s  QUARZ_max|a|_trap  QUARZ_max|a|_bdf2  QUARZ_max|E_L|/k0  QUARZ_U/U0  FBPIC_max|Ex|/E_L  "
                       "FBPIC_U/U0  GEM_max|Ex|/E_L")
+
+# ---- case 3: LG_01 vortex (Sec. 4.2), E_z along x = 4 c/omega_p (mode 0; the wake is axisymmetric)
+R3 = 4.0
+dig3 = {40: "fig6d", 60: "fig6e", 80: "fig6f"}
+if os.path.isdir(os.path.join(QDIR, "out_c3_trap")):
+    print("\n=== case 3 (LG_01, k0/kp = 20), E_z at r = %g; error over xi in [-4, 11] ===" % R3)
+    fig, axs = plt.subplots(3, 1, figsize=(8, 9.6))
+    for ip, s in enumerate([40, 60, 80]):
+        curves = {}
+        for run in ("trap", "bdf2", "energy"):
+            fn = os.path.join(QDIR, "out_c3_%s" % run, "fields_%06d.bin" % round(s / 5))
+            if os.path.exists(fn):
+                f = read_fields(fn)
+                curves["QUARZ " + run] = on(f["xi"], np.array([np.interp(R3, f["r"], row) for row in f["ez"]]))
+        fn = os.path.join(FDIR, "snap_3_s%03d.npz" % s)
+        if os.path.exists(fn):
+            d = np.load(fn)
+            o = np.argsort(d["xi"])
+            curves["FBPIC"] = on(d["xi"][o], np.array([np.interp(R3, d["r"], row) for row in d["Ez"]])[o])
+        dg = digit(dig3[s])
+        if dg:
+            curves["OSIRIS (digitized)"] = on(*dg[0])
+            curves["QuickPIC-FD (digitized)"] = on(*dg[1])
+        for ref in [r for r in ("OSIRIS (digitized)", "FBPIC") if r in curves]:
+            for k, v in curves.items():
+                if k != ref:
+                    print("  s = %3d  %-24s vs %-19s: %5.2f %%" % (s, k, ref, 100 * err(v, curves[ref], (-4, 11))))
+        ax = axs[ip]
+        for k, v in curves.items():
+            ax.plot(XI, v, lw=1.2 if "QUARZ" in k else 1.0, ls="--" if "QUARZ" in k else "-", label=k)
+        ax.set_title("case 3 (LG$_{01}$), s = %d c/$\omega_p$, $E_z$ at $k_p r$ = %g" % (s, R3))
+        ax.set_xlabel(r"$k_p\xi$"); ax.set_ylabel(r"$E_z$ ($m c\omega_p/e$)"); ax.grid(alpha=0.3); ax.legend(fontsize=7)
+    fig.tight_layout()
+    fig.savefig(os.path.join(QDIR, "compare_case3.png"), dpi=120)

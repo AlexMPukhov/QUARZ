@@ -1,0 +1,25 @@
+# Laguerre-Gaussian (vortex) laser wakefield of Meng et al., PPCF (2026), doi 10.1088/1361-6587/aebd1b, Sec. 4.2:
+# linearly polarized LG_0l with (p, l) = (0, 1), a^ ~ e^{i theta} (helical phase, ring-shaped |a|^2),
+# k_p w0 = 6, k0/k_p = 20, |a| = 2.1 (taken as the peak of |a^| over r), omega_p tau_FWHM = 2.3 (FWHM of |a|), uniform
+# plasma; they compare E_z along x = 4 c/omega_p at s = 40, 60, 80. Grid assumed as in Sec. 4.1.
+grid.type = uniform
+grid.rmax = 15
+grid.dr   = 0.1
+xi.min  = -5
+xi.max  = 12
+xi.step = 0.03
+time.dt    = 5
+time.steps = 16
+plasma.species = electrons
+electrons.ppc  = 8
+laser.k0     = 20
+laser.a0     = 2.1
+laser.l      = 1
+laser.w0     = 6
+laser.L0     = 1.3813           # 2.3 / (2 sqrt(ln 2))
+laser.xi0    = 0
+laser.focus  = 0
+laser.polarization = linear
+output.every  = 4
+output.fields = psi ez er bth ne a
+output.dir = out_case3

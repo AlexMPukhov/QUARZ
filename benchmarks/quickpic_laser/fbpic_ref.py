@@ -11,7 +11,7 @@ mode 0 (in m c omega_p / e), the electron density n_e(xi, r) / n0 (mode 0), E_x 
 envelope |a|(xi) on the axis (Hilbert transform of E_x / E_L, E_L = m c omega_0 / e), and the electromagnetic
 energy of mode 1 (the laser, J).  laser_<case>.txt: s, energy of mode 1, max |a| on the axis.
 
-usage: python3 fbpic_ref.py 1|2 [--res 2] [--intensity-fwhm] [--cpu]
+usage: python3 fbpic_ref.py 1|2|3 [--res 2] [--intensity-fwhm] [--a0 A] [--cpu]   (3: LG_01 vortex, Sec. 4.2; max|a| = on the ring)
 """
 import os
 import sys
@@ -20,7 +20,7 @@ import numpy as np
 from scipy.constants import c, e, m_e, epsilon_0
 from scipy.signal import hilbert
 from fbpic.main import Simulation
-from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser
+from fbpic.lpa_utils.laser import add_laser_pulse, GaussianLaser, DonutLikeLaguerreGaussLaser
 
 case = int(sys.argv[1])
 res = float(sys.argv[sys.argv.index("--res") + 1]) if "--res" in sys.argv else 1.0   # refinement factor
@@ -29,8 +29,13 @@ use_cuda = "--cpu" not in sys.argv
 FW = 1.17741 if "--intensity-fwhm" in sys.argv else 1.66511
 if case == 1:
     k0n, a0, w0n, L0n, s_list = 34.0, 2.5, 3.162, 2.26 / FW, [50, 100, 200, 300, 400, 500]
-else:
+elif case == 2:
     k0n, a0, w0n, L0n, s_list = 20.0, 4.0, 4.0, 2.26 / FW, [20, 50, 100, 150, 200]
+else:   # case 3: LG_01 vortex (helical phase), peak |a| = a0 (FBPIC normalises the peak to a0 e^{-1/2})
+    k0n, a0, w0n, L0n, s_list = 20.0, 2.1, 6.0, 2.3 / FW, [20, 40, 60, 80]
+if "--a0" in sys.argv:
+    a0 = float(sys.argv[sys.argv.index("--a0") + 1])
+Nm = 3 if case == 3 else 2
 
 lam = 0.8e-6
 w_0 = 2 * np.pi * c / lam
@@ -47,11 +52,15 @@ rmax = 15.0 / kp
 Nr = int(round(150 * res))
 dt = (zmax - zmin) / Nz / c
 
-sim = Simulation(Nz, zmax, Nr, rmax, 2, dt, zmin=zmin, n_order=-1, use_cuda=use_cuda,
+sim = Simulation(Nz, zmax, Nr, rmax, Nm, dt, zmin=zmin, n_order=-1, use_cuda=use_cuda,
                  boundaries={"z": "open", "r": "open"}, verbose_level=1)
 elec = sim.add_new_species(q=-e, m=m_e, n=n0, dens_func=lambda z, r: np.where(z > 0, 1.0, 0.0),
                            p_nz=2, p_nr=2, p_nt=4, p_zmin=0.0, p_rmax=rmax)
-add_laser_pulse(sim, GaussianLaser(a0, w0n / kp, L0n / kp / c, z0=z0, zf=0.0, lambda0=lam))   # tau in s
+if case == 3:
+    add_laser_pulse(sim, DonutLikeLaguerreGaussLaser(0, 1, a0 * np.exp(0.5), w0n / kp, L0n / kp / c, z0=z0, zf=0.0,
+                                                     lambda0=lam))
+else:
+    add_laser_pulse(sim, GaussianLaser(a0, w0n / kp, L0n / kp / c, z0=z0, zf=0.0, lambda0=lam))   # tau in s
 sim.set_moving_window(v=c)
 print("case %d: n0 = %.4e m^-3, Nz = %d, Nr = %d, dt = %.3e s" % (case, n0, Nz, Nr, dt), flush=True)
 
@@ -69,6 +78,9 @@ def snapshot(s_now):
     Ez0 = np.array(f0.Ez).real / E0
     ne = -np.array(f0.rho).real / (e * n0)
     Ex_ax = 2.0 * np.array(f1.Er)[:, 0].real / EL          # x polarisation, theta = 0, first cell
+    # E_x at theta = 0 on the ring r = w0/sqrt2 (vortex laser, case 3): F = F_0 + 2 Re sum_{m>=1} F_m at theta = 0
+    ir = int(np.argmin(np.abs(r * kp - w0n / np.sqrt(2))))
+    Ex_ring = sum((1.0 if m == 0 else 2.0) * np.array(fld.interp[m].Er)[:, ir].real for m in range(Nm)) / EL
     U = 0.0
     vol = 2 * np.pi * r[None, :] * f1.dr * f1.dz
     for comp in ("Er", "Et", "Ez"):
@@ -78,8 +90,8 @@ def snapshot(s_now):
     xi = s_now - z * kp
     env = np.abs(hilbert(Ex_ax))
     np.savez("snap_%d_s%03d.npz" % (case, int(round(s_now))), xi=xi, r=r * kp, Ez=Ez0, ne=ne, Ez_axis=Ez0[:, 0],
-             Ex_axis=Ex_ax, a_axis=env, U1=U, s=s_now, k0=k0n)
-    return U, env.max()
+             Ex_axis=Ex_ax, a_axis=env, Ex_ring=Ex_ring, a_ring=np.abs(hilbert(Ex_ring)), U1=U, s=s_now, k0=k0n)
+    return U, (np.abs(hilbert(Ex_ring)) if case == 3 else env).max()
 
 
 t0 = time.time()
