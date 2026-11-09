@@ -323,7 +323,7 @@ A quasi-static RZ scheme can run on any monotone radial grid without losing the 
 
 A fine axial mesh also exposes the singular closure of a cold-plasma bubble, which uniform grids hide by smoothing it over one cell. An explicit smoothing of the plasma sources over a length chosen independently of the grid regularizes it; the wake behind the closure then converges, and the model changes only at order of the smoothing length.
 
-The code already contains a laser envelope solver on the same grid (a complex tridiagonal Crank--Nicolson step per slice) and field and impact ionization, which will be described separately. Natural further extensions are higher azimuthal modes and adaptive grids that follow the witness radius during the run.
+The code already contains a laser envelope solver on the same grid (a complex tridiagonal Crank--Nicolson step per slice) and field and impact ionization, which will be described separately. Its envelope equation is that of the recent finite-difference laser module of QuickPIC~\cite{Meng2026}, which uses second-order backward differences in $\xi$ and a multigrid solve of the three-dimensional slice problem; QUARZ integrates $\xi$ with the trapezoidal rule at the cost of one complex tridiagonal solve per slice, also for Laguerre--Gaussian vortex pulses, whose intensity is axisymmetric. On the laser wakefield benchmarks of Ref.~\cite{Meng2026} ($|\hat a| = 2.5$ over $500\,k_p^{-1}$ and $|\hat a| = 4$ over $200\,k_p^{-1}$), QUARZ reproduces the on-axis wakefield of the full-PIC code FBPIC~\cite{Lehe2016} to within 1.6\% in front of the bubble closure and the depletion of the laser to 0.5\% of the pulse energy, in 5--13 core-seconds per run, and it remains stable at $|\hat a| = 4$, where the earlier split-step solver of QuickPIC was not. Natural further extensions are higher azimuthal modes and adaptive grids that follow the witness radius during the run.
 
 Finally, QUARZ shows that a zero-touch development, in which an AI agent writes all of the code and a physicist directs it and decides, by validation against independent references, what can be trusted, can produce a production-grade simulation code in plasma physics.
 
@@ -357,6 +357,8 @@ The QUARZ source code, its validation suite, the simulations and figures of Secs
 \bibitem{Laszlo2016} E. L\'aszl\'o, M. Giles, and J. Appleyard, Manycore algorithms for batch scalar and block tridiagonal solvers, ACM Trans. Math. Softw. \textbf{42}, 31 (2016).
 \bibitem{Farmer2026} J. P. Farmer, T. Wilson, A. Pukhov, M. Moreira, M. Turner, E. Gschwendtner, and C. Amoedo (AWAKE Collaboration), Nonlinear transverse beam dynamics in AWAKE Run 2c, in \textit{Proc. IPAC'26}, paper TUP3035, \url{https://www.ipac26.org/prepress/pdf/TUP3035.pdf} (2026).
 \bibitem{Feng2009} B. Feng \textit{et al.}, Enhancing parallel quasi-static particle-in-cell simulations with a pipelining algorithm, J. Comput. Phys. \textbf{228}, 5340 (2009).
+\bibitem{Meng2026} W. Meng, W. An, G. Sun, R. Tang, H. Wang, Z. Xu, F. Li, T. N. Dalichaouch, V. K. Decyk, and W. B. Mori, Improvement of the laser module in the quasi-static PIC code QuickPIC, Plasma Phys. Control. Fusion (2026), \href{https://doi.org/10.1088/1361-6587/aebd1b}{doi:10.1088/1361-6587/aebd1b}.
+\bibitem{Lehe2016} R. Lehe, M. Kirchen, I. A. Andriyash, B. B. Godfrey, and J.-L. Vay, A spectral, quasi-cylindrical and dispersion-free particle-in-cell algorithm, Comput. Phys. Commun. \textbf{203}, 66 (2016).
 \end{thebibliography}
 
 \end{document}
