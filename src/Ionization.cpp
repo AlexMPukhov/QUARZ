@@ -55,6 +55,25 @@ const std::map<std::string, Element>& elements() {
     };
     return t;
 }
+// the orbital quantum number l of the electron removed in z -> z+1 (the last subshell of NIST's ground configuration of the
+// ion of charge z; the table of VLPL data/ionization_energies.def, NIST ASD 5.12): the factor 2l + 1 of the standard ADK
+const std::map<std::string, std::vector<int>>& removed_l() {
+    static const std::map<std::string, std::vector<int>> t = {
+        {"H", {0}},
+        {"He", {0, 0}},
+        {"Li", {0, 0, 0}},
+        {"C", {1, 1, 0, 0, 0, 0}},
+        {"N", {1, 1, 1, 0, 0, 0, 0}},
+        {"O", {1, 1, 1, 1, 0, 0, 0, 0}},
+        {"Ne", {1, 1, 1, 1, 1, 1, 0, 0, 0, 0}},
+        {"Ar", {1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0}},
+        {"Kr", {1, 1, 1, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0}},
+        {"Rb", {0, 1, 1, 1, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0}},
+        {"Xe", {1, 1, 1, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0}},
+        {"Cs", {0, 1, 1, 1, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0}},
+    };
+    return t;
+}
 // electron-impact ionization: Lotz, Z. Phys. 206, 205 (1967), Table 1 (fits to the measured cross-sections;
 // formula (7): common a, b, c with U = E/P_1); P_1 is replaced by the ionization energy of the table above
 struct LotzFit {
@@ -192,6 +211,19 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
         sh = it->second.sh;
     }
     if (ip.empty()) throw std::runtime_error(name + ": no ionization energies");
+    // the orbital quantum numbers of the removed electrons (standard ADK factor 2l + 1): the element table, or
+    // <name>.ionization_l (one per energy); none known: s electrons (l = 0)
+    std::vector<int> lq;
+    if (!I.element.empty()) {
+        auto il = removed_l().find(I.element);
+        if (il != removed_l().end()) lq = il->second;
+    }
+    if (cfg.has(name + ".ionization_l")) {
+        lq.clear();
+        for (const auto& s : cfg.get_list(name + ".ionization_l")) lq.push_back(std::stoi(s));
+        if (lq.size() != ip.size()) throw std::runtime_error(name + ".ionization_l: one value per ionization energy");
+    }
+    lq.resize(ip.size(), 0);
     IonParams& P = I.P;
     P.z0 = cfg.get_int(name + ".z0", 0);
     P.zmax = cfg.get_int(name + ".z_max", static_cast<int>(ip.size()));
@@ -207,7 +239,7 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
         const double Ip = ip[l] / HARTREE_EV;                     // Hartree
         const double Z = l + 1;
         const double ns = Z / std::sqrt(2 * Ip);
-        const double C2 = std::pow(2.0, 2 * ns) / (ns * std::tgamma(2 * ns));
+        const double C2 = std::pow(2.0, 2 * ns) / (ns * std::tgamma(2 * ns)) * (2 * lq[l] + 1);   // l* = n* - 1, 2l + 1 (m = 0)
         const double e32 = std::pow(2 * Ip, 1.5);
         P.pw[l] = 2 * ns - 1;
         P.kap[l] = 2.0 * e32 / 3.0;

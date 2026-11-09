@@ -382,11 +382,16 @@ ionization event creates a macro-electron of the same weight at the ion's positi
 the product species (`<name>.ionization.product`, default `electrons`; `ppc = 0` makes
 an initially empty species). Three channels:
 
-- **Field ionization by the plasma and beam fields:** ADK rate for the static field
-  |E| = (E_x² + E_y² + E_z²)^{1/2}, with l = m = 0 and l* = n* − 1 as in
-  WarpX/HiPACE++ (Chen et al., JCP 236, 220 (2013)):
-  W = Ip C² [2(2Ip)^{3/2}/E]^{2n*−1} exp[−2(2Ip)^{3/2}/(3E)] (atomic units),
+- **Field ionization by the plasma and beam fields:** standard ADK rate for the static field
+  |E| = (E_x² + E_y² + E_z²)^{1/2}, with l* = n* − 1, the orbital quantum number l of the removed
+  electron and m = 0 (Ammosov, Delone, Krainov 1986):
+  W = Ip C² (2l + 1) [2(2Ip)^{3/2}/E]^{2n*−1} exp[−2(2Ip)^{3/2}/(3E)] (atomic units),
   C² = 2^{2n*}/(n* Γ(2n*)), n* = Z/(2Ip)^{1/2}.
+  l per charge state comes from the NIST ground configurations of the tabulated elements (the table of
+  VLPL and GEM-PIC-RZ; `<name>.ionization_l` overrides it, l = 0 for energies given without an element).
+  Before 2026-11-09 the code used l = 0 for every level, as WarpX/HiPACE++ (Chen et al., JCP 236, 220 (2013));
+  for the 2p electrons of N, O, Ne, Ar the factor 2l + 1 = 3 raises the rate threefold (Alexander: the
+  correct ionization physics in all codes).
 - **Field ionization by the laser (envelope):**
   - the ADK rate of the total field is averaged over the laser period:
     E(φ) = E_slow + E_L cos φ e_x (linear) or E_slow + E_L(cos φ, sin φ) (circular),
@@ -932,6 +937,7 @@ dephasing/depletion length. In the tests below, Δt ≤ Z_R/8 was sufficient.
 |---|---|---|
 | `<species>.element` | — | H, He, Li, C, N, O, Ne, Ar (all levels), Kr (8), Rb (3), Xe (3), Cs (2): ionization energies and mass |
 | `<species>.ionization_energies_eV` | from the element | list of ionization energies (overrides the table) |
+| `<species>.ionization_l` | from the element | orbital quantum number l of the electron removed per charge state (standard ADK factor 2l + 1); 0 for energies given without an element |
 | `<species>.z0`, `<species>.z_max` | 0, all levels | initial and highest charge state |
 | `<species>.mass` | from the element | in electron masses |
 | `<species>.mobile` | 1 | 0: ions stay at their positions (still macro-particles: their charge changes) |

@@ -38,11 +38,17 @@ def units(n0):
     return wp, 9.1093837015e-31 * 2.99792458e8 * wp / 1.602176634e-19
 
 
-def adk_si(E, ip_eV, Z):
-    """static ADK rate (1/s) for field E (V/m), l = m = 0, l* = n* - 1"""
+# orbital quantum number l of the removed electron per charge state (NIST ground configurations, as src/Ionization.cpp)
+LQ = {"H": [0], "He": [0, 0], "Li": [0, 0, 0], "C": [1, 1, 0, 0, 0, 0], "N": [1, 1, 1, 0, 0, 0, 0],
+      "O": [1, 1, 1, 1, 0, 0, 0, 0], "Ne": [1, 1, 1, 1, 1, 1, 0, 0, 0, 0], "Ar": [1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+      "Kr": [1, 1, 1, 1, 1, 1, 0, 0], "Rb": [0, 1, 1], "Xe": [1, 1, 1], "Cs": [0, 1]}
+
+
+def adk_si(E, ip_eV, Z, l=0):
+    """static ADK rate (1/s) for field E (V/m): standard form, l* = n* - 1, factor 2l + 1 (m = 0)"""
     Ip = ip_eV / HA
     ns = Z / np.sqrt(2 * Ip)
-    C2 = 2 ** (2 * ns) / (ns * Gamma(2 * ns))
+    C2 = 2 ** (2 * ns) / (ns * Gamma(2 * ns)) * (2 * l + 1)
     F = np.maximum(np.abs(E), 1e-300) / EA
     e32 = (2 * Ip) ** 1.5
     with np.errstate(over="ignore", under="ignore"):
@@ -77,7 +83,7 @@ if what == "adk":
         rr, ww = rings(r, ppc, dens)
         # field at the rings (linear in r, as the code)
         Er = np.array([np.interp(rr, r, Emag[k]) for k in range(len(xi))])  # [K, nring]
-        W = np.stack([adk_si(Er, ips[l], l + 1) / wp for l in range(L)], axis=-1)   # [K, nring, L]
+        W = np.stack([adk_si(Er, ips[l], l + 1, LQ.get(el, [0] * L)[l]) / wp for l in range(L)], axis=-1)   # [K, nring, L]
         # Markov chain of the code (all slices but the last are followed by an ionization step;
         # the last slice also ionizes): per slice P_l = 1 - exp(-W_l dxi), cascade within the slice
         f_m = np.zeros((len(rr), L + 1)); f_m[:, 0] = 1
@@ -142,7 +148,7 @@ elif what == "laser":
     aenv = a0 * np.exp(-(xf - x0) ** 2 / L0 ** 2)
     ph = k0 * xf
     E = k0 * aenv * np.abs(np.sin(ph)) * E0
-    W = np.stack([adk_si(E, ips[l], l + 1) / wp for l in range(L)])     # [L, nf]
+    W = np.stack([adk_si(E, ips[l], l + 1, LQ.get(el, [0] * L)[l]) / wp for l in range(L)])     # [L, nf]
     drift2 = (aenv * np.cos(ph)) ** 2
     fz = np.zeros(L + 1); fz[0] = 1
     zt = np.zeros(len(xf))
