@@ -197,10 +197,16 @@ if os.path.isdir(os.path.join(QDIR, "out_c3_trap")):
         if dg:
             curves["OSIRIS (digitized)"] = on(*dg[0])
             curves["QuickPIC-FD (digitized)"] = on(*dg[1])
+        # the vortex laser has an m = 0 longitudinal field (d_x of a^ e^{i theta}) at r = 4: full-PIC E_z oscillates at the
+        # laser period; second number: all curves averaged over one laser period 2 pi / k0
+        nw = int(round(2 * np.pi / 20.0 / (XI[1] - XI[0])))
+        avg = {k: np.convolve(np.nan_to_num(v), np.ones(nw) / nw, mode="same") * np.where(np.isfinite(v), 1, np.nan)
+               for k, v in curves.items()}
         for ref in [r for r in ("OSIRIS (digitized)", "FBPIC") if r in curves]:
             for k, v in curves.items():
                 if k != ref:
-                    print("  s = %3d  %-24s vs %-19s: %5.2f %%" % (s, k, ref, 100 * err(v, curves[ref], (-4, 11))))
+                    print("  s = %3d  %-24s vs %-19s: %5.2f %%   (averaged over a laser period: %5.2f %%)" %
+                          (s, k, ref, 100 * err(v, curves[ref], (-4, 11)), 100 * err(avg[k], avg[ref], (-3.5, 10.5))))
         ax = axs[ip]
         for k, v in curves.items():
             ax.plot(XI, v, lw=1.2 if "QUARZ" in k else 1.0, ls="--" if "QUARZ" in k else "-", label=k)
