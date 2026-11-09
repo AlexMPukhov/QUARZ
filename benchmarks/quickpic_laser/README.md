@@ -11,7 +11,7 @@ GEM-PIC-RZ runs the same cases as a third code (decks in that repository, `bench
 |---|---|
 | `case1.in` | \|â\| = 2.5, k_p w0 = 3.162, k₀/k_p = 34, ω_p τ_FWHM = 2.26, uniform plasma, Δr = 0.1, Δξ = 0.03, Δs = 5 (their grid), s = 0 … 500 |
 | `case2.in` | \|â\| = 4, k_p w0 = 4, k₀/k_p = 20, same pulse length and grid, s = 0 … 200 |
-| `case3.in` | Sec. 4.2: LG₀₁ vortex (`laser.l = 1`, helical phase), peak |â| = 2.1, k_p w0 = 6, k₀/k_p = 20, ω_p τ_FWHM = 2.3, s = 0 … 80; E_z along r = 4 |
+| `case3.in` | Sec. 4.2: LG₀₁ vortex (`laser.l = 1`, helical phase), peak \|â\| = 2.1, k_p w0 = 6, k₀/k_p = 20, ω_p τ_FWHM = 2.3, s = 0 … 80; E_z along r = 4 |
 | `fbpic_ref.py` | FBPIC reference: the laser starts in vacuum and focuses at a sharp plasma edge; it writes E_z, n_e, the laser envelope on the axis and the energy of mode 1 at the same s |
 | `run.sbatch` | Slurm runner (16 OpenMP threads; timings to `timings.txt`) |
 | `compare.py` | on-axis E_z of all runs vs FBPIC and, if present, vs curves digitized from the paper's figures (not included here); laser diagnostics |
