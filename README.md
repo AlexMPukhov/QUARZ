@@ -330,21 +330,26 @@ frequency shift (depletion).
 - **Discretization** (`src/Laser.*`, m = 0 envelope on the non-uniform grid):
   - for the increment X = â^{n+1} − â^n over one beam step Δt, Crank–Nicolson
     in t gives dX/dξ = i k₀ X + (Δt/4)(∇⊥² − χ)(X + 2â^n);
-  - this is integrated in ξ with the trapezoidal rule, slice by slice, inside
-    the plasma sweep from the head of the box, where the laser must vanish;
+  - this is integrated in ξ slice by slice, inside the plasma sweep from the
+    head of the box, where the laser must vanish: by default with second-order
+    backward differences (BDF2, as in QuickPIC, Meng et al., PPCF 2026), or with
+    the trapezoidal rule (`laser.xi_scheme = trapezoid`, the default before
+    2026-11-10);
   - ∇⊥² is the m = 0 operator L₀ of the field solver, so each slice is one
     complex tridiagonal solve.
 
-  Both directions are centred, so the scheme is second order. In vacuum every
-  Fourier mode keeps its amplitude, and the march in ξ damps rather than
-  amplifies. One-sided differences towards the head of the box (backward
-  Euler, BDF2 as in QuickPIC, Meng et al., PPCF 2026) are also stable: with
+  Both variants are second order. With the trapezoid both directions are
+  centred: in vacuum every Fourier mode keeps its amplitude, and the march in ξ
+  damps rather than amplifies. One-sided differences towards the head of the box
+  (BDF2, backward Euler) are also stable: with
   Crank–Nicolson in t a ξ-Fourier mode of symbol d(θ) is multiplied by
   g = (q − c)/(q + c), q = ik₀ − d(θ), c = λΔt/4, where λ ≤ 0 is an eigenvalue of
   ∇⊥² − χ, and |g| ≤ 1 because Re d ≥ 0 (BDF2: Re d = (1 − cos θ)²/Δξ); the march
-  in ξ is A-stable. They damp, the trapezoid does not. `laser.xi_scheme = bdf2 |
-  euler` selects them; they give the same results as the trapezoid in
-  `benchmarks/quickpic_laser` (BDF2 is second order, Euler first order). Differences
+  in ξ is A-stable. They damp, the trapezoid does not; BDF2 is the default
+  because it damps the short-wavelength modes in ξ that the trapezoid carries
+  undamped, which matters in long runs with a strongly red-shifted pulse.
+  `laser.xi_scheme = trapezoid | euler` selects the others; all give the same
+  results in `benchmarks/quickpic_laser` (Euler is first order). Differences
   towards the back of the box, or a wrong sign of ∇⊥², are unstable.
 - **Ponderomotive force on plasma particles:** with ⟨a²⟩ = |â|²/2 (linear
   polarization; |â|² for circular):
@@ -901,7 +906,7 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.polarization` | `linear` | `linear` (⟨a²⟩ = \|â\|²/2) or `circular` (⟨a²⟩ = \|â\|²) |
 | `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
 | `laser.p` | 0 | radial index of the LG mode; only 0 is implemented |
-| `laser.xi_scheme` | `trapezoid` | ξ discretization of the envelope march: `trapezoid` (neutral, second order), `bdf2` (second order, weakly dissipative, as in QuickPIC), `euler` (first order) |
+| `laser.xi_scheme` | `bdf2` | ξ discretization of the envelope march: `bdf2` (second order, weakly dissipative, as in QuickPIC; default since 2026-11-10), `trapezoid` (neutral, second order; the earlier default), `euler` (first order) |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets

@@ -71,7 +71,7 @@ Case 1, max|E_L|/k₀ (QUARZ) vs max|E_x|/E_L (FBPIC) at s = 50, 100, 200, 300, 
 **Stability.** All three ξ schemes of QUARZ (`laser.xi_scheme = trapezoid | bdf2 | euler`) are stable in both cases.
 The maps (`plot_maps.py`) show no near-axis tails or noise growth up to s = 200 at |â| = 4 (their FFT solver breaks
 down before s = 150), and the radial noise measure stays at 0.03.
-BDF2 and the trapezoid agree to 10⁻³ in max|â|.
+BDF2 and the trapezoid agree to 10⁻³ in max|â|. The numbers above were computed with the trapezoid, the default before 2026-11-10 (BDF2 is the default now).
 
 **Cost** (one thread of an AMD EPYC 7543): case 1, 12.8 s = 0.0036 core-hours; case 2, 5.2 s = 0.0015 core-hours.
 For case 1 the paper gives 42.7 core-hours (QuickPIC-FD), 13.9 (QuickPIC-FFT) and ~15000 (OSIRIS). This is not like
