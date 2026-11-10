@@ -67,6 +67,8 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   spot size within 2.0e-04 of w0 over 6.7 Rayleigh lengths; slip 2.1654 (theory 2.1667)
  LG_01 vortex (laser.l = 1) through the focus vs the Laguerre-Gaussian beam:
   l = 1: spot size w_rms/(w sqrt(l+1)) 5.7e-04, peak amplitude 1.5e-03, int |a|^2 conserved to 3.8e-06; profile at t = 80: rel. error 4.2e-03, phase -2.0e-03 (Gouy phase (l+1) atan s included); centroid slip 0.1002 (group velocity: (l+1) t/(k0 w0)^2 = 0.1000)
+ the same pulse from a LASY file (laser.file, exact vacuum propagation to the box):
+  spot size 8.7e-04, peak amplitude 1.1e-03, int |a|^2 conserved to 1.9e-06; centroid slip 0.0503 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
  vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):
   spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
  relativistic self-focusing, P/Pc = 0 (vacuum: 1 .97 .894 .8 .707), 0.5, 2:

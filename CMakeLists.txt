@@ -57,6 +57,7 @@ add_library(quarz_core
   src/Parallel.cpp
   src/OpenPMDWriter.cpp
   src/Laser.cpp
+  src/LaserFile.cpp
   src/Ionization.cpp)
 target_include_directories(quarz_core PUBLIC src)
 target_compile_definitions(quarz_core PUBLIC QUARZ_VERSION="${PROJECT_VERSION}")
@@ -72,6 +73,20 @@ if(QUARZ_ENABLE_MPI)
     message(STATUS "QUARZ: MPI enabled (${MPI_CXX_LIBRARY_VERSION_STRING})")
   else()
     message(WARNING "QUARZ: MPI not found - building the serial version (set QUARZ_ENABLE_MPI=OFF to silence)")
+  endif()
+endif()
+
+# LASY laser files (optional, laser.file): the HDF5 C library, e.g. -DHDF5_ROOT=/path/to/hdf5
+option(QUARZ_ENABLE_HDF5 "Read LASY laser files (needs HDF5)" ON)
+if(QUARZ_ENABLE_HDF5)
+  find_package(HDF5 COMPONENTS C)
+  if(HDF5_FOUND)
+    target_include_directories(quarz_core PUBLIC ${HDF5_INCLUDE_DIRS})
+    target_link_libraries(quarz_core PUBLIC ${HDF5_C_LIBRARIES})
+    target_compile_definitions(quarz_core PUBLIC QUARZ_USE_HDF5)
+    message(STATUS "QUARZ: LASY laser files enabled (HDF5 ${HDF5_VERSION})")
+  else()
+    message(WARNING "QUARZ: HDF5 not found - laser.file (LASY) disabled")
   endif()
 endif()
 
@@ -137,4 +152,7 @@ if(QUARZ_BUILD_TESTS)
   add_executable(test_profiles tests/test_profiles.cpp)
   target_link_libraries(test_profiles PRIVATE quarz_core)
   add_test(NAME profiles COMMAND test_profiles)
+  add_executable(test_laser_file tests/test_laser_file.cpp)
+  target_link_libraries(test_laser_file PRIVATE quarz_core)
+  add_test(NAME laser_file COMMAND test_laser_file)
 endif()
