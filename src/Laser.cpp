@@ -38,10 +38,10 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     const std::string pol = cfg.get_string("laser.polarization", "linear");
     if (pol != "linear" && pol != "circular") throw std::runtime_error("laser.polarization must be linear or circular");
     circular_ = (pol == "circular");
-    // xi discretisation of the march (study option): trapezoid (box scheme, neutral) or backward
-    // differences towards the head of the box (BDF2 as in QuickPIC-FD, or backward Euler): A-stable
-    // march, dissipative in t (|g| < 1 except at kappa = 0).
-    const std::string xs = cfg.get_string("laser.xi_scheme", "trapezoid");
+    // xi discretisation of the march: BDF2 (default; backward differences towards the head of the box, as in
+    // QuickPIC-FD: A-stable, weakly dissipative, |g| < 1 except at kappa = 0), backward Euler (first order), or the
+    // trapezoid (box scheme, neutral; the default up to 2026-11-10).
+    const std::string xs = cfg.get_string("laser.xi_scheme", "bdf2");
     if (xs == "trapezoid") xi_scheme_ = 0;
     else if (xs == "bdf2") xi_scheme_ = 1;
     else if (xs == "euler") xi_scheme_ = 2;
@@ -181,7 +181,8 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
     //     2 (i k0 - d/dxi) X / dt = -(1/2) H (X + 2 a^n),   H = L0 - chi,
     // i.e. the ODE in xi   dX/dxi = G,   G = i k0 X + (dt/4) H (X + 2 a^n),
     // integrated with the trapezoidal rule from slice k-1 to k (box scheme: second order and
-    // neutrally stable in xi and t). laser.xi_scheme = bdf2 | euler: backward differences instead (study option).
+    // neutrally stable in xi and t; laser.xi_scheme = trapezoid). Default laser.xi_scheme = bdf2 (or euler): backward
+    // differences towards the head of the box instead.
     // The carry (X, G) of the previous slice comes from the guard for the first local slice.
     const int N = grid_.N;
     auto a = a_; auto an = an_; auto g = guard_; auto carry = carry_;

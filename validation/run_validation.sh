@@ -180,15 +180,15 @@ sec10() {
 sec11() {
     echo "== 11. laser envelope solver =="
     $QS laser_vacuum.in > /dev/null
-    echo " diffraction in vacuum (k0 = 20, w0 = 2, through the focus):"; python3 laser_check.py vacuum out_laser_vac 20 2 40 0.1
+    echo " diffraction in vacuum (k0 = 20, w0 = 2, through the focus; BDF2 in xi):"; python3 laser_check.py vacuum out_laser_vac 20 2 40 0.1
     $QS laser_linear.in > /dev/null
     echo " linear wake (a0 = 0.05) vs (d^2/dxi^2 + 1) psi = <a^2>/2 (difference = O(a0^2) nonlinearity):"; python3 laser_check.py linear out_laser_lin 0.05 3 1.4142135623730951 4
     $QS laser_channel.in time.dt=$(q 2.5 5) time.steps=$(q 120 60) > /dev/null
     echo " matched parabolic channel (stretched grid):"; python3 laser_check.py channel out_laser_ch 10 3
     $QS laser_vacuum.in laser.l=1 output.every=40 output.fields=a output.dir=out_laser_lg > /dev/null
     echo " LG_01 vortex (laser.l = 1) through the focus vs the Laguerre-Gaussian beam:"; python3 laser_check.py vortex out_laser_lg 20 2 40 0.1 1
-    $QS laser_vacuum.in laser.xi_scheme=bdf2 output.dir=out_laser_bdf > /dev/null
-    echo " vacuum diffraction with BDF2 in xi (laser.xi_scheme = bdf2, dissipative):"; python3 laser_check.py vacuum out_laser_bdf 20 2 40 0.1
+    $QS laser_vacuum.in laser.xi_scheme=trapezoid output.dir=out_laser_trap > /dev/null
+    echo " vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):"; python3 laser_check.py vacuum out_laser_trap 20 2 40 0.1
     [ "$QUICK" = 1 ] && { rm -rf out_laser_*; return 0; }
     S="laser_selffocus.in grid.rmax=90 grid.regions=40:0.2 90:0.5 xi.step=0.1 time.dt=100 time.steps=40 laser.w0=20"
     $QS $S laser.a0=0.4 electrons.density=1e-9 output.dir=out_laser_sf0 > /dev/null
