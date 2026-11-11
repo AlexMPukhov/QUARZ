@@ -369,6 +369,24 @@ frequency shift (depletion).
   equation with ∇⊥² → L_ℓ = (1/r)∂_r r∂_r − ℓ²/r², discretized by the finite-volume operator
   of the field solver (self-adjoint with the weights r dV, â = 0 on the axis); one complex
   tridiagonal solve per slice as before.
+- **Laser from a LASY file** (`laser.file`, `src/LaserFile.*`; needs a build with HDF5): the envelope of a
+  [LASY](https://github.com/LASY-org/lasy) file (openPMD LaserEnvelope: `thetaMode` or `cartesian`, the electric field
+  or the normalized vector potential at a plane versus time, any spectrum, chirp or radial structure) is turned into the
+  box snapshot â(r, ξ) at t = 0:
+  - every plane wave (ω, κ) of the file is propagated exactly in vacuum from the file plane to the position z = −ξ of
+    each slice (at fixed retarded time it gains e^{i(k_z − ω)Δz}, k_z = (ω² − κ²)^{1/2}); a = E/(iω) per frequency, so
+    broadband pulses are exact; the radial transform is a Hankel transform of order ℓ (GEM-PIC-RZ's quadrature, exact for
+    an interpolant regular at the axis) evaluated directly at the nodes of the non-uniform grid;
+  - placement: the file's time `laser.file_t_center_fs` (default the intensity centroid) sits at ξ = `laser.xi0`, and the
+    file plane lies `laser.file_z` ahead of the pulse centre at t = 0 (e.g. a file written at the focus: `laser.file_z` =
+    the distance to the focus, as `laser.focus`);
+  - the carrier k0 is the file's ω_L/ω_p (or `laser.k0` if given); the polarization comes from the file: linear, or
+    circular (|p_x| = |p_y|, 90°; â is the amplitude of one component, ⟨a²⟩ = |â|²); `laser.l = ℓ` takes the file's
+    e^{iℓθ} mode (other modes are reported and dropped); `laser.file_a0` rescales the peak |â| at the file plane;
+  - needs `units.n0_cm3` (the file is in SI units). Tests: `ctest -R laser_file` (the snapshot against the spectrally
+    resolved paraxial beam: 1.4e-4 at the focus, 9.4e-4 one Rayleigh length before it, LG₀₁ 2.2e-3, a cartesian file with
+    circular polarization 1.8e-3, electric-field and vector-potential files alike) and validation section 11 (the vacuum
+    pulse of `laser_vacuum.in` from a file: through the focus as the built-in pulse, spot size 8.7e-4, peak 1.1e-3).
 - **Limitations:**
   - only one azimuthal index per run: the m = 0 envelope, or one vortex e^{iℓθ}; no
     superpositions (Hermite–Gaussian or offset/tilted lasers, which need an envelope coupled
@@ -907,6 +925,11 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
 | `laser.p` | 0 | radial index of the LG mode; only 0 is implemented |
 | `laser.xi_scheme` | `bdf2` | ξ discretization of the envelope march: `bdf2` (second order, weakly dissipative, as in QuickPIC; default since 2026-11-10), `trapezoid` (neutral, second order; the earlier default), `euler` (first order) |
+| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 and `units.n0_cm3` |
+| `laser.file_z` | 0 | distance from the pulse centre at t = 0 to the file's plane (1/k_p; > 0: the pulse still travels to it) |
+| `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
+| `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
+| `laser.file_iteration` | last | iteration in the file |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets

@@ -187,6 +187,9 @@ sec11() {
     echo " matched parabolic channel (stretched grid):"; python3 laser_check.py channel out_laser_ch 10 3
     $QS laser_vacuum.in laser.l=1 output.every=40 output.fields=a output.dir=out_laser_lg > /dev/null
     echo " LG_01 vortex (laser.l = 1) through the focus vs the Laguerre-Gaussian beam:"; python3 laser_check.py vortex out_laser_lg 20 2 40 0.1 1
+    if python3 ../tools/make_lasy_gaussian.py out_laser_vac.h5 20 2 1.5 0.1 2> /dev/null && $QS laser_vacuum_file.in > /dev/null 2>&1; then
+        echo " the same pulse from a LASY file (laser.file, exact vacuum propagation to the box):"; python3 laser_check.py vacuum out_laser_file 20 2 40 0.1
+    else echo " LASY file (laser.file): skipped (no h5py, or a build without HDF5)"; fi
     $QS laser_vacuum.in laser.xi_scheme=trapezoid output.dir=out_laser_trap > /dev/null
     echo " vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):"; python3 laser_check.py vacuum out_laser_trap 20 2 40 0.1
     [ "$QUICK" = 1 ] && { rm -rf out_laser_*; return 0; }

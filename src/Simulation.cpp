@@ -79,7 +79,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         if (nbeta_ <= 0 || dt_max_ <= 0 || dt_min_ < 0 || dt_min_ > dt_max_)
             throw std::runtime_error("time.adaptive: need time.nt_per_betatron > 0 and 0 <= time.dt_min <= time.dt_max");
         if (lag_ < P0) throw std::runtime_error("time.adaptive_lag must be >= the number of MPI ranks");
-        if (cfg.has("laser.a0")) throw std::runtime_error("time.adaptive is not available with a laser (fixed dt of the envelope solver)");
+        if (cfg.has("laser.a0") || cfg.has("laser.file")) throw std::runtime_error("time.adaptive is not available with a laser (fixed dt of the envelope solver)");
     } else if (dt_ <= 0 && nsteps_ > 0) throw std::runtime_error("time.dt must be > 0 (or set time.adaptive = 1)");
     out_every_ = cfg.get_int("output.every", 1);
     slice_bins_ = cfg.get_int("output.beam_slices", 0);
@@ -251,7 +251,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
     }
 
     // ---- laser envelope
-    if (cfg.has("laser.a0")) {
+    if (cfg.has("laser.a0") || cfg.has("laser.file")) {
         laser_ = std::make_unique<Laser>(cfg, *grid_, *solver_, box_, t_, dt_);
         fld_.laser = true;
         if (comm_.root()) std::cout << laser_->description() << "\n";
