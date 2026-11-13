@@ -346,15 +346,27 @@ frequency shift (depletion).
 - **Discretization** (`src/Laser.*`, m = 0 envelope on the non-uniform grid):
   - for the increment X = â^{n+1} − â^n over one beam step Δt, Crank–Nicolson
     in t gives dX/dξ = i k₀ X + (Δt/4)(∇⊥² − χ)(X + 2â^n);
-  - this is integrated in ξ with the trapezoidal rule, slice by slice, inside
-    the plasma sweep from the head of the box, where the laser must vanish;
+  - this is integrated in ξ slice by slice, inside the plasma sweep from the
+    head of the box, where the laser must vanish: by default with second-order
+    backward differences (BDF2, as in QuickPIC, Meng et al., PPCF 2026), or with
+    the trapezoidal rule (`laser.xi_scheme = trapezoid`, the default before
+    2026-11-10);
   - ∇⊥² is the m = 0 operator L₀ of the field solver, so each slice is one
     complex tridiagonal solve.
 
-  Both directions are centred, so the scheme is second order. In vacuum every
-  Fourier mode keeps its amplitude, and the march in ξ damps rather than
-  amplifies. One-sided ξ differences (backward Euler, BDF2) are unconditionally
-  unstable with this mixed term; they were tried and rejected.
+  Both variants are second order. With the trapezoid both directions are
+  centred: in vacuum every Fourier mode keeps its amplitude, and the march in ξ
+  damps rather than amplifies. One-sided differences towards the head of the box
+  (BDF2, backward Euler) are also stable: with
+  Crank–Nicolson in t a ξ-Fourier mode of symbol d(θ) is multiplied by
+  g = (q − c)/(q + c), q = ik₀ − d(θ), c = λΔt/4, where λ ≤ 0 is an eigenvalue of
+  ∇⊥² − χ, and |g| ≤ 1 because Re d ≥ 0 (BDF2: Re d = (1 − cos θ)²/Δξ); the march
+  in ξ is A-stable. They damp, the trapezoid does not; BDF2 is the default
+  because it damps the short-wavelength modes in ξ that the trapezoid carries
+  undamped, which matters in long runs with a strongly red-shifted pulse.
+  `laser.xi_scheme = trapezoid | euler` selects the others; all give the same
+  results in `benchmarks/quickpic_laser` (Euler is first order). Differences
+  towards the back of the box, or a wrong sign of ∇⊥², are unstable.
 - **Ponderomotive force on plasma particles:** with ⟨a²⟩ = |â|²/2 (linear
   polarization; |â|² for circular):
   - γ = (1 + p⊥² + q̂²⟨a²⟩ + Δ²)/(2Δ);
@@ -367,8 +379,34 @@ frequency shift (depletion).
   applied as two half kicks around the Lorentz push.
 - **MPI:** a rank passes â^n of its last two slices and the ξ-integration
   carry (X, G) of its last slice to the next rank (8 M numbers per step).
+- **Vortex lasers** (`laser.l = ℓ ≥ 1`): a Laguerre–Gaussian LG₀ℓ pulse with helical phase,
+  a = Re[â(r, ξ, t) e^{iℓθ} e^{−ik₀ξ}]. |â|², hence the ponderomotive force and χ, stay
+  axisymmetric (ring-shaped), so the plasma needs only m = 0. The envelope obeys the same
+  equation with ∇⊥² → L_ℓ = (1/r)∂_r r∂_r − ℓ²/r², discretized by the finite-volume operator
+  of the field solver (self-adjoint with the weights r dV, â = 0 on the axis); one complex
+  tridiagonal solve per slice as before.
+- **Laser from a LASY file** (`laser.file`, `src/LaserFile.*`; needs a build with HDF5): the envelope of a
+  [LASY](https://github.com/LASY-org/lasy) file (openPMD LaserEnvelope: `thetaMode` or `cartesian`, the electric field
+  or the normalized vector potential at a plane versus time, any spectrum, chirp or radial structure) is turned into the
+  box snapshot â(r, ξ) at t = 0:
+  - every plane wave (ω, κ) of the file is propagated exactly in vacuum from the file plane to the position z = −ξ of
+    each slice (at fixed retarded time it gains e^{i(k_z − ω)Δz}, k_z = (ω² − κ²)^{1/2}); a = E/(iω) per frequency, so
+    broadband pulses are exact; the radial transform is a Hankel transform of order ℓ (GEM-PIC-RZ's quadrature, exact for
+    an interpolant regular at the axis) evaluated directly at the nodes of the non-uniform grid;
+  - placement: the file's time `laser.file_t_center_fs` (default the intensity centroid) sits at the deck position `laser.xi0` (user ξ = z − t), and the
+    file plane lies `laser.file_z` ahead of the pulse centre at t = 0 (e.g. a file written at the focus: `laser.file_z` =
+    the distance to the focus, as `laser.focus`);
+  - the carrier k0 is the file's ω_L/ω_p (or `laser.k0` if given); the polarization comes from the file: linear, or
+    circular (|p_x| = |p_y|, 90°; â is the amplitude of one component, ⟨a²⟩ = |â|²); `laser.l = ℓ` takes the file's
+    e^{iℓθ} mode (other modes are reported and dropped); `laser.file_a0` rescales the peak |â| at the file plane;
+  - needs `units.n0_cm3` (the file is in SI units). Tests: `ctest -R laser_file` (the snapshot against the spectrally
+    resolved paraxial beam: 1.4e-4 at the focus, 9.4e-4 one Rayleigh length before it, LG₀₁ 2.2e-3, a cartesian file with
+    circular polarization 1.8e-3, electric-field and vector-potential files alike) and validation section 11 (the vacuum
+    pulse of `laser_vacuum.in` from a file: through the focus as the built-in pulse, spot size 8.7e-4, peak 1.1e-3).
 - **Limitations:**
-  - only the m = 0 envelope; with `modes = 1` the laser stays axisymmetric;
+  - only one azimuthal index per run: the m = 0 envelope, or one vortex e^{iℓθ}; no
+    superpositions (Hermite–Gaussian or offset/tilted lasers, which need an envelope coupled
+    to the plasma m = 1 mode); with `modes = 1` the laser stays axisymmetric;
   - no second time derivative, so no backward-propagating light;
   - the ξ discretization assumes the local wavenumber stays close to k₀,
     |k − k₀| Δξ ≪ 1. Strongly depleted, red-shifted pulses need a finer Δξ.
@@ -900,6 +938,14 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.xi0` | — | centre of the pulse in ξ (keep ≳ 3 L0 behind the head of the box, `xi.max`) |
 | `laser.focus` | 0 | distance from the initial position to the focal plane (> 0: the pulse is still converging) |
 | `laser.polarization` | `linear` | `linear` (⟨a²⟩ = \|â\|²/2) or `circular` (⟨a²⟩ = \|â\|²) |
+| `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
+| `laser.p` | 0 | radial index of the LG mode; only 0 is implemented |
+| `laser.xi_scheme` | `bdf2` | ξ discretization of the envelope march: `bdf2` (second order, weakly dissipative, as in QuickPIC; default since 2026-11-10), `trapezoid` (neutral, second order; the earlier default), `euler` (first order) |
+| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 and `units.n0_cm3` |
+| `laser.file_z` | 0 | distance from the pulse centre at t = 0 to the file's plane (1/k_p; > 0: the pulse still travels to it) |
+| `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
+| `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
+| `laser.file_iteration` | last | iteration in the file |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets
@@ -1343,6 +1389,8 @@ written together with the native files (`output.format = both`) and compared wit
 | test | result |
 |---|---|
 | Diffraction in vacuum through the focus (k₀ = 20, w0 = 2, t = −Z_R … +Z_R) | spot size and peak amplitude within 7·10⁻⁴ of the Gaussian-beam formulas; ∫\|â\|² conserved exactly; the centroid slips by 0.0501 vs the group-velocity value t/(k₀w0)² = 0.0500 (the ∂_t∂_ξ term) |
+| LG₀ℓ vortex through the focus (`laser.l`; same case) | ℓ = 1: w_rms/(w(t)(ℓ+1)^{1/2}) within 5.7·10⁻⁴, peak 1.5·10⁻³ (ℓ = 2, 3: 1.2·10⁻³ / 2.1·10⁻³, 2.7·10⁻³ / 2.9·10⁻³); complex profile incl. the Gouy phase (ℓ+1) atan s within 0.4 % (ℓ = 1) to 1.1 % (ℓ = 3); ∫\|â\|² conserved exactly; slippage (ℓ+1)t/(k₀w0)² (0.1001 vs 0.1000) |
+| LWFA benchmarks of Meng et al., PPCF (2026) (QuickPIC laser module; `benchmarks/quickpic_laser`) vs FBPIC 0.27 with the same parameters | a0 = 2.5, k₀/k_p = 34: on-axis E_z in front of the bubble closure to 0.7–1.4 % up to s = 500 k_p⁻¹ (1.5 % over the whole box at s = 500), laser energy loss 3.7 % vs 3.5 %; a0 = 4, k₀/k_p = 20: E_z to 1.0–1.6 % up to s = 200 k_p⁻¹ (ξ < 7), laser energy to 0.5 %; LG₀₁ vortex (`laser.l = 1`, a0 = 2.1, k_p w0 = 6): E_z at r = 4 vs FBPIC 2.6–3.4 % (averaged over a laser period), vs their OSIRIS curves 5–8 % (QuickPIC 4–5 %). Details in that directory's README |
 | Linear wake, a0 = 0.05, w0 = 3 | ψ and E_z vs (∂²_ξ + 1)ψ = ⟨a²⟩/2: 1.4·10⁻³; 2.2·10⁻⁴ for a0 = 0.02, i.e. the O(a0²) nonlinearity. The same on a stretched grid. |
 | Matched parabolic channel n = 1 + 4r²/w0⁴, stretched grid, 6.7 Z_R | spot size constant to 2·10⁻⁴; slippage 2.1653 vs (1 + 4/w0²) t/(2k₀²) = 2.1667 (Δt = 2.5; 2.5 % low at Δt = 5) |
 | Relativistic self-focusing of a long pulse, w0 = 20, over one Z_R | vacuum 1 → 0.707 (exact); P/P_c = 0.5: diffraction compensated (1.00); P/P_c = 2: focusing, a → 1.58 a0 |

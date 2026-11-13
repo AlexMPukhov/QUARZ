@@ -1,0 +1,21 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+# laser_vacuum.in with the pulse from a LASY file (laser.file): the same Gaussian (k0 = 20, w0 = 2, L0 = 1.5, a0 = 0.1) written
+# at its focus by tools/make_lasy_gaussian.py, the file plane 40 ahead (as laser.focus = 40)
+grid.type = uniform
+grid.rmax = 14
+grid.dr = 0.05
+xi.min = -10
+xi.max = 0
+xi.step = 0.05
+time.dt = 2
+time.steps = 40
+plasma.species = electrons
+electrons.density = 1e-9
+electrons.ppc = 1
+beams =
+units.n0_cm3 = 1e17
+laser.file = out_laser_vac.h5
+laser.file_z = 40
+laser.xi0 = -5
+output.every = 0
+output.dir = out_laser_file

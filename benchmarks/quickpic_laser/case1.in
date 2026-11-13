@@ -1,0 +1,26 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+# Laser wakefield benchmark of Meng et al., PPCF (2026), doi 10.1088/1361-6587/aebd1b, case 4.1:
+# Gaussian, linearly polarized laser, |a| = 2.5, k_p w0 = 3.162 (matched, k_p w0 = 2 sqrt(a0)),
+# k0/k_p = 34, omega_p tau_FWHM = 2.26 (FWHM of |a|; the OSIRIS lineouts fit this, not the intensity FWHM), uniform plasma.
+# Their QuickPIC grid: dx = 0.1, dxi = 0.03, ds = 5; outputs at s = 50 and 500 c/omega_p.
+# All lengths in c/omega_p.
+grid.type = uniform
+grid.rmax = 15
+grid.dr   = 0.1
+xi.min  = -12
+xi.max  = 5
+xi.step = 0.03
+time.dt    = 5
+time.steps = 100
+plasma.species = electrons
+electrons.ppc  = 8
+laser.k0     = 34
+laser.a0     = 2.5
+laser.w0     = 3.162
+laser.L0     = 1.3573           # omega_p tau_FWHM = 2.26 is the FWHM of the field envelope: L0 = 2.26 / (2 sqrt(ln 2))
+laser.xi0    = 0
+laser.focus  = 0
+laser.polarization = linear
+output.every  = 10
+output.fields = psi ez er bth ne a
+output.dir = out_case1

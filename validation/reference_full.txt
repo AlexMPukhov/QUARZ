@@ -61,12 +61,18 @@ out_opmd_uni vs out_opmd_p2: iterations [0, 2, 4], max rel diff 0.00e+00
  2 MPI ranks vs serial, native nodes (expected 0):
 out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
 == 11. laser envelope solver ==
- diffraction in vacuum (k0 = 20, w0 = 2, through the focus):
-  spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ diffraction in vacuum (k0 = 20, w0 = 2, through the focus; BDF2 in xi):
+  spot size 7.1e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 1.9e-06; centroid slip 0.0502 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
  linear wake (a0 = 0.05) vs (d^2/dxi^2 + 1) psi = <a^2>/2 (difference = O(a0^2) nonlinearity):
   r=0.0: psi 1.4e-03, Ez 1.2e-03;  r=1.5: psi 1.3e-03, Ez 9.9e-04;  r=3.0: psi 5.8e-04, Ez 3.7e-04
  matched parabolic channel (stretched grid):
-  spot size within 2.0e-04 of w0 over 6.7 Rayleigh lengths; slip 2.1653 (theory 2.1667)
+  spot size within 2.0e-04 of w0 over 6.7 Rayleigh lengths; slip 2.1654 (theory 2.1667)
+ LG_01 vortex (laser.l = 1) through the focus vs the Laguerre-Gaussian beam:
+  l = 1: spot size w_rms/(w sqrt(l+1)) 5.7e-04, peak amplitude 1.5e-03, int |a|^2 conserved to 3.8e-06; profile at t = 80: rel. error 4.2e-03, phase -2.0e-03 (Gouy phase (l+1) atan s included); centroid slip 0.1002 (group velocity: (l+1) t/(k0 w0)^2 = 0.1000)
+ the same pulse from a LASY file (laser.file, exact vacuum propagation to the box):
+  spot size 8.7e-04, peak amplitude 1.1e-03, int |a|^2 conserved to 1.9e-06; centroid slip 0.0503 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):
+  spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
  relativistic self-focusing, P/Pc = 0 (vacuum: 1 .97 .894 .8 .707), 0.5, 2:
   out_laser_sf0: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 0.970 0.895 0.800 0.707
   out_laser_sf05: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 1.003 1.008 1.010 1.002

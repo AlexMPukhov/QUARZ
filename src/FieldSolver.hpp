@@ -48,6 +48,8 @@ public:
     const RadialGrid& grid() const { return grid_; }
     // tridiagonal coefficients of the m = 0 operator L0 (rows 0..N-1; row N is the Dirichlet row 0 1 0)
     void l0_coefficients(View1D& a, View1D& b, View1D& c) const { a = L0_.a; b = L0_.b; c = L0_.c; }
+    // the same for L_n, any n >= 0 (n >= 1: finite volume, rows 0 and N Dirichlet; laser envelope with e^{i n theta})
+    void ln_coefficients(int n, View1D& a, View1D& b, View1D& c) const;
 
 private:
     struct Op { View1D a, b, c; bool flux = false; bool axis_regular = false; };

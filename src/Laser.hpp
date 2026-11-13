@@ -26,7 +26,8 @@
 // particles get the kick  du/dt = - qhat^2 grad <a^2> / (2 gamma_bar),  gamma_bar^2 = 1 + u^2 + qhat^2 <a^2>,
 // with d/dz = -d/dxi.  The ponderomotive potential is evaluated at time level n.
 //
-// Limitations: only the envelope's m = 0 mode (the laser is axisymmetric also with modes = 1);
+// Vortex: laser.l = l >= 1 gives an LG_0l pulse a^(r) e^{i l theta}; |a^|^2 stays axisymmetric, grad_perp^2 -> L_l.
+// Limitations: one azimuthal index per run (the laser drives only m = 0 of the plasma, also with modes = 1);
 // the d/dxi discretisation is accurate while the local wavenumber stays close to k0
 // (|k - k0| dxi << 1); no second time derivative (no backward-propagating light).
 #pragma once
@@ -81,10 +82,13 @@ private:
     Real k0_ = 1, dt_ = 0;
     bool circular_ = false;
     bool advanced_ = false;
+    std::vector<std::string> file_info_;   // laser.file: lines for the run summary
+    int l_ = 0;          // laser.l: azimuthal index of an LG_0l vortex, a^ e^{i l theta} (0 = Gaussian)
+    int xi_scheme_ = 1;  // laser.xi_scheme: 0 trapezoid, 1 bdf2 (default), 2 euler (backward differences)
     View3D a_, an_;      // (KL, M, 2): envelope at time n and n+1
     View3D pond_;        // (KL, M, 3)
     View3D guard_;       // (4, M, 2): [a^n at k0-2, a^n at k0-1, X(k0-1), G(k0-1)] from the upstream rank
-    View3D carry_;       // (2, M, 2): X, G of the previous slice
+    View3D carry_;       // (2, M, 2): X, G of the previous slice (bdf2/euler: X_{k-1}, X_{k-2})
     View1D la_, lb_, lc_;                   // L0 coefficients
     View1D aa_tmp_;                         // scratch
     View1D cpr_, cpi_, dpr_, dpi_;          // Thomas scratch (complex)
