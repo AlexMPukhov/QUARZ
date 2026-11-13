@@ -181,7 +181,8 @@ void OpenPMDWriter::Impl::open() {
     S.setParticlesPath("particles/");
     S.setAttribute("quarz_units", I.si ? std::string("SI") : std::string("normalised: c/omega_p, 1/omega_p, n0, m_e c omega_p/e"));
     if (I.si) S.setAttribute("quarz_n0_SI", I.n0);
-    S.setAttribute("quarz_coordinates", std::string("z = t - xi (lab frame); xi = t - z is the code's co-moving coordinate"));
+    S.setAttribute("quarz_coordinates", std::string("co-moving frame: the mesh axis z and the particle positions z are xi = z_lab - c t "
+                                                     "(as the inputs and native outputs); lab position z_lab = z + c t, t = iteration time"));
 }
 
 OpenPMDWriter::~OpenPMDWriter() {
@@ -230,7 +231,8 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
         if ((I.box.k0 + kl) % xs == 0) rows.push_back(kl);
     const int K = (I.box.nxi - 1) / xs + 1, KL = static_cast<int>(rows.size()), k0 = (I.box.k0 + xs - 1) / xs;
     const double dxi = I.box.dxi * xs;
-    const double zmin = t - (I.box.xi_min + (K - 1) * dxi);   // z = t - xi, increasing z = decreasing xi
+    // co-moving axis: z = user xi = -(internal xi); the last written slice has the smallest xi
+    const double zmin = xi_to_user(I.box.xi_min + (K - 1) * dxi);
 
     if (T) {
         const int nm = I.m1 ? 3 : 1;
@@ -271,7 +273,8 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
                 m.setAttribute("gridType", std::string("rectilinear"));   // interim form: attribute
                 m.setAttribute("gridCoordinates_r", I.rout);
 #endif
-                m.setAttribute("quarz_r_nodes", I.rout);   // deprecated, for older QUARZ readers
+                // (the deprecated per-mesh copy quarz_r_nodes is no longer written: HDF5 attributes are
+                // limited to 64 KB, i.e. ~8190 nodes, and the run failed at the first output beyond that)
             } else {
                 m.setGeometry(Mesh::Geometry::thetaMode);
                 m.setGeometryParameters(std::string("m=") + (I.m1 ? "2" : "1") + ";imag=+");
@@ -349,7 +352,7 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
         if (T->find("a_re")) {   // laser envelope a^ (normalised vector potential, dimensionless)
             Mesh L = it.meshes["laserEnvelope"];
             setup_mesh(L, UD{});
-            L.setAttribute("quarz_convention", std::string("a = Re[(re + i im) exp(-i k0 xi)], xi = t - z"));
+            L.setAttribute("quarz_convention", std::string("a = Re[(re + i im) exp(i k0 xi)], xi = z - t"));
             store(L["re"], "a_re", 1.0);
             store(L["im"], "a_im", 1.0);
         }
@@ -369,6 +372,8 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
         if (ntot == 0) continue;   // same decision on every rank
         const long long poff = exscan_sum(nloc);
         ParticleSpecies sp = it.particles[bp->name()];
+        // every pstride-th particle with unchanged weights: recorded so that an import can scale them
+        sp.setAttribute("quarz_particle_stride", static_cast<int64_t>(pstride));
         const Dataset ds(Datatype::DOUBLE, {static_cast<uint64_t>(ntot)});
         const Offset o{static_cast<uint64_t>(poff)};
         const Extent e{static_cast<uint64_t>(nloc)};
@@ -394,7 +399,7 @@ void OpenPMDWriter::write(int step, double t, const FieldTable* T, const std::ve
             weighted(pos, 0, 0.0);
             put(pos["x"], column(0, 0.0, 1.0), I.uL);
             put(pos["y"], column(1, 0.0, 1.0), I.uL);
-            put(pos["z"], column(5, t, -1.0), I.uL);   // z = t - xi
+            put(pos["z"], column(5, 0.0, -1.0), I.uL);   // co-moving: z = user xi = -(internal xi)
         }
         {
             Record po = sp["positionOffset"];

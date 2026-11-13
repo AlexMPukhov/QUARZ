@@ -24,7 +24,7 @@ subprocess.run([os.environ.get('QUARZ', '../build/quarz'), 'laser_vs_waket.in', 
 S = io.Series(f'd_{tag}/hdf5/data%08T.h5', io.Access.read_only); it = S.iterations[0]
 m = it.meshes['E']; Ez = m['z'].load_chunk(); S.flush(); Ez = Ez[0,0,:]*m['z'].unit_SI/E0
 z = (m.grid_global_offset[-1] + m.grid_spacing[-1]*np.arange(Ez.size))/s
-f = read_fields(f'q_{tag}/fields_000000.bin'); xq = f['xi'] - 6.0
+f = read_fields(f'q_{tag}/fields_000000.bin'); xq = -f['xi'] - 6.0   # distance behind the QUARZ head, - 6
 xw = -z
 ezw = np.interp(xq, xw[::-1], Ez[::-1])
 sel = (xq > -2) & (xq < 6)

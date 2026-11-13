@@ -1,10 +1,11 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # field ionization of dilute H and He by the field of a rigid electron beam (ions immobile: clean reference)
 units.n0_cm3 = 1e17
 grid.type = uniform
 grid.rmax = 4
 grid.dr = 0.01
-xi.min = 0
-xi.max = 8
+xi.min = -8
+xi.max = 0
 xi.step = 0.005
 time.dt = 0
 time.steps = 0
@@ -20,7 +21,7 @@ driver.analytic = 1
 driver.n0 = 25
 driver.sigma_r = 0.5
 driver.sigma_xi = 1
-driver.xi0 = 3
+driver.xi0 = -3
 driver.gamma = 20000
 output.dir = out_ion_adk
 output.every = 1

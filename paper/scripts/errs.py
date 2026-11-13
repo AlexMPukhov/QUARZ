@@ -2,7 +2,7 @@ import os, sys; _R = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.
 from quarz_read import read_fields
 import numpy as np, re, json
 ref = read_fields('out_' + (sys.argv[1] if len(sys.argv) > 1 else 'ref') + '/fields_000000.bin')
-xi = ref['xi']; ks = np.where((xi>6.4)&(xi<7.2))[0]
+xi = ref['xi']; ks = np.where((xi>-7.2)&(xi<-6.4))[0]
 def kk(d): return [np.argmin(abs(d['xi']-xi[k])) for k in ks]
 def samp(d, f, rr): return np.array([np.interp(rr, d['r'], f(d,k)) for k in kk(d)])
 F = {'ni0': (lambda d,k: d['ni'][k], 0.0), 'wr01': (lambda d,k: d['er'][k]-d['bth'][k], 0.01),

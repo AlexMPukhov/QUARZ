@@ -1,10 +1,11 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # relativistic self-focusing of a long pulse (L > lambda_p), P/Pc = (k_p w0 a0)^2/32;
 # run_validation.sh uses w0 = 20 with a0 = 0.2, 0.4 (P/Pc = 0.5, 2) and a vacuum reference
 grid.type = regions
 grid.rmax = 25
 grid.regions = 6:0.04 25:0.2
-xi.min = 0
-xi.max = 60
+xi.min = -60
+xi.max = 0
 xi.step = 0.05
 time.dt = 5
 time.steps = 40
@@ -15,6 +16,6 @@ laser.k0 = 20
 laser.a0 = 0.1
 laser.w0 = 4
 laser.L0 = 12
-laser.xi0 = 30
+laser.xi0 = -30
 output.every = 10
 output.dir = out_laser_sf

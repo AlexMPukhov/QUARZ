@@ -24,10 +24,11 @@ for fg in sorted(glob.glob(G + "/fields_*.bin")):
     base = sorted({k[:-2] if k.endswith(("_c", "_s")) else k for k in names})
     if base != sorted(fields):
         print("  components", base, "expected", sorted(fields)); bad += 1
-    if not np.array_equal(b["r"], a["r"][:jm]) or not np.array_equal(b["xi"], a["xi"][::xs]):
+    ks = np.arange(len(a["xi"]) - 1, -1, -xs)[::-1]   # every xs-th slice counted from the head (the last row)
+    if not np.array_equal(b["r"], a["r"][:jm]) or not np.array_equal(b["xi"], a["xi"][ks]):
         print("  grid of", fg, "wrong"); bad += 1
     for k in names:
-        if not np.array_equal(b[k], a[k][::xs, :jm]):
+        if not np.array_equal(b[k], a[k][ks, :jm]):
             print("  field", k, "of", fg, "differs"); bad += 1
     nf += 1
 for bm in beams:

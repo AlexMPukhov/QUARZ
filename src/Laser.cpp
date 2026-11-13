@@ -82,7 +82,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
         in.path = cfg.get_string("laser.file");
         in.iteration = cfg.get_int("laser.file_iteration", -1);
         in.n0_cm3 = cfg.get_double("units.n0_cm3", 0.0);
-        in.xi0 = cfg.get_double("laser.xi0");
+        in.xi0 = xi_from_user(cfg.get_double("laser.xi0"));   // internal xi, like the slices xs below (Types.hpp)
         in.file_z = cfg.get_double("laser.file_z", 0.0);
         if (cfg.has("laser.file_t_center_fs"))
             in.t_center = cfg.get_double("laser.file_t_center_fs") * 1e-15 * 5.64146e4 * std::sqrt(in.n0_cm3);
@@ -112,7 +112,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
         const double a0 = cfg.get_double("laser.a0");
         const double w0 = cfg.get_double("laser.w0");
         const double L0 = cfg.get_double("laser.L0");
-        const double xi0 = cfg.get_double("laser.xi0");
+        const double xi0 = xi_from_user(cfg.get_double("laser.xi0"));   // internal xi (Types.hpp)
         const double zf = cfg.get_double("laser.focus", 0.0);
         if (w0 <= 0 || L0 <= 0) throw std::runtime_error("laser: w0 and L0 must be positive");
         const double zR = 0.5 * k0_ * w0 * w0;
@@ -148,7 +148,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     // the head of the box must be free of light
     if (box.k0 == 0 && head > 1e-2 * peak)
         std::fprintf(stderr, "WARNING: the laser is not negligible at the head of the box (xi = %g): |a| = %.2g of its peak there\n",
-                     box.xi_min, head / peak);
+                     xi_to_user(box.xi_min), head / peak);
 }
 
 std::string Laser::description() const {
@@ -319,7 +319,7 @@ std::array<double, 5> Laser::sums() const {
             const double m2 = h(kl, j, 0) * h(kl, j, 0) + h(kl, j, 1) * h(kl, j, 1);
             const double dv = grid_.V[j] * box_.dxi;
             S[0] += m2 * dv;
-            S[1] += m2 * xi * dv;
+            S[1] += m2 * xi_to_user(xi) * dv;   // centroid in the user xi
             S[2] += m2 * grid_.r[j] * grid_.r[j] * dv;
             S[3] = std::max(S[3], std::sqrt(m2));
             S[4] += m2 * xi * xi * dv;

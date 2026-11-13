@@ -1,11 +1,12 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Two-stage runs through the rear boundary (section 19): rigid or evolving driver in 0..5,
 # witness at xi = 7; stage 1 = driver box 0..5 (boundary.write), stage 2 = witness box from 5.01 (boundary.read)
 grid.type = regions
 grid.rmax = 8
 grid.regions = 0.5:0.005 2.5:0.02 8:0.1
 grid.max_ratio = 1.05
-xi.min = 0
-xi.max = 10
+xi.min = -10
+xi.max = 0
 xi.step = 0.01
 time.dt = 10
 time.steps = 6
@@ -16,7 +17,7 @@ beams.xi_shape = ngp
 driver.n0 = 10
 driver.sigma_r = 0.3
 driver.sigma_xi = 1.0
-driver.xi0 = 3
+driver.xi0 = -3
 driver.cut = 1.8
 driver.gamma = 20000
 driver.nparticles = 200000
@@ -24,7 +25,7 @@ driver.rigid = 1
 witness.n0 = 0.01
 witness.sigma_r = 0.05
 witness.sigma_xi = 0.05
-witness.xi0 = 7
+witness.xi0 = -7
 witness.gamma = 1000
 witness.emit_n = 0.001
 witness.nparticles = 20000

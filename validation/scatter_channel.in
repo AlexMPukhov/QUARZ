@@ -1,11 +1,12 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Coulomb scattering in a pure ion channel: emittance growth of a matched witness,
 # d eps_n / dt = D / sqrt(2 gamma) with D = kappa Z^2 n_i L_i (Kirby et al.)
 grid.type = regions
 grid.rmax = 4
 grid.regions = 0.3:0.002 4:0.02
 grid.max_ratio = 1.05
-xi.min = 0
-xi.max = 2
+xi.min = -2
+xi.max = 0
 xi.step = 0.02
 time.dt = 10
 time.steps = 200
@@ -18,7 +19,7 @@ beams = witness
 witness.n0 = 1e-6
 witness.sigma_r = 0.021147
 witness.sigma_xi = 0.1
-witness.xi0 = 1
+witness.xi0 = -1
 witness.gamma = 1000
 witness.emit_n = 0.01
 witness.nparticles = 100000

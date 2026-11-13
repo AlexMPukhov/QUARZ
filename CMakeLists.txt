@@ -56,6 +56,7 @@ add_library(quarz_core
   src/SimulationIO.cpp
   src/Parallel.cpp
   src/OpenPMDWriter.cpp
+  src/OpenPMDReader.cpp
   src/Laser.cpp
   src/LaserFile.cpp
   src/Ionization.cpp)

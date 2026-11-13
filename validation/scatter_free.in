@@ -1,11 +1,12 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Coulomb scattering: a weak zero-emittance witness in a uniform plasma (no wake to speak of):
 # <p_x^2> grows as D t with D = kappa (Z^2 n_i L_i + n_e L_e), kappa = k_p r_e * scattering.factor
 grid.type = regions
 grid.rmax = 6
 grid.regions = 1:0.01 6:0.05
 grid.max_ratio = 1.05
-xi.min = 0
-xi.max = 2
+xi.min = -2
+xi.max = 0
 xi.step = 0.02
 time.dt = 5
 time.steps = 20
@@ -16,7 +17,7 @@ beams = witness
 witness.n0 = 1e-8
 witness.sigma_r = 0.05
 witness.sigma_xi = 0.1
-witness.xi0 = 1
+witness.xi0 = -1
 witness.gamma = 1000
 witness.emit_n = 0
 witness.nparticles = 100000

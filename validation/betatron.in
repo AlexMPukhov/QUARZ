@@ -1,10 +1,11 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Betatron oscillation of a zero-emittance witness in a pure ion channel
 grid.type = regions
 grid.rmax = 4
 grid.regions = 0.3:0.002 4:0.02
 grid.max_ratio = 1.05
-xi.min = 0
-xi.max = 4
+xi.min = -4
+xi.max = 0
 xi.step = 0.02
 time.dt = 5
 time.steps = 60
@@ -16,7 +17,7 @@ beams = witness
 witness.n0 = 1e-4
 witness.sigma_r = 0.1
 witness.sigma_xi = 0.3
-witness.xi0 = 2
+witness.xi0 = -2
 witness.gamma = 1000
 witness.emit_n = 0
 witness.nparticles = 20000

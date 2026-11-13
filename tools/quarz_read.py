@@ -3,6 +3,7 @@
 fields_NNNNNN.bin (version 2):
     int32 version(=2), int32 M (radial nodes), int32 K (xi slices), int32 mode1, float64 t,
     float64 r[M], float64 xi[K], int32 ncomp, then ncomp x { char name[16], float64 data[K][M] }
+    (xi = z - t, increasing: the head of the box is the last slice)
     mode 0 names: psi ez er eth br bth bz ne ni rhob
     mode 1 names: <name>_c, <name>_s with  f(r, theta) = f0 + f_c cos(theta) + f_s sin(theta)
 beam_<name>_NNNNNN.bin:
@@ -77,3 +78,14 @@ def read_beamlog(fn):
 def read_slices(fn):
     a = np.loadtxt(fn)
     return dict(zip(["xi", "charge", "x_mean", "y_mean", "sigma_x", "sigma_y", "gamma_mean", "emit_nx"], a.T))
+
+
+def head_first(d):
+    """Fields from read_fields() reordered from the head of the box backwards, with the coordinate
+    s = -xi (distance behind the head; increasing). Convenient for wake analysis, where the plasma
+    response is integrated from the head. The arrays [K][M] are reversed along K, "xi" too."""
+    K = len(d["xi"])
+    out = {k: (v[::-1] if isinstance(v, np.ndarray) and v.ndim == 2 and v.shape[0] == K else v) for k, v in d.items()}
+    out["xi"] = d["xi"][::-1]
+    out["s"] = -out["xi"]
+    return out

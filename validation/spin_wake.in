@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Spin precession of a low-energy witness (gamma 3) in the linear wake of a rigid driver: E_r, E_z
 # and B_theta all act (the B term of Thomas-BMT is not small at gamma 3). Reference: RK4 integration
 # of the Lorentz force and the T-BMT equation in Python with the fields of the QUARZ field file
@@ -5,8 +6,8 @@
 grid.type = uniform
 grid.rmax = 5
 grid.dr = 0.02
-xi.min = 0
-xi.max = 10
+xi.min = -10
+xi.max = 0
 xi.step = 0.02
 time.dt = 0.5
 time.steps = 80
@@ -16,7 +17,7 @@ beams = driver witness
 driver.n0 = 0.3
 driver.sigma_r = 0.5
 driver.sigma_xi = 1
-driver.xi0 = 2.5
+driver.xi0 = -2.5
 driver.gamma = 20000
 driver.cut = 4
 driver.nparticles = 200000
@@ -24,7 +25,7 @@ driver.rigid = 1
 witness.n0 = 1e-8
 witness.sigma_r = 0.4
 witness.sigma_xi = 0.3
-witness.xi0 = 5.0
+witness.xi0 = -5.0
 witness.gamma = 3
 witness.nparticles = 500
 witness.spin = 0.6 0 0.8

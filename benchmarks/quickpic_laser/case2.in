@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Laser wakefield benchmark of Meng et al., PPCF (2026), doi 10.1088/1361-6587/aebd1b, case 4.1:
 # Strongly nonlinear case 4.1 (second part): |a| = 4.0, k_p w0 = 4.0, k0/k_p = 20, ds = 5, same
 # density and resolution; tau not stated in the paper: omega_p tau_FWHM = 2.26 assumed as in case 1.
@@ -6,8 +7,8 @@
 grid.type = uniform
 grid.rmax = 15
 grid.dr   = 0.1
-xi.min  = -5
-xi.max  = 12
+xi.min  = -12
+xi.max  = 5
 xi.step = 0.03
 time.dt    = 5
 time.steps = 40

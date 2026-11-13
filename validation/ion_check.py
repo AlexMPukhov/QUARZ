@@ -25,7 +25,7 @@ import numpy as np
 from math import gamma as Gamma
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-from quarz_read import read_fields  # noqa: E402
+from quarz_read import read_fields, head_first  # noqa: E402
 
 IP = {"H": [13.59844], "He": [24.58739, 54.41776], "Li": [5.39172, 75.6402, 122.4543],
       "N": [14.5341, 29.6013, 47.44924, 77.4735, 97.8902, 552.0718, 667.046],
@@ -65,8 +65,8 @@ what = sys.argv[1]
 if what == "adk":
     d, n0, ppc, dr = sys.argv[2], float(sys.argv[3]), int(sys.argv[4]), float(sys.argv[5])
     wp, E0 = units(n0)
-    f = read_fields(d + "/fields_000000.bin")
-    r, xi = f["r"], f["xi"]
+    f = head_first(read_fields(d + "/fields_000000.bin"))   # from the head: s = -xi increasing
+    r, xi = f["r"], f["s"]
     dxi = xi[1] - xi[0]
     Emag = np.sqrt(f["er"] ** 2 + f["eth"] ** 2 + f["ez"] ** 2) * E0          # V/m, [K, M]
     for spec in sys.argv[6:]:
@@ -130,9 +130,10 @@ if what == "adk":
 elif what == "laser":
     d, n0, k0, a0, L0, x0, el, dens = (sys.argv[2], float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5]),
                                         float(sys.argv[6]), float(sys.argv[7]), sys.argv[8], float(sys.argv[9]))
+    x0 = -x0   # pulse centre in s = -xi
     wp, E0 = units(n0)
-    f = read_fields(d + "/fields_000000.bin")
-    r, xi = f["r"], f["xi"]
+    f = head_first(read_fields(d + "/fields_000000.bin"))   # from the head: s = -xi increasing
+    r, xi = f["r"], f["s"]
     nz = f["nz_gas"][:, r < 1.0].mean(axis=1) / dens       # <z> near the axis (the spot is wide)
     ips = IP[el][:int(sys.argv[10])] if len(sys.argv) > 10 else IP[el]
     L = len(ips)
@@ -157,10 +158,10 @@ elif what == "laser":
     # the ionization step of slice k (rate at xi_k, duration dxi) represents [xi_k - dxi/2, xi_k + dxi/2]
     zref = np.interp(xi + 0.5 * (xi[1] - xi[0]), xf, zt)
     print(f"  <z> on axis vs xi: max |code - exact cycle-resolved| = {np.abs(nz - zref).max():.3f} at xi - xi0 = "
-          f"{xi[np.argmax(np.abs(nz - zref))] - x0:+.2f}  (final {nz[-1]:.4f} vs {zref[-1]:.4f})")
+          f"{x0 - xi[np.argmax(np.abs(nz - zref))]:+.2f}  (final {nz[-1]:.4f} vs {zref[-1]:.4f})")
     for xx in np.arange(x0 - 2 * L0, x0 + 0.51 * L0, 0.5 * L0):
         k = np.argmin(abs(xi - xx))
-        print(f"    xi - xi0 = {xi[k] - x0:+5.2f}:  code {nz[k]:.3f}   exact {zref[k]:.3f}")
+        print(f"    xi - xi0 = {x0 - xi[k]:+5.2f}:  code {nz[k]:.3f}   exact {zref[k]:.3f}")
     a = np.loadtxt(d + "/ionization.txt")
     print(f"  mean p_perp^2 of the born electrons: code {a[4]:.4e}   test particles (p = -a(t_birth)) {bornp2 / born:.4e}"
           f"   (ratio {a[4] / (bornp2 / born):.3f}; for comparison <a^2> at the pulse peak {a0 ** 2 / 2:.1e})")
@@ -168,6 +169,7 @@ elif what == "laser":
 elif what == "impact":
     d, n0, sp = sys.argv[2], float(sys.argv[3]), sys.argv[4]
     nb, sr, sxi, x0, gam, dens = [float(v) for v in sys.argv[5:11]]
+    x0 = -x0   # beam centre in s = -xi
     wp, E0 = units(n0)
     kpi = 2.99792458e10 / wp
     b2 = 1 - 1 / gam ** 2
@@ -176,8 +178,8 @@ elif what == "impact":
         sigma = 1.87386e-20 / b2 * (M2 * (np.log(b2 * gam ** 2) - b2) + C)
     else:
         sigma = float(sp)
-    f = read_fields(d + "/fields_000000.bin")
-    r, xi = f["r"], f["xi"]
+    f = head_first(read_fields(d + "/fields_000000.bin"))   # from the head: s = -xi increasing
+    r, xi = f["r"], f["s"]
     nz = f["nz_gas"] / dens
     s = sigma * n0 * kpi * np.sqrt(b2)
     print(f"  sigma = {sigma:.4e} cm^2,  dP/dxi = {s:.4e} n_b")
@@ -200,17 +202,18 @@ elif what == "impact":
             ref = (-np.expm1(-s * Ixi(xi[k] + dx) * np.exp(-r[sel] ** 2 / (2 * sr ** 2))) * Vn[sel]).sum() / Vn[sel].sum()
             code = (nz[k, sel] * Vn[sel]).sum() / Vn[sel].sum()
             out.append(f"r/sr in [{a / sr:.1f},{b / sr:.1f}): {code:.4e} / {ref:.4e}")
-        print(f"    xi - xi0 = {xi[k] - x0:+6.1f}: ionized fraction code / analytic  " + "  ".join(out))
+        print(f"    xi - xi0 = {x0 - xi[k]:+6.1f}: ionized fraction code / analytic  " + "  ".join(out))
 
 elif what == "impact_gases":
     from scipy.optimize import brentq
     d, n0 = sys.argv[2], float(sys.argv[3])
     nb, sr, sxi, x0, gam = [float(v) for v in sys.argv[4:9]]
+    x0 = -x0   # beam centre in s = -xi
     wp, E0 = units(n0)
     kpi = 2.99792458e10 / wp
     beta = np.sqrt(1 - 1 / gam ** 2)
-    f = read_fields(d + "/fields_000000.bin")
-    r, xi = f["r"], f["xi"]
+    f = head_first(read_fields(d + "/fields_000000.bin"))   # from the head: s = -xi increasing
+    r, xi = f["r"], f["s"]
     dx = xi[1] - xi[0]
     Vn = np.zeros(len(r))
     for k in range(len(r) - 1):

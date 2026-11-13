@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(here, "..", "..", "tools"))
-from quarz_read import read_fields  # noqa: E402
+from quarz_read import head_first, read_fields  # noqa: E402
 
 
 def opt(name, default):
@@ -44,8 +44,8 @@ def quarz_axis(case, scheme, s):
     fn = os.path.join(QDIR, "out_c%d_%s" % (case, scheme), "axis_%06d.txt" % round(s / qdt(scheme)))
     if not os.path.exists(fn):
         return None
-    d = np.loadtxt(fn)
-    return d[:, 0], d[:, 1]
+    d = np.loadtxt(fn)[::-1]   # QUARZ writes xi = z - t (head last); here xi = t - z as FBPIC/the paper
+    return -d[:, 0], d[:, 1]
 
 
 def quarz_laser(case, scheme, s):
@@ -53,17 +53,17 @@ def quarz_laser(case, scheme, s):
     fn = os.path.join(QDIR, "out_c%d_%s" % (case, scheme), "fields_%06d.bin" % round(s / qdt(scheme)))
     if not os.path.exists(fn):
         return None
-    f = read_fields(fn)
+    f = head_first(read_fields(fn))   # from the head; s = -xi = t - z, the xi of this comparison
     a = f["a_re"] + 1j * f["a_im"]
     k0 = CASES[case]["k0"]
-    dxi = f["xi"][1] - f["xi"][0]
+    dxi = f["s"][1] - f["s"][0]
     E = (np.gradient(a, dxi, axis=0) - 1j * k0 * a) / k0
     r = f["r"]
     dr = np.diff(r)
     V = np.zeros_like(r)                       # ring volumes of the hat functions
     V[:-1] += np.pi * dr * (2 * r[:-1] + dr) / 3
     V[1:] += np.pi * dr * (r[:-1] + 2 * r[1:]) / 3
-    return np.abs(a).max(), np.abs(E).max(), (np.abs(E) ** 2 * V[None, :]).sum() * dxi, f["xi"], np.abs(a[:, 0])
+    return np.abs(a).max(), np.abs(E).max(), (np.abs(E) ** 2 * V[None, :]).sum() * dxi, f["s"], np.abs(a[:, 0])
 
 
 def fbpic(case, s):

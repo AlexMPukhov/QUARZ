@@ -1,9 +1,10 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Blowout regime: dense narrow electron driver
 grid.type   = uniform
 grid.rmax   = 8.0
 grid.dr     = 0.01
-xi.min  = 0
-xi.max  = 14
+xi.min  = -14
+xi.max  = 0
 xi.step = 0.01
 time.dt    = 0
 time.steps = 0
@@ -14,7 +15,7 @@ beams = driver
 driver.n0        = 10
 driver.sigma_r   = 0.3
 driver.sigma_xi  = 1.0
-driver.xi0       = 3.0
+driver.xi0       = -3.0
 driver.gamma     = 20000
 driver.cut       = 4
 driver.nparticles = 1000000

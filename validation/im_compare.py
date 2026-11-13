@@ -4,7 +4,7 @@ import numpy as np
 REF = sys.argv[1] if len(sys.argv) > 1 else 'u0001'          # reference run (default: uniform, N = 32000)
 RUNS = sys.argv[2:] if len(sys.argv) > 2 else ['u001', 'u0005', 'stretched']
 ref = read_fields(f'out_im_{REF}/fields_000000.bin')
-xi = ref['xi']; ks = np.where((xi>6.4)&(xi<7.2))[0]
+xi = ref['xi']; ks = np.where((xi>-7.2)&(xi<-6.4))[0]
 def sample(d, name, rr):
     kk = [np.argmin(abs(d['xi']-xi[k])) for k in ks]
     return np.array([np.interp(rr, d['r'], d[name][k]) for k in kk])

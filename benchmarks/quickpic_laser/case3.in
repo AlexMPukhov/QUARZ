@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # Laguerre-Gaussian (vortex) laser wakefield of Meng et al., PPCF (2026), doi 10.1088/1361-6587/aebd1b, Sec. 4.2:
 # linearly polarized LG_0l with (p, l) = (0, 1), a^ ~ e^{i theta} (helical phase, ring-shaped |a|^2),
 # k_p w0 = 6, k0/k_p = 20, |a| = 2.1 (taken as the peak of |a^| over r), omega_p tau_FWHM = 2.3 (FWHM of |a|), uniform
@@ -5,8 +6,8 @@
 grid.type = uniform
 grid.rmax = 15
 grid.dr   = 0.1
-xi.min  = -5
-xi.max  = 12
+xi.min  = -12
+xi.max  = 5
 xi.step = 0.03
 time.dt    = 5
 time.steps = 16

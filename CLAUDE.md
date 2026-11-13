@@ -40,7 +40,7 @@ cmake -B build -DKokkos_ENABLE_OPENMP=ON \
 cmake --build build -j2 && (cd build && ctest)
 export OMP_PROC_BIND=false            # needed here, otherwise OpenMP runs badly
 cd validation && ./run_validation.sh -q -j 2 -c       # quick regression, ~2 min: after EVERY code change
-cd validation && ./run_validation.sh -j 2 -c          # full suite (sections 1-25), ~10-15 min: milestones / new physics
+cd validation && ./run_validation.sh -j 2 -c          # full suite (sections 1-28), ~10-15 min: milestones / new physics
 ```
 CUDA compile check (no GPU here):
 `PATH=/usr/local/lib/python3.11/dist-packages/nvidia/cu13/bin:$PATH CUDA_HOME=/usr/local/lib/python3.11/dist-packages/nvidia/cu13 make -C build-cuda -j2 quarz`
@@ -65,7 +65,7 @@ Package for delivery (includes .git, so the history survives the container):
 ## Validation policy (keep it fast)
 - After a code change: quick suite with `-c` (2 min). Only the sections the change can affect
   if it is clearly local (laser -> 11, ionization -> 12, MPI/output -> 9 10, m = 1 -> 6 7,
-  grid/solver -> 1 2 5, plasma push / sub-slicing -> 13, smoothing -> 14, checkpoints / output groups -> 15, time step -> 16, GUI -> 17, Coulomb scattering -> 18, two-stage runs -> 19, spin -> 20, trapping -> 21). Full suite with `-c` at milestones and before delivering physics results.
+  grid/solver -> 1 2 5, plasma push / sub-slicing -> 13, smoothing -> 14, checkpoints / output groups -> 15, time step -> 16, GUI -> 17, Coulomb scattering -> 18, two-stage runs -> 19, spin -> 20, trapping -> 21, xi convention / deck converter -> 26, beam import -> 27 28). Full suite with `-c` at milestones and before delivering physics results.
 - Run long suites in the background (`nohup ... &`) and poll the process, not `pgrep -f`
   with a pattern that matches the polling shell itself.
 - CUDA compile check (~10 min) only when device code changed (kernels, Types.hpp, views).

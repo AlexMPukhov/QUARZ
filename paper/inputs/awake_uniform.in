@@ -1,11 +1,12 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 grid.type = uniform 
 grid.rmax = 30
 grid.dr = 7.8125e-3
 
 modes = 0
 
-xi.max = 1000
-xi.min = -1
+xi.max = 1
+xi.min = -1000
 xi.step = 0.015625
 
 time.dt = 200
@@ -37,9 +38,9 @@ protons.nparticles = 20000000
 
 protons.n0 = 0.0136
 protons.sigma_r = 1
-protons.xi0 = 253.74
+protons.xi0 = -253.74
 protons.sigma_xi = 253.74
-protons.xi_cut_head = 0.
+protons.xi_cut_head = 0
 protons.gamma = 427.316
 protons.espread = 3.5e-4
 protons.emit_n = 0.01095

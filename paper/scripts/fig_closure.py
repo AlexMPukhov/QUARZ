@@ -14,7 +14,7 @@ def ld(n):
     return a[:, 0], a[:, 1], a[:, 2]
 
 
-def l2(ref, run, col, lo=9.2, hi=11.9):
+def l2(ref, run, col, lo=-11.9, hi=-9.2):
     A, B = ld(ref), ld(run)
     xs = np.arange(lo, hi, 0.005)
     r0, r1 = np.interp(xs, A[0], A[col]), np.interp(xs, B[0], B[col])
@@ -30,7 +30,7 @@ for n, lab, c, ls, lw in [('u0.005_0.00125', r'uniform $\Delta r=0.005$, cold', 
                           ('a5e-3_0.005', r'stretched, $a=0.005$, $\Delta\xi=0.005$', CS, '--', 1.0)]:
     x, e, _ = ld(n)
     ax.plot(x, e, color=c, ls=ls, lw=lw, label=lab)
-ax.set_xlim(8.85, 9.3); ax.set_ylim(-24, 2.5)
+ax.set_xlim(-9.3, -8.85); ax.set_ylim(-24, 2.5)
 ax.annotate(r'$-78$', xy=(9.051, -24), xytext=(9.11, -21.5), fontsize=7, color=CC,
             arrowprops=dict(arrowstyle='->', lw=0.6, color=CC))
 ax.set_xlabel(r'$\xi$'); ax.set_ylabel(r'$E_z(r=0)$')
@@ -45,7 +45,7 @@ for pre, ref, c, mk in [('cold', 'cold_0.000625', CS, 'o'), ('a5e-3', 'a5e-3_0.0
 for h, m, xo in [('0.001', '^', 0.93), ('0.00025', 'v', 1.07)]:
     ax.loglog([0.00125 * xo], [l2('a5e-3_0.000625', f'a5e-3_h{h}', 1)], m, color=CU, ms=4.5,
               label=r'$a=0.005$, $E_z$, $h_0=$' + (r'$10^{-3}$' if h == '0.001' else r'$2.5\times10^{-4}$'))
-ax.set_xlabel(r'$\Delta\xi$'); ax.set_ylabel(r'rms rel. error, $9.2<\xi<11.9$')
+ax.set_xlabel(r'$\Delta\xi$'); ax.set_ylabel(r'rms rel. error, $-11.9<\xi<-9.2$')
 ax.set_xlim(9e-4, 6.5e-3); ax.set_ylim(4e-5, 0.1)
 ax.set_xticks(dx); ax.set_xticklabels(['0.005', '0.0025', '0.00125']); ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
 ax.grid(True, which='major', lw=0.3, color='0.85')

@@ -315,7 +315,7 @@ async function loadFrame() {
     const fix = $("fixscale").checked;
     const clip = $("clip").checked, lo = clip ? m.rlo : m.vmin, hi = clip ? m.rhi : m.vmax;
     if (!fix || !S.fixed || S.fixed.comp !== comp || S.fixed.clip !== clip) S.fixed = { comp, clip, vmin: lo, vmax: hi };
-    drawMap(m, { mirror: $("mirror").checked, rev: $("headright").checked, vmin: S.fixed.vmin, vmax: S.fixed.vmax,
+    drawMap(m, { mirror: $("mirror").checked, rev: !$("headright").checked, vmin: S.fixed.vmin, vmax: S.fixed.vmax,
                  xicut: +$("xicut").value, rcut: +$("rcut").value });
     $("mapinfo").textContent = `${lab(comp)}   step ${step}   t = ${fmt(m.t)}   range ${fmt(m.vmin)} … ${fmt(m.vmax)}`;
   } catch (e) { $("mapinfo").textContent = e.message; }
@@ -327,7 +327,7 @@ async function drawLines() {
   const comps = [...S.lcomps].filter(c => S.comps.includes(c));
   const p = { step: S.cur, comps: comps.join(","), r: +$("rcut").value || 0 }; if (S.outdir) p.outdir = S.outdir;
   try { const d = comps.length ? await api("/api/lines", p) : { x: [], series: {} };
-    linePlot($("lines"), d.x, d.series, { rev: $("headright").checked, xlabel: "ξ", labels: lab, marker: +$("xicut").value,
+    linePlot($("lines"), d.x, d.series, { rev: !$("headright").checked, xlabel: "ξ", labels: lab, marker: +$("xicut").value,
              colors: Object.fromEntries(S.comps.map((c, i) => [c, COLORS[i % COLORS.length]])), empty: "select fields" });
     $("lineinfo").textContent = comps.length ? `r = ${fmt(p.r)}` : "";
   } catch (e) { $("lineinfo").textContent = e.message; }

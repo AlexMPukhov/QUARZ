@@ -1,3 +1,4 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
 # ---------------------------------------------------------------------------
 # Impact ionization of a neutral gas by a long proton bunch (AWAKE-like, no laser, no seed):
 # a 400 GeV bunch (3e11 protons, sigma_r = 0.2 mm, sigma_z = 6 cm) enters an argon cell,
