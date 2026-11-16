@@ -5,7 +5,10 @@ Differences are relative to the field scale (a field and its cos/sin mode parts 
 one scale) and, for text columns, to max(|column|, 1e-9): components that vanish by
 symmetry contain only round-off and are not compared relative to themselves.
 Particle dumps are compared column by column after sorting (independent of the order).
-usage: python3 cmp_runs.py dirA dirB [tol]"""
+usage: python3 cmp_runs.py dirA dirB [tol] [--exact kinds]
+--exact axis,dumps,fields: print one line instead of the values: those kinds must be bit-identical (0), the others
+    within tol (OK/FAIL). For checks whose round-off level depends on the platform (e.g. the beam-log moments of
+    MPI vs serial: the sums over the ranks are added in another order), so that the reference text does not."""
 import glob
 import os
 import sys
@@ -19,8 +22,14 @@ warnings.filterwarnings("ignore", message="Input line")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
 from quarz_read import read_beam, read_fields  # noqa: E402
 
-a_dir, b_dir = sys.argv[1], sys.argv[2]
-tol = float(sys.argv[3]) if len(sys.argv) > 3 else 1e-10
+args = sys.argv[1:]
+exact = None
+if "--exact" in args:
+    i = args.index("--exact")
+    exact = [k for k in args[i + 1].split(",") if k]
+    del args[i:i + 2]
+a_dir, b_dir = args[0], args[1]
+tol = float(args[2]) if len(args) > 2 else 1e-10
 
 
 def rel(x, y, scale=None, floor=0.0):
@@ -81,6 +90,17 @@ for fa in sorted(glob.glob(os.path.join(a_dir, "*"))):
             note(kind, rel(A[:, j].astype(float), B[:, j].astype(float), scale, floor=1e-9), "%s col %d" % (name, j))
         if any((A[:, j] != B[:, j]).any() for j in range(A.shape[1]) if j not in num):
             note(kind, np.inf, name + " (text columns differ)")
+
+if exact is not None:
+    ex = [k for k in sorted(worst) if k in exact]
+    rest = [k for k in sorted(worst) if k not in exact]
+    bad_ex = [f"{k} {worst[k][0]:.1e} ({worst[k][1]})" for k in ex if worst[k][0] != 0]
+    bad_rest = [f"{k} {worst[k][0]:.1e} ({worst[k][1]})" for k in rest if worst[k][0] > tol]
+    missing = [k for k in exact if k not in worst]
+    print("  bit-identical (%s): %s;  within %g (%s): %s" % (
+        " ".join(ex), "OK" if not bad_ex and not missing else "FAIL " + ", ".join(bad_ex + ["no " + m for m in missing]),
+        tol, " ".join(rest) or "-", "OK" if not bad_rest else "FAIL " + ", ".join(bad_rest)))
+    sys.exit(1 if (bad_ex or bad_rest or missing) else 0)
 
 bad = False
 for k, (v, what) in sorted(worst.items()):

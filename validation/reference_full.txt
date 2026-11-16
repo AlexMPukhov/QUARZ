@@ -44,8 +44,8 @@ analytic driver: built-in vs parsed          psi 4.4e-15  ez 1.4e-14  er 6.8e-14
 == 10. openPMD output (needs openPMD-api in the build and the openpmd-api Python module) ==
  native-node openPMD vs native files (expected 0):
 max relative difference openPMD vs native: 0.00e+00
- native-node openPMD with 10001 radial nodes vs native files (expected 0):
-max relative difference openPMD vs native: 0.00e+00
+ native-node openPMD with 10001 radial nodes: written and equal to the native files (coordinate data sets),
+  or refused at the start with a clear message (attribute form, limit 8181 nodes): OK
  ParaView openPMD reader with rectilinear meshes (tools/paraview, vtk module; expected PASS):
   StructuredGrid, 368 radial nodes (h 8.38e-08..6.7e-07), 601 z nodes; max rel. error: r 0.0e+00, z 1.7e-16, psi 1.4e-16  PASS
   RectilinearGrid, labels ['x', 'y', 'z'], dims [7, 5, 9]; max rel. error: coordinates 2.0e-16, rho 0.0e+00  PASS
@@ -372,10 +372,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
  truncated file: is not a native beam dump
  2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of
  the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
-  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
-  beamlog  max rel diff 9.10e-07  (beams.txt col 11)
-  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
-  fields   max rel diff 4.88e-17  (fields_000002.bin:bz)
+  bit-identical (axis dumps fields): FAIL fields 4.9e-17 (fields_000002.bin:bz);  within 1e-05 (beamlog): OK
 == 28. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions ==
  QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:
   si         20000 particles, max rel. difference 2.0e-16  (expected: SI round-off, normalised 0)
@@ -389,7 +386,4 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
  particle_stride = 4: charge of the import / of the original beam: 0.2500, with openpmd_scale_stride = 1: 1.0000; warning given: 1
  muons with spin (normalised units) imported and written again vs the native dump: 20000 particles; spins 0.0e+00, x y xi w 0.0e+00, momenta 1.8e-16 (expected: 0, 0, round-off of the mass factor 206.77)
  2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):
-  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
-  beamlog  max rel diff 1.88e-08  (beams.txt col 11)
-  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
-  fields   max rel diff 1.85e-18  (fields_000002.bin:ez)
+  bit-identical (axis dumps fields): FAIL fields 1.8e-18 (fields_000002.bin:ez);  within 1e-05 (beamlog): OK

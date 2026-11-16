@@ -152,10 +152,18 @@ sec10() {
     H="../examples/hosing.in time.steps=$(q 4 2) output.every=2 output.beam_every=2 driver.nparticles=$(q 40000 8000) xi.min=-$(q 6 4) beams.xi_shape=ngp output.format=both units.n0_cm3=1e17"
         if $QS $H output.openpmd_grid=native output.dir=out_opmd_nat > out_opmd.log 2>&1; then
             echo " native-node openPMD vs native files (expected 0):"; python3 check_openpmd.py out_opmd_nat native | tail -1
-            # more radial nodes than an HDF5 attribute can hold (64 KB = 8192 doubles): the nodes are a data set
-            $QS betatron.in time.steps=0 output.every=1 grid.type=uniform grid.dr=0.0004 output.format=both output.openpmd_grid=native \
-                units.n0_cm3=1e17 witness.nparticles=2000 output.dir=out_opmd_big > /dev/null
-            echo " native-node openPMD with 10001 radial nodes vs native files (expected 0):"; python3 check_openpmd.py out_opmd_big native | tail -1
+            # more radial nodes than an HDF5 attribute holds (8181): with coordinate data sets the nodes are a data set
+            # and the files must equal the native ones; without them (released openPMD-api) the run must stop at the
+            # start with a clear message. Either outcome prints the same line.
+            if $QS betatron.in time.steps=0 output.every=1 grid.type=uniform grid.dr=0.0004 output.format=both output.openpmd_grid=native \
+                    units.n0_cm3=1e17 witness.nparticles=2000 output.dir=out_opmd_big > out_opmd_big.log 2>&1; then
+                d=$(python3 check_openpmd.py out_opmd_big native | tail -1)
+                [ "$d" = "max relative difference openPMD vs native: 0.00e+00" ] && r=OK || r="FAIL ($d)"
+            else
+                grep -q "holds at most 8181" out_opmd_big.log && r=OK || r="FAIL ($(grep ERROR out_opmd_big.log | head -1))"
+            fi
+            echo " native-node openPMD with 10001 radial nodes: written and equal to the native files (coordinate data sets),"
+            echo "  or refused at the start with a clear message (attribute form, limit 8181 nodes): $r"
             if python3 -c "import vtk" 2> /dev/null; then
                 python3 ../tools/paraview/make_rectilinear_testfiles.py out_opmd_pv > /dev/null
                 F=$(ls out_opmd_nat/openpmd/*.h5 | head -1)
@@ -692,7 +700,7 @@ print(' the same dump into a beam without spin: %d particles, x y p xi w %s' % (
         $MPIRUN 2 $QS $M output.dir=out_imp_p > /dev/null
         echo " 2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of"
         echo " the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):"
-        python3 cmp_runs.py out_imp_s out_imp_p 1e-5 || true
+        python3 cmp_runs.py out_imp_s out_imp_p 1e-5 --exact axis,dumps,fields || true
     fi
     rm -rf out_imp_*
 }
@@ -762,7 +770,7 @@ print(' muons with spin (normalised units) imported and written again vs the nat
         $QS $M output.dir=out_op_s > /dev/null
         $MPIRUN 2 $QS $M output.dir=out_op_p > /dev/null
         echo " 2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):"
-        python3 cmp_runs.py out_op_s out_op_p 1e-5 || true
+        python3 cmp_runs.py out_op_s out_op_p 1e-5 --exact axis,dumps,fields || true
     fi
     rm -rf out_op_*
 }

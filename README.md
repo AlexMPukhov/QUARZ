@@ -1213,8 +1213,11 @@ frequent small dumps and rare full dumps can be combined (§6):
     openPMD-viewer. **ParaView:** load the plugin `tools/paraview/openPMDRectilinearReader.py`
     (Tools → Manage Plugins) and open a `.pmd` file with the reader "openPMD Reader (rectilinear
     meshes)": the fields appear on the true non-uniform nodes (see `tools/paraview/README.md`).
-    The old attribute `quarz_r_nodes` is no longer written (HDF5 limits attributes to 64 KB, so it
-    broke grids with more than ~8190 nodes); the data-set form has no size limit.
+    **Grid size limit of the interim form:** HDF5 stores an attribute in 64 KB, so with a released
+    openPMD-api (attribute `gridCoordinates_r`) and HDF5 files the native grid can have at most 8181 radial
+    nodes; beyond that the run stops at the start with a message. The data-set form has no limit; otherwise use
+    `output.openpmd_grid = uniform`, the native output, or `output.openpmd_backend = bp` if the openPMD-api has
+    ADIOS2. The old per-mesh copy `quarz_r_nodes` (same limit, in every build) is no longer written.
   - **Particles:** every beam is a species with `position` (x, y, z = ξ, co-moving like the meshes),
     `positionOffset` (0, so openPMD-viewer also shows ξ), the species attribute `quarz_particle_stride`, `momentum` (per physical particle, in m_e c × `unitSI`, unlike the m_s c of the native files), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.
@@ -1378,7 +1381,7 @@ written together with the native files (`output.format = both`) and compared wit
 | check | result |
 |---|---|
 | openPMD on native nodes vs native files (hosing, m = 1, SI units) | fields, positions, weights identical (0) |
-| openPMD on native nodes with 10001 radial nodes (more than an HDF5 attribute holds: 64 KB = 8192 doubles) | written (nodes in the `gridCoordinates` data set), fields identical to the native files (0) |
+| openPMD on native nodes with 10001 radial nodes (more than an HDF5 attribute holds: 8181 doubles, measured) | data-set form: written, fields identical to the native files (0); attribute form (released openPMD-api, also built here with the coordinate data sets switched off): refused at the start with a clear message (8181 nodes still written, 8182 refused) |
 | uniform openPMD grid vs native data interpolated in Python | 4·10⁻¹⁶ |
 | openPMD-viewer `get_field('E','r', m='all', theta)` vs f₀ + f_c cos θ + f_s sin θ from the native file | 2·10⁻¹⁶–5·10⁻¹⁶ (θ = 0, 1, π/2); viewer reads u_z = 497 for a γ = 500 beam (momentum and mass units consistent) |
 | MPI 2 and 3 ranks vs serial (HDF5, all meshes and particles) | bit-identical |

@@ -151,6 +151,19 @@ OpenPMDWriter::OpenPMDWriter(const Config& cfg, const std::string& outdir, const
     I.backend = cfg.get_string(key("openpmd_backend"), "h5");
     if (I.backend != "h5" && I.backend != "bp" && I.backend != "json")
         throw std::runtime_error("output.openpmd_backend must be h5, bp or json");
+#ifndef QUARZ_OPENPMD_GRID_COORDINATES
+    // interim form (an openPMD-api without coordinate data sets): the radial nodes are the mesh attribute
+    // gridCoordinates_r. HDF5 stores an attribute in the object header, at most 64 KB: 8181 doubles (measured with
+    // HDF5 1.14). Beyond that the first output would fail; say so at the start.
+    constexpr size_t max_attr_nodes = 8181;
+    if (I.native && I.backend == "h5" && I.rout.size() > max_attr_nodes)
+        throw std::runtime_error(
+            key("openpmd_grid") + " = native with " + std::to_string(I.rout.size()) + " radial nodes: this openPMD-api "
+            "has no coordinate data sets, so the nodes go into an HDF5 attribute, which holds at most " +
+            std::to_string(max_attr_nodes) + " (64 KB). Use " + key("openpmd_grid") + " = uniform, the native output "
+            "format, an openPMD-api with coordinate data sets (docs/openpmd_rectilinear.md), or " +
+            key("openpmd_backend") + " = bp if this openPMD-api has ADIOS2 (no such limit there)");
+#endif
     const std::string pattern = cfg.get_string(key("openpmd_file"), "openpmd/data_%06T");
     I.filename = outdir + "/" + pattern + "." + I.backend;
     const auto dir = std::filesystem::path(I.filename).parent_path();
