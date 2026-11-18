@@ -175,7 +175,7 @@ front: `<beam>.xi_cut_head`. Plasma profile along z: `plasma.z_table` (z:n pairs
 
 1. `sh scripts/check_input.sh <quarz> my.in` passes; read the summary it prints (slices, radial cells, particles
    per slice, what is written).
-2. A short run (`time.steps=3` on the command line) for the time per step (`sweep ... s` in the log): estimate the
+2. A short run (`time.steps=3 output.every=1` on the command line, so that every step writes its axis file) for the time per step (`sweep ... s` in the log): estimate the
    full run and the output volume (a field file is slices x radial nodes x components x 8 bytes; thin it with
    `output.fields`, `output.rmax`, `output.xi_stride`).
 3. `python3 scripts/quick_look.py <output.dir> --density <n0>` after the first output steps: is the wake where

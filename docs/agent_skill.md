@@ -77,6 +77,15 @@ The same pair of skills, sync script and test exists in GEM-PIC-RZ; the tests di
   of the wake, also not 4 against 8 rings on the same grid: that part is sensitive to noise and is not converged.
   With the first grid (0.1 cells) the front half is the same; the rear quarter after saturation is 20-45 % lower
   and up to 1.3 rad off. Not compared with another code.
+- **What seeds the rear half:** repeating the example with another `<beam>.seed` changes the wake of the first
+  step behind xi = 300 (phase by up to 2.6 rad): there the wake of the cut has decayed to the level of the
+  macro-particle noise of the beam (4e6 particles), which then seeds the self-modulation of the rear half. With
+  16e6 particles the first-step wake there is 2-3 times smaller, and two seeds still disagree during the growth.
+  A physical answer for the rear half needs a quiet beam (rule 8), not a finer plasma grid.
+- **Note in the code:** since then QUARZ prints a note at the first step when a box longer than 300 has plasma in
+  cells above 0.03 (ctest `long_box_note`). Of the 36 shipped inputs it appears for `examples/awake_seeded_smi.in`
+  (box of 302, cells of 0.1 inside the plasma) and for `validation/eimpact.in` (box of 1000, cells of 0.05; a
+  test without fields, where it does not matter).
 
 ## Trial with a fresh agent
 
@@ -94,8 +103,18 @@ length 5 cm, population 4e11 protons, cut at 1 sigma ahead; plasma 7e14 1/cc, po
 - **What it missed in the skill, now added:** that beam particles outside a shortened box are dropped (19 % of
   the cut bunch here) and that the quick look reported this as a loss; a criterion for the on-axis density
   spikes (they come first; the jump of the wake counts).
-- **After the trial** the example was changed (whole bunch, finer cells over the plasma, see above); the trial
-  was not repeated with the new rules.
+- **After the trial** the example was changed (whole bunch, finer cells over the plasma, see above).
+- **Second trial** (same day, with the new rules, a different problem so that the example cannot be copied):
+  "seeded self-modulation of a proton bunch: 1e11 protons, 400 GeV, sigma_z = 12 cm, sigma_r = 150 micron, cut at
+  its centre; uniform plasma 2e14 1/cc, 5 m; wake amplitude along the plasma and along the bunch". The agent wrote
+  its assumptions first (emittance, energy spread, column radius 7, wall at 10, no mobile ions with the estimate
+  that they are marginal), chose a box of 1000 c/omega_p with `grid.regions = 2.0:0.01 7.3:0.02 10.0:0.1`, 4 rings
+  per cell and a time step of half the betatron limit; the input passed the check at the first attempt; a 3-step
+  run gave 5.3 s per step on 16 threads; the first-step wake off the axis was flat along the whole bunch
+  (0.0017-0.0019 E0 at r = 0.5) and it read the on-axis rise at the tail with a density spike of 51 n0 correctly
+  as the axis-node artefact of rule 9. It did not look at the source. What it missed, now added: `output.every=1`
+  for the 3-step run, the unit hint of `--sigma-z-um`. Still missing: `quarz_numbers.py` gives no box for a cut
+  bunch and no default plasma column radius. No convergence run and no full run in the trial.
 - **Limits of the trial:** the shipped example `awake_density_gradient.in` is this very request, so the trial
   tested the dialogue, the check and the reading of the output, not the construction of an input from a different
   problem. It was a sub-agent of the session that wrote the skill, not an independent agent, and

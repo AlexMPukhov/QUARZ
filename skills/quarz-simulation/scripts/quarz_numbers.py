@@ -22,7 +22,7 @@ p.add_argument("--species", default="electron", choices=["electron", "positron",
 p.add_argument("--energy-gev", type=float, help="beam energy [GeV] (total energy; protons: momentum * c is the same "
                                                 "to 1e-5 at 400 GeV)")
 p.add_argument("--sigma-r-um", type=float, help="rms beam size per transverse coordinate [um]")
-p.add_argument("--sigma-z-um", type=float, help="rms beam length [um]")
+p.add_argument("--sigma-z-um", type=float, help="rms beam length [um] (1 cm = 1e4 um)")
 p.add_argument("--emit-n-um", type=float, help="normalised rms emittance [um] (= mm mrad)")
 p.add_argument("--wavelength-um", type=float, help="laser wavelength [um]")
 p.add_argument("--a0", type=float)
