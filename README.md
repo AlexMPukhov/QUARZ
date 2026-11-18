@@ -819,7 +819,7 @@ never read are reported at the end of the run, which catches typos.
 | `grid.type` | `uniform` | `uniform` \| `regions` (alias `stretched`) \| `file` |
 | `grid.rmax` | — | outer radius R (conducting wall) |
 | `grid.dr` | — | spacing for `uniform` |
-| `grid.regions` | — | `r_end:h` pairs, e.g. `0.05:0.0005 2.5:0.01 8:0.05`. Spacing h is used for r < r_end. Transitions are geometric. A coarse→fine transition starts early enough to reach the fine spacing at the boundary. |
+| `grid.regions` | — | `r_end:h` pairs, e.g. `0.05:0.0005 2.5:0.01 8:0.05`. Spacing h is used for r < r_end. Transitions are geometric. A coarse→fine transition starts early enough to reach the fine spacing at the boundary. In boxes longer than about 300 c/ω_p keep the cells inside the plasma at 0.02–0.03 or below and coarsen only outside it: the field noise of clustering plasma macro-particles grows with the cell size. |
 | `grid.max_ratio` | 1.05 | maximum ratio of neighbouring cells |
 | `grid.file` | — | text file with one node radius per line (first 0, last R) |
 

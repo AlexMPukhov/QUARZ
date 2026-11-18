@@ -33,7 +33,8 @@
 3. Box: `xi.min` just ahead of the head (3 sigma, or the cut), `xi.max` behind the region of interest.
    `xi.step` 0.05 (linear), 0.005-0.01 (blowout).
 4. Radial grid: `grid.regions` with cells <= sigma_r/10 over the narrowest beam, 0.01-0.02 over the bubble,
-   0.05-0.1 outside; `grid.rmax` 8-14.
+   up to 0.05 outside in a short box; in a box longer than about 300 not more than 0.02-0.03 inside the plasma,
+   0.1 only beyond `plasma.rmax` (rule 9 of SKILL.md); `grid.rmax` 8-14.
 5. `time.dt` <= betatron period / 20 of the lowest-energy particles that matter; `time.steps` or `time.t_end`
    from the length.
 6. Plasma: `plasma.z_table` for ramps and gradients (z in c/omega_p from the start of the run), `plasma.rmax`
@@ -45,8 +46,10 @@
 
 ## Long proton bunches (AWAKE-like)
 
-- **Check the box length first** (rule 9 of SKILL.md): far behind the head the plasma macro-particles cluster
-  and the wake is noise.
+- **Radial cells first** (rule 9 of SKILL.md): far behind the head the clustering plasma macro-particles make
+  field noise that grows with the square of the cell size. Keep the cells inside the plasma column at 0.02-0.03
+  or below, e.g. `grid.regions = 2.0:0.01 7.3:0.02 10.0:0.1` for a column of radius 7, and check the wake of the
+  first step off the axis along the whole box before the long run.
 - Bunch length hundreds of c/omega_p: the box is long (10^4 slices and more), the sweep takes seconds, the run
   a few hundred steps of some centimetres. See `examples/awake_density_gradient.in`.
 - Seed: a sharp front (`<beam>.xi_cut_head`) stands for the ionization front of a co-propagating laser. `<beam>.n0`
@@ -74,7 +77,8 @@
 - Time per step = one sweep (slices x plasma particles per slice) + the beam push. The log prints
   `sweep ... s` for every step: measure it with 3 steps, multiply.
 - Guide values measured with the examples (308 radial cells): 6000 slices, 4 rings per cell: 0.6 s per sweep
-  on 8 threads; 20000 slices: 5 s on 16 threads; 64 rings per cell instead of 4 cost 5 times as much.
+  on 8 threads; 20000 slices: 5 s on 16 threads; 64 rings per cell instead of 4 cost 5 times as much;
+  20000 slices with 512 radial cells, 4 rings per cell: 5.8 s on 32 threads.
   `modes = 1`: about ten times more.
 - A field file: slices x radial nodes x components x 8 bytes (all 10 components of a 20000 x 308 grid: 490 MB).
   `output.fields`, `output.rmax`, `output.xi_stride` reduce it; `output.field_files = 0` keeps only the on-axis

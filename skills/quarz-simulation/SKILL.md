@@ -75,7 +75,7 @@ More: `references/physics_rules.md` (model, resolution, time step, box, cost), `
 
 | file | what | cost |
 |---|---|---|
-| `examples/awake_density_gradient.in` | AWAKE-like: 4e11 protons, 400 GeV, sigma_z = 5 cm, cut one sigma ahead of the centre, 7e14 cm^-3 rising by 5 % over 10 m; box to one sigma behind the centre (rule 9) | 250 steps, 17 min on 32 threads |
+| `examples/awake_density_gradient.in` | AWAKE-like: 4e11 protons, 400 GeV, sigma_z = 5 cm, cut one sigma ahead of the centre, 7e14 cm^-3 rising by 5 % over 10 m; whole bunch in the box, cells of 0.02 over the plasma (rule 9) | 250 steps, 24 min on 32 threads |
 | `examples/awake_seeded_smi.in` | seeded self-modulation of a long proton bunch cut at its centre, uniform plasma | set to 3 steps; 250 steps = 10 m |
 | `examples/blowout_basic.in` | blowout of a dense electron driver: one quasi-static solve (rigid beam) | seconds |
 | `examples/pwfa_ion_motion.in` | driver and a strongly pinched, low-emittance witness, mobile hydrogen ions, 5e-4 cells on the axis | 100 steps, minutes |
@@ -130,9 +130,11 @@ front: `<beam>.xi_cut_head`. Plasma profile along z: `plasma.z_table` (z:n pairs
 
 1. **Resolve the plasma wave and the beam along xi.** `xi.step` <= 0.05 for linear wakes (126 slices per plasma
    wavelength), 0.005-0.01 for a blowout; at least 10 slices per sigma_xi of a short bunch.
-2. **Resolve the beam radially, not the whole box.** Cells <= sigma_r/10 over the beam (a pinched witness needs
-   cells well below its matched size), 0.01-0.02 where the sheath of a bubble moves, 0.05-0.1 out to the wall;
-   `grid.max_ratio` 1.05. This is what `grid.type = regions` is for.
+2. **Radial cells: fine over the beam, and fine enough over the whole plasma.** Cells <= sigma_r/10 over the
+   beam (a pinched witness needs cells well below its matched size), 0.01-0.02 where the sheath of a bubble moves.
+   Outside the beam the cells may grow (`grid.type = regions`, `grid.max_ratio` 1.05), to 0.05 in a short box.
+   In a box longer than about 300 c/omega_p keep them <= 0.02-0.03 everywhere inside the plasma (rule 9) and let
+   them grow to 0.1 only beyond `plasma.rmax`, where there are no plasma particles and cells cost little.
 3. **The wall is a conductor:** `grid.rmax` several plasma skin depths beyond the beam and the bubble (the
    examples use 8-14). A finite plasma column is set with `plasma.rmax`, inside the wall.
 4. **Time step against the betatron period** of the lowest-energy beam particles, 2 pi sqrt(2 gamma m/|q|)
@@ -150,17 +152,22 @@ front: `<beam>.xi_cut_head`. Plasma profile along z: `plasma.z_table` (z:n pairs
    (millions for a self-modulation run), a seed that dominates the noise (a cut, `<beam>.xi_cut_head`), and for
    unseeded runs the quiet loaders described in the reference (`<beam>.profile = parsed` with `<beam>.rods`,
    `<beam>.shot_noise`).
-9. **Long boxes: the plasma macro-particles cluster.** Hundreds of c/omega_p behind the head the cold plasma
-   rings gather into clusters (Kargapolov et al., Phys. Plasmas 32, 023905 (2025)) and the wake turns into noise
-   that no longer depends on the driver. Measured with `examples/awake_density_gradient.in` at t = 0, where the
-   wake must stay at the seed level along the bunch: with `<species>.ppc` = 4 it jumps twentyfold at xi = 300,
-   with 16 at 500, with 64 at 600. So for every box longer than about 200: look at the wake of the first step
-   along xi (`scripts/quick_look.py` prints it in ten windows), raise `<species>.ppc` until the part of the box
-   you need is clean, and tell the user where the box stops being reliable and which part of the bunch is left
-   out (beam particles outside the box are dropped). Density spikes of a few n0 on the axis come first and are
-   not yet the criterion; the jump of the wake is. `plasma.smooth_length` removes the
-   noise at t = 0, but it filters all plasma sources, also the fine radial structure around a self-modulating
-   beam: do not use it for that without a convergence check in the smoothing length.
+9. **Long boxes: the plasma macro-particles cluster, and coarse cells turn that into field noise.** Behind the
+   first tens of c/omega_p the cold plasma rings gather into clusters on the scale of a cell (Kargapolov et al.,
+   Phys. Plasmas 32, 023905 (2025)). The density noise saturates at a level that falls only as 1/sqrt of
+   `<species>.ppc`; the field it makes grows about as the square of the cell size, because a density ripple of
+   wavelength h makes a potential proportional to h^2. Hundreds of c/omega_p behind the head a wake on coarse
+   cells is noise. Measured with `examples/awake_density_gradient.in` at the first step (box of 1000, 4 rings per
+   cell, the wake averaged over r < 1 in the last tenth of the box, where the seed wake is 0.001 E0): cells of
+   0.02 inside the plasma 0.001, 0.03: 0.001, 0.05: 0.002, 0.1: 0.016-0.023. With 0.1 cells, 16 rings per cell
+   (twice the time) give 0.0024; with 0.02 cells even one ring per cell gives 0.0013. So for a box longer than
+   about 300: **first make the cells inside the plasma column fine (<= 0.02-0.03), then raise `<species>.ppc`**
+   (4 -> 16 helps on cells of 0.03-0.05), and always look at the wake of the first step along xi
+   (`scripts/quick_look.py` prints it in ten windows). Judge it off the axis (E_z at r = 0.5, or averaged over
+   r < 1): on a fine mesh a single ring at the axis node makes a density spike of 10-100 n0 and a jump of the
+   on-axis E_z that overstates the damage. Tell the user where the box stops being reliable. `plasma.smooth_length`
+   also removes the noise of the first step, but it filters all plasma sources, also the fine radial structure
+   around a self-modulating beam: not without a convergence check in the smoothing length.
 10. **m = 1 costs about ten times m = 0** and covers small offsets and tilts only; keep `modes = 0` unless the
    question is hosing or misalignment.
 

@@ -57,6 +57,40 @@ sel = [(d[:, 0] >= lo) & (d[:, 0] <= hi) for lo, hi in zip(edges[:-1], edges[1:]
 print("#   |Ez|    " + " ".join(f"{np.abs(d[m, 1]).max():8.4f}" for m in sel))
 print("#   ne      " + " ".join(f"{d[m, 3].max():8.2f}" for m in sel))
 
+
+def read_ez(fn):
+    """E_z map of a fields_NNNNNN.bin (version 2, see output_reference.md): r, xi, ez[xi, r] or None."""
+    with open(fn, "rb") as fh:
+        ver, M, K, _ = np.fromfile(fh, dtype=np.int32, count=4)
+        if ver != 2:
+            return None
+        np.fromfile(fh, dtype=np.float64, count=1)
+        r = np.fromfile(fh, dtype=np.float64, count=M)
+        xi = np.fromfile(fh, dtype=np.float64, count=K)
+        for _ in range(np.fromfile(fh, dtype=np.int32, count=1)[0]):
+            name = fh.read(16).split(b"\0")[0].decode()
+            data = np.fromfile(fh, dtype=np.float64, count=M * K)
+            if name == "ez":
+                return r, xi, data.reshape(K, M)
+    return None
+
+
+# the axis node of a fine mesh is a noisy witness (one plasma ring at the axis gives a density spike and a jump of
+# E_z there): judge the noise by the field off the axis, where the beam particles are
+ff = files[0].replace("axis_", "fields_").replace(".txt", ".bin")
+ez = read_ez(ff) if os.path.exists(ff) else None
+if ez is not None and ez[0][-1] >= 0.5:
+    r, xi, e = ez
+    j = int(np.argmin(np.abs(r - 0.5)))
+    w = r[r <= 1.0]
+    mean = np.abs((e[:, :len(w)] * w).sum(1) / w.sum()) if r[-1] >= 1.0 else None
+    sel2 = [(xi >= lo) & (xi <= hi) for lo, hi in zip(edges[:-1], edges[1:])]
+    print(f"#   |Ez| at r = {r[j]:.2f}: " + " ".join(f"{np.abs(e[m, j]).max():8.4f}" if m.any() else "       -" for m in sel2))
+    if mean is not None:
+        print("#   |<Ez>| r < 1:   " + " ".join(f"{mean[m].max():8.4f}" if m.any() else "       -" for m in sel2))
+else:
+    print("#   (no field file of this step with 'ez' out to r = 0.5: the off-axis wake, the better witness of noise, is not shown)")
+
 # ---- beams.txt: name step t alive npart charge gamma_mean gamma_rms xi_mean xi_rms r_rms emit_nx x_mean y_mean
 #                 emit_ny sigma_x sigma_y
 beams = {}

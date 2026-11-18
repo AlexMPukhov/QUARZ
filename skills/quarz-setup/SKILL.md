@@ -70,6 +70,13 @@ build/quarz run.in restart.from=latest time.steps=500   # continue from the newe
 | MPI | `mpirun -np P` | long boxes with many time steps: P blocks of slices, pipelined over the steps. A single quasi-static solve (`time.steps = 0`) gets no speed-up. MPI runs use `beams.xi_shape = ngp` |
 | GPU | a GPU build; one GPU per MPI rank | many particles per slice: fine radial grids, `modes = 1`, ionization |
 
+- **Threads:** in containers, WSL and on shared nodes set `OMP_PROC_BIND=false`; on dedicated cluster nodes
+  `OMP_PROC_BIND=close OMP_PLACES=cores` (Slurm: `--cpus-per-task`, `--cpu-bind=cores`). Unpinned or doubly pinned
+  threads can make a run several times slower.
+- **How many MPI ranks:** the ranks form a pipeline over the time steps, which needs P - 1 steps to fill. With N
+  steps the efficiency is about N/(N + P - 1): keep P below about N/4. Under Slurm request `--ntasks` >= P,
+  otherwise all ranks share one core.
+
 There is no check-only switch. Unknown keys do not stop a run: they are listed at its end as
 `WARNING: input key '...' was not used`. Errors in values stop it with `ERROR (rank 0): ...`. The script
 `scripts/check_input.sh` of the skill quarz-simulation runs the zero-step solve and turns both into a failure.

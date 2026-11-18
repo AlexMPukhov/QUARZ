@@ -54,19 +54,29 @@ The same pair of skills, sync script and test exists in GEM-PIC-RZ; the tests di
 
 ## What the work on the skills found
 
-- **Clustering of plasma macro-particles in long boxes.** The AWAKE-like example (4e11 protons, sigma_z = 5 cm,
-  cut one sigma ahead of the centre, 7e14 cm^-3) was first set up with a box of 1000 c/omega_p and 4 rings per
-  cell. At t = 0 the on-axis wake is 0.005 E0 behind the cut, as linear theory gives, but at xi = 300 it jumps
-  to 0.1 E0 with electron density spikes on the axis. The place of the jump moves with the numerics (4 rings per
-  cell: 300; 16: 500; 64: 600; finer radial cells: 400; more beam particles: no change), so it is the clustering
-  instability of quasi-static plasma macro-particles (Kargapolov et al., Phys. Plasmas 32, 023905 (2025)), not
-  physics. The example therefore ends at xi = 500 with 16 rings per cell, the skill has a rule for long boxes,
-  and `quick_look.py` prints the wake of the first step along the box. The `plasma.declustering` option in the
-  source is not a general remedy and is not documented in the README, so the skill does not name it: the
-  remedy is more rings per cell.
-- The full 10 m run of the example (17 min on 32 threads): the largest on-axis E_z grows from 0.005 E0 to
-  0.77 E0 at 3 m and falls to 0.17 E0 at 10 m; 73 % of the cut bunch is lost (19 % behind the box, the rest
-  defocused to the wall at 2 mm). Not compared with another code.
+- **Clustering of plasma macro-particles in long boxes, and the radial cell size.** The AWAKE-like example (4e11
+  protons, sigma_z = 5 cm, cut one sigma ahead of the centre, 7e14 cm^-3) was first set up with a box of 1000
+  c/omega_p, 4 rings per cell and the grid `2.0:0.01 10.0:0.1`. At t = 0 the on-axis wake is 0.005 E0 behind the
+  cut, as linear theory gives, but at xi = 350 it jumps to 0.1 E0 with electron density spikes on the axis: the
+  clustering instability of quasi-static plasma macro-particles (Kargapolov et al., Phys. Plasmas 32, 023905
+  (2025)). First-step runs with other numerics (wake averaged over r < 1 in the last tenth of the box, seed level
+  0.001 E0) showed what decides: the radial cell size inside the plasma column. Cells of 0.02-0.03: 0.001; 0.05:
+  0.002; 0.1: 0.016-0.023, all with 4 rings per cell and nearly the same run time. More rings help slowly (16 per
+  cell on the 0.1 grid: 0.0024 at twice the time; one ring per cell on a uniform 0.02 grid: 0.0013). The cell-scale
+  density noise itself saturates at the same level on all these grids (about 0.25 with 4 rings, 0.1 with 16); what
+  changes is the field it makes. Half the xi step, sub-slicing and a soft plasma edge change nothing. The on-axis
+  values overstate the damage (a ring at the axis node), so `quick_look.py` also prints the wake at r = 0.5 and
+  averaged over r < 1 when a field file is there. Rules 2 and 9 of the skill and the example were changed
+  accordingly: the example now holds the whole bunch on `2.0:0.01 7.3:0.02 10.0:0.1` with 4 rings per cell.
+  The `plasma.declustering` option in the source is not a general remedy and is not documented in the README, so
+  the skill does not name it.
+- The full 10 m run of the example (24 min on 32 threads) against runs with uniform cells of 0.02 (4 and 8 rings
+  per cell) and 0.01: the r.m.s. of the on-axis E_z in the front half of the bunch (xi = 100-500), and in the
+  whole bunch from 5 m on (after saturation), agree within 10 %, the phases within 0.3 rad, the remaining charge
+  (31 % at 10 m) within 2 %. In the rear half during the growth (2-4 m) no two of these runs agree in the phase
+  of the wake, also not 4 against 8 rings on the same grid: that part is sensitive to noise and is not converged.
+  With the first grid (0.1 cells) the front half is the same; the rear quarter after saturation is 20-45 % lower
+  and up to 1.3 rad off. Not compared with another code.
 
 ## Trial with a fresh agent
 
@@ -84,6 +94,8 @@ length 5 cm, population 4e11 protons, cut at 1 sigma ahead; plasma 7e14 1/cc, po
 - **What it missed in the skill, now added:** that beam particles outside a shortened box are dropped (19 % of
   the cut bunch here) and that the quick look reported this as a loss; a criterion for the on-axis density
   spikes (they come first; the jump of the wake counts).
+- **After the trial** the example was changed (whole bunch, finer cells over the plasma, see above); the trial
+  was not repeated with the new rules.
 - **Limits of the trial:** the shipped example `awake_density_gradient.in` is this very request, so the trial
   tested the dialogue, the check and the reading of the output, not the construction of an input from a different
   problem. It was a sub-agent of the session that wrote the skill, not an independent agent, and

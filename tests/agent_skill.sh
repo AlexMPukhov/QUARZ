@@ -28,7 +28,7 @@ bad() { echo "  FAILED: $*"; fail=1; }
 # ---- code-specific settings -----------------------------------------------------------------------------------
 SKILL="$SRC/skills/quarz-simulation"
 # fixed key prefixes of the input; <beam>.key and <species>.key are user-named and checked by their suffix
-PREFIXES="grid xi time pusher plasma laser output units checkpoint restart solver beams boundary scattering ionization"
+PREFIXES="grid xi time pusher plasma laser output units checkpoint restart solver beams boundary scattering ionization diag"
 PARSER="$SRC/src"                     # the sources that read the keys: "prefix.key" or ".key" as a string literal
 REFERENCE="$SRC/README.md"            # the input reference: section 5 must name the key
 MINSKILLS=2; MINKEYS=30; MININPUTS=4  # fewer found = the extraction is broken
@@ -74,7 +74,7 @@ echo "3. input keys named in the skill files"
 MD=$(ls "$SRC"/skills/*/SKILL.md "$SRC"/skills/*/references/*.md | grep -vE '/(input|output)_reference.md$')
 alt=$(echo $PREFIXES | tr ' ' '|')
 awk '/^## / { on = (index($0, "## 5. ") == 1); next } on' "$REFERENCE" > ref5.md
-cat $MD | grep -oE "(^|[^A-Za-z0-9_.>])(($alt)|<beam>|<species>)\.[a-z_][a-z_0-9]*" |
+cat $MD | grep -oE "(^|[^A-Za-z0-9_.>])(($alt)|<beam>|<species>)\.[a-z_][a-z_0-9]*(\.[a-z_][a-z_0-9]*)?" |
   sed -E 's/^[^a-z<]*//; s/^<([a-z]+\.)/\1/' | grep -vE '\.(key|in|txt|bin|h5|md|sh|py|cpp|hpp|png)$' | sort -u > keys.txt
 nkey=0
 while IFS= read -r full; do
