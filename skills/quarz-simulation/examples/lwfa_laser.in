@@ -1,0 +1,35 @@
+# Laser wakefield acceleration with the laser envelope solver: 0.8 um laser, a0 = 4,
+# matched spot k_p w0 = 2 sqrt(a0) = 4 (blowout regime), plasma n0 = 1e18 cm^-3, and an
+# external witness bunch in the first bucket.
+# The laser drives a nonlinear wake, depletes and slips back (group velocity ~ 1 - 1/(2 k0^2)).
+units.n0_cm3 = 1e18
+grid.type      = regions
+grid.rmax      = 14
+grid.regions   = 1:0.005  5:0.02  14:0.1
+grid.max_ratio = 1.05
+xi.min  = 0
+xi.max  = 16
+xi.step = 0.01
+time.dt    = 20
+time.steps = 100
+plasma.species = electrons
+electrons.ppc  = 4
+laser.lambda0_um = 0.8          # k0 = omega0/omega_p = 41.8 at 1e18 cm^-3
+laser.a0     = 4.0
+laser.w0     = 4.0              # = 2 sqrt(a0)  (21 um)
+laser.L0     = 2.3              # a ~ exp(-(xi-xi0)^2/L0^2): intensity FWHM 2.7 c/omega_p = 48 fs
+laser.xi0    = 7.0
+laser.focus  = 0
+laser.polarization = linear
+beams = witness
+witness.n0       = 2
+witness.sigma_r  = 0.05
+witness.sigma_xi = 0.05
+witness.xi0      = 12.5
+witness.gamma    = 200
+witness.emit_n   = 0.01
+witness.nparticles = 50000
+witness.nsym     = 4
+output.every      = 25
+output.beam_slices = 0
+output.dir = out_lwfa

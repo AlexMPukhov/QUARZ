@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# AWAKE-like seeded self-modulation of a long proton bunch (LCODE's classic use case)
+#   n0 = 7e14 cm^-3:  c/omega_p = 0.2 mm,  1/omega_p = 0.67 ps,  E0 = 2.54 GV/m
+#   400 GeV protons (gamma = 427), sigma_r = 0.2 mm, sigma_z = 6 cm, cut at the bunch centre
+# Full 10 m run: time.steps = 250 (about 6 min on 2 CPU cores). Growth saturates after ~4-5 m.
+# ---------------------------------------------------------------------------
+grid.type      = regions
+grid.rmax      = 10.0
+grid.regions   = 2.0:0.01  10.0:0.1
+grid.max_ratio = 1.05
+
+xi.min  = -2        # bunch head (cut) at xi = 0
+xi.max  = 300
+xi.step = 0.05
+
+time.dt    = 200     # 4 cm
+time.steps = 3
+
+pusher.ab_order = 3
+
+plasma.species = electrons      # immobile neutralising ions are added automatically
+plasma.radial  = uniform
+plasma.rmax    = 7.0           # 1.4 mm plasma column (heat-pipe oven)
+electrons.ppc  = 4
+
+beams = protons
+protons.charge      = 1
+protons.mass        = 1836.15
+protons.n0          = 0.004     # peak density / n0 of the uncut bunch
+protons.sigma_r     = 1.0
+protons.profile     = gaussian
+protons.sigma_xi    = 300
+protons.xi0         = 0
+protons.xi_cut_head = 0         # ionisation front at the bunch centre
+protons.gamma       = 427
+protons.espread     = 3.5e-4
+protons.emit_n      = 0.0175    # 3.5 mm mrad normalised
+protons.nparticles  = 2000000
+
+output.dir        = out_awake
+output.every      = 25
+output.beam_every = 250

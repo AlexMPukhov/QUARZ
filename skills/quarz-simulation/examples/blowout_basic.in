@@ -1,0 +1,25 @@
+# Blowout regime: dense narrow electron driver, rigid (single quasi-static solve).
+# Checks: (Er - Btheta)/r = 0.5 inside the bubble, bubble radius ~2.
+grid.type      = regions
+grid.rmax   = 8.0
+grid.regions   = 0.5:0.0025  2.5:0.01  8.0:0.05
+grid.max_ratio = 1.05
+xi.min  = 0
+xi.max  = 14
+xi.step = 0.005
+time.dt    = 0
+time.steps = 0
+pusher.ab_order = 3
+plasma.species = electrons
+electrons.ppc  = 4
+beams = driver
+driver.n0        = 10
+driver.sigma_r   = 0.3
+driver.sigma_xi  = 1.0
+driver.xi0       = 3.0
+driver.gamma     = 20000
+driver.cut       = 4
+driver.nparticles = 1000000
+driver.rigid     = 1
+output.dir   = out_blowout_basic
+output.every = 1

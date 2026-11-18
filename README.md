@@ -819,7 +819,7 @@ never read are reported at the end of the run, which catches typos.
 | `grid.type` | `uniform` | `uniform` \| `regions` (alias `stretched`) \| `file` |
 | `grid.rmax` | — | outer radius R (conducting wall) |
 | `grid.dr` | — | spacing for `uniform` |
-| `grid.regions` | — | `r_end:h` pairs, e.g. `0.05:0.0005 2.5:0.01 8:0.05`. Spacing h is used for r < r_end. Transitions are geometric. A coarse→fine transition starts early enough to reach the fine spacing at the boundary. |
+| `grid.regions` | — | `r_end:h` pairs, e.g. `0.05:0.0005 2.5:0.01 8:0.05`. Spacing h is used for r < r_end. Transitions are geometric. A coarse→fine transition starts early enough to reach the fine spacing at the boundary. In boxes longer than about 300 c/ω_p keep the cells inside the plasma at 0.02–0.03 or below and coarsen only outside it: the field noise of clustering plasma macro-particles grows with the cell size. |
 | `grid.max_ratio` | 1.05 | maximum ratio of neighbouring cells |
 | `grid.file` | — | text file with one node radius per line (first 0, last R) |
 
@@ -1656,6 +1656,30 @@ comparison, the blowout on the stretched grid, and the SMI run.
 | `tests/test_solvers.cpp`, `tests/test_pushers.cpp`, `tests/test_parser.cpp`, `tests/test_profiles.cpp` | unit tests (run by `ctest`) |
 | `validation/` | physics validation inputs and scripts |
 | `tools/` | Python readers and plotting (optional); `quarz_gui.py` + `quarz_gui.html`: browser GUI (`quarz_machines.example.json`: clusters / remote hosts) |
+| `skills/`, `tools/sync_skills.sh`, `tests/agent_skill.sh` | agent skills `quarz-setup`, `quarz-simulation` (section "Agent skill"), their generated copies and the test that keeps them in step with the code |
+
+## Agent skill
+
+QUARZ ships two skills in the open [Agent Skills](https://agentskills.io) format (`SKILL.md`), so that AI coding
+agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI and others) can build the code and set up a run from a
+physics problem stated in plain words:
+
+```
+npx skills add AlexMPukhov/QUARZ
+```
+
+or copy the folders `skills/quarz-setup` and `skills/quarz-simulation` into the skills directory of the agent
+(Claude Code: `~/.claude/skills/`).
+
+| skill | for |
+|---|---|
+| `quarz-setup` | clone, build (Kokkos, MPI, GPU), tests, how to run, where the output goes |
+| `quarz-simulation` | is QUARZ the right code; dialogue with the user; the input in one page; rules for the grid, the box and the time step; checking an input (`scripts/check_input.sh`: a zero-step solve that fails on errors and on keys that were not read); reading the output; debugging |
+
+The skills help the user run the code; they tell the agent not to modify the source. They cannot drift from the
+code: `ctest -R agent_skill` checks their format, that the copied README sections and examples are current
+(`sh tools/sync_skills.sh` regenerates them), that every input key they name exists in the code and in section 5,
+and runs every example they ship. Details and the trial with a fresh agent: `docs/agent_skill.md`.
 
 ## Citing QUARZ
 
