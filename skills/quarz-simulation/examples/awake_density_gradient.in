@@ -1,0 +1,57 @@
+# ---------------------------------------------------------------------------
+# AWAKE-like seeded self-modulation with a plasma density gradient
+#   n0 = 7e14 cm^-3 (reference density, at z = 0):  c/omega_p = 0.2008 mm,  E0 = 2.54 GV/m
+#   proton bunch: 4e11 protons (uncut), 400 GeV, sigma_z = 5 cm, sigma_r = 0.2 mm, eps_n = 3.5 mm mrad,
+#   cut one sigma_z ahead of its centre (sharp front = seed of the self-modulation)
+#   plasma density rising linearly by 5 % over 10 m
+# Numbers from:  python3 scripts/quarz_numbers.py --density 7e14 --length-m 10 --particles 4e11 --species proton \
+#                --energy-gev 400 --sigma-r-um 200 --sigma-z-um 5e4 --emit-n-um 3.5
+# Full run: 250 steps of 4 cm = 10 m.
+#
+# The box ends one sigma_z behind the bunch centre (xi = 500), with 16 plasma rings per cell, on purpose: far behind
+# the head the cold plasma macro-particles cluster (Kargapolov et al., Phys. Plasmas 32, 023905 (2025)) and the
+# wake turns into noise. Measured for this input at t = 0, where the wake must stay at the seed level of 0.005 E0
+# along the whole bunch: with electrons.ppc = 4 it jumps to 0.1 E0 at xi = 300, with 16 at 500, with 64 at 600.
+# Before extending the box, look at the wake of the first step along xi (scripts/quick_look.py prints it).
+# The protons behind xi = 500 (19 % of the cut bunch) are outside the box: they are dropped at the first step.
+# ---------------------------------------------------------------------------
+grid.type      = regions
+grid.rmax      = 10.0                  # conducting wall at 2 mm, 10 sigma_r
+grid.regions   = 2.0:0.01  10.0:0.1    # cells of 0.01 c/omega_p over the beam (sigma_r = 1), coarser outside
+grid.max_ratio = 1.05
+
+xi.min  = -2          # the cut (head of the bunch) is at xi = 0; xi grows towards the tail
+xi.max  = 500         # centre at xi = 249: the box ends one sigma_z behind the centre (see above)
+xi.step = 0.05        # 126 slices per plasma wavelength
+
+time.dt    = 199.15   # 4 cm; the betatron period of 400 GeV protons in a full ion channel is 7860 (1.58 m)
+time.steps = 250      # 10 m
+
+pusher.ab_order = 3
+
+plasma.species = electrons             # an immobile neutralising background is added automatically
+plasma.radial  = uniform
+plasma.rmax    = 7.0                   # plasma column of 1.4 mm radius
+plasma.z_table = 0:1  49787:1.05       # density / n0 against z [c/omega_p]: +5 % over 10 m
+electrons.ppc  = 16                    # rings per radial cell (see above)
+
+beams = protons
+protons.charge      = 1
+protons.mass        = 1836.15
+protons.profile     = gaussian
+protons.n0          = 0.018141         # peak density / n0 of the uncut bunch
+protons.sigma_r     = 0.99575          # 0.2 mm
+protons.sigma_xi    = 248.94           # 5 cm
+protons.xi0         = 248.94           # centre one sigma_z behind the cut
+protons.xi_cut_head = 0                # particles ahead of xi = 0 are dropped
+protons.gamma       = 426.32           # 400 GeV
+protons.espread     = 3.5e-4
+protons.emit_n      = 0.017426         # 3.5 mm mrad
+protons.nparticles  = 4000000
+
+output.dir         = out_awake_gradient
+output.every       = 25                # 1 m
+output.fields     = ez er bth ne rhob      # 2D maps of these fields only
+output.rmax       = 3                      # ... for r <= 3 c/omega_p
+output.xi_stride  = 5                      # ... every 5th slice: 19 MB per output step instead of 250 MB
+output.beam_every  = 250

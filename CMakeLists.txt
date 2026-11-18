@@ -155,4 +155,7 @@ if(QUARZ_BUILD_TESTS)
   add_executable(test_laser_file tests/test_laser_file.cpp)
   target_link_libraries(test_laser_file PRIVATE quarz_core)
   add_test(NAME laser_file COMMAND test_laser_file)
+  # agent skills (skills/*/SKILL.md, docs/agent_skill.md): format, copies of the README sections and examples in
+  # sync, every input key named in the skills exists in the code, snippets and example inputs pass the check and run
+  add_test(NAME agent_skill COMMAND sh ${CMAKE_SOURCE_DIR}/tests/agent_skill.sh $<TARGET_FILE:quarz>)
 endif()
