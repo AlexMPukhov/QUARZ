@@ -6,7 +6,9 @@
 #   plasma density rising linearly by 5 % over 10 m
 # Numbers from:  python3 scripts/quarz_numbers.py --density 7e14 --length-m 10 --particles 4e11 --species proton \
 #                --energy-gev 400 --sigma-r-um 200 --sigma-z-um 5e4 --emit-n-um 3.5
-# Full run: 250 steps of 4 cm = 10 m.
+# Full run: 250 steps of 4 cm = 10 m, 17 min on 32 threads, 0.5 GB of output. Result of that run (not compared
+# with another code): the largest on-axis E_z grows from 0.005 E0 to 0.77 E0 (1.9 GV/m) at 3 m and falls to
+# 0.17 E0 at 10 m; 73 % of the cut bunch is lost by then (19 % behind the box, the rest defocused to the wall).
 #
 # The box ends one sigma_z behind the bunch centre (xi = 500), with 16 plasma rings per cell, on purpose: far behind
 # the head the cold plasma macro-particles cluster (Kargapolov et al., Phys. Plasmas 32, 023905 (2025)) and the

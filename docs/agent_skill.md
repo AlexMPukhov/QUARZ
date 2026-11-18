@@ -64,6 +64,9 @@ The same pair of skills, sync script and test exists in GEM-PIC-RZ; the tests di
   and `quick_look.py` prints the wake of the first step along the box. The `plasma.declustering` option in the
   source is not documented in the README; with its default parameters it made this case worse (wake of order
   E0 from the head on), so the skill does not name it.
+- The full 10 m run of the example (17 min on 32 threads): the largest on-axis E_z grows from 0.005 E0 to
+  0.77 E0 at 3 m and falls to 0.17 E0 at 10 m; 73 % of the cut bunch is lost (19 % behind the box, the rest
+  defocused to the wall at 2 mm). Not compared with another code.
 - `grid.regions` with decreasing radii is accepted without a message.
 
 ## Trial with a fresh agent

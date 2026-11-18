@@ -75,7 +75,7 @@ More: `references/physics_rules.md` (model, resolution, time step, box, cost), `
 
 | file | what | cost |
 |---|---|---|
-| `examples/awake_density_gradient.in` | AWAKE-like: 4e11 protons, 400 GeV, sigma_z = 5 cm, cut one sigma ahead of the centre, 7e14 cm^-3 rising by 5 % over 10 m; box to one sigma behind the centre (rule 9) | 250 steps, about 15 min on 32 threads |
+| `examples/awake_density_gradient.in` | AWAKE-like: 4e11 protons, 400 GeV, sigma_z = 5 cm, cut one sigma ahead of the centre, 7e14 cm^-3 rising by 5 % over 10 m; box to one sigma behind the centre (rule 9) | 250 steps, 17 min on 32 threads |
 | `examples/awake_seeded_smi.in` | seeded self-modulation of a long proton bunch cut at its centre, uniform plasma | set to 3 steps; 250 steps = 10 m |
 | `examples/blowout_basic.in` | blowout of a dense electron driver: one quasi-static solve (rigid beam) | seconds |
 | `examples/pwfa_ion_motion.in` | driver and a strongly pinched, low-emittance witness, mobile hydrogen ions, 5e-4 cells on the axis | 100 steps, minutes |
