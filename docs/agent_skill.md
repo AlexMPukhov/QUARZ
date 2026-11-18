@@ -62,8 +62,8 @@ The same pair of skills, sync script and test exists in GEM-PIC-RZ; the tests di
   instability of quasi-static plasma macro-particles (Kargapolov et al., Phys. Plasmas 32, 023905 (2025)), not
   physics. The example therefore ends at xi = 500 with 16 rings per cell, the skill has a rule for long boxes,
   and `quick_look.py` prints the wake of the first step along the box. The `plasma.declustering` option in the
-  source is not documented in the README; with its default parameters it made this case worse (wake of order
-  E0 from the head on), so the skill does not name it.
+  source is not a general remedy and is not documented in the README, so the skill does not name it: the
+  remedy is more rings per cell.
 - The full 10 m run of the example (17 min on 32 threads): the largest on-axis E_z grows from 0.005 E0 to
   0.77 E0 at 3 m and falls to 0.17 E0 at 10 m; 73 % of the cut bunch is lost (19 % behind the box, the rest
   defocused to the wall at 2 mm). Not compared with another code.
