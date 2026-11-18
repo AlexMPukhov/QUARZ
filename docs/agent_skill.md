@@ -67,7 +67,6 @@ The same pair of skills, sync script and test exists in GEM-PIC-RZ; the tests di
 - The full 10 m run of the example (17 min on 32 threads): the largest on-axis E_z grows from 0.005 E0 to
   0.77 E0 at 3 m and falls to 0.17 E0 at 10 m; 73 % of the cut bunch is lost (19 % behind the box, the rest
   defocused to the wall at 2 mm). Not compared with another code.
-- `grid.regions` with decreasing radii is accepted without a message.
 
 ## Trial with a fresh agent
 

@@ -46,7 +46,7 @@
 ## Long proton bunches (AWAKE-like)
 
 - **Check the box length first** (rule 9 of SKILL.md): far behind the head the plasma macro-particles cluster
-  and the wake is noise. `grid.regions` is not checked for order: write the radii increasing.
+  and the wake is noise.
 - Bunch length hundreds of c/omega_p: the box is long (10^4 slices and more), the sweep takes seconds, the run
   a few hundred steps of some centimetres. See `examples/awake_density_gradient.in`.
 - Seed: a sharp front (`<beam>.xi_cut_head`) stands for the ionization front of a co-propagating laser. `<beam>.n0`
