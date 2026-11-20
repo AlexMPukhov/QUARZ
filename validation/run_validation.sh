@@ -89,7 +89,7 @@ sec6() {
     $QS linear.in xi.max=12 driver.analytic=1 driver.n0=0.01 modes=1 driver.x0=0.01 output.dir=out_m1_shift > /dev/null
     echo " linear regime (d = 0.01):"
     python3 check_shift2.py out_m1_ref out_m1_shift 0.01 3 -1e9 1e9 0.15 2>/dev/null
-    [ "$QUICK" = 1 ] && { rm -rf out_m1_*; return 0; }
+    [ "$QUICK" = 1 ] && { rm -rf out_m1_ref out_m1_shift; return 0; }
     B="blowout.in xi.max=9 xi.step=0.005 grid.type=regions grid.max_ratio=1.05 driver.analytic=1"
     $QS $B "grid.regions=0.5:0.0025 2.5:0.01 8:0.05" output.dir=out_m1_bref > /dev/null
     $QS $B "grid.regions=0.5:0.0025 2.5:0.01 8:0.05" modes=1 driver.x0=0.002 output.dir=out_m1_bshift > /dev/null
