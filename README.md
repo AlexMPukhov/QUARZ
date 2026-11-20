@@ -369,6 +369,21 @@ frequency shift (depletion).
   equation with ∇⊥² → L_ℓ = (1/r)∂_r r∂_r − ℓ²/r², discretized by the finite-volume operator
   of the field solver (self-adjoint with the weights r dV, â = 0 on the axis); one complex
   tridiagonal solve per slice as before.
+- **Comb of lines** (`laser.comb_a`): a sum of lines at frequencies ω_q = ω₀ + Δω_q, line q in the radial mode
+  LG_p (ℓ = 0) of spot w with a common longitudinal envelope f (super-Gaussian of order `laser.sg` in the field),
+  â = Σ_q a_q f(ξ − ξ₀) L_p(2r²/w²) e^{−r²/w²} e^{−iκ_q(ξ−ξ₀) + iφ_q}; a_q is the normalized vector potential of line q on
+  the axis. Example: the luminal ladder of matched-channel LG modes (Pukhov, arXiv:2611.26032), five lines ω_c + qω_p
+  in LG_{q+2}, whose neighbour beats drive the wake at v = c. The box holds a snapshot at t = 0, so a line is set by
+  its wavenumber k₀ + κ_q, chosen such that the line has the frequency ω_q in the envelope model, 2ν(k₀ + κ) = −K,
+  ω = k₀ + κ − ν, with K = χ₀ + 4(2p + 1)/w² the eigenvalue of LG_p in the matched channel χ = χ₀(1 + r²/R²),
+  R = w²/2: κ_q = [ω_q + (ω_q² − 2K)^{1/2}]/2 − k₀ (exact for that channel, approximate in others).
+  - **Accuracy for beat-wave work.** The beat of two lines moves at c when Δk_z = Δω/c; the envelope model drops
+    ∂²_t and changes that by ~K²/(8ω³) per line, a beat slip of +0.003 rad/mm for the ladder at 6·10¹⁸ cm⁻³ (k₀/k_p = 13.2).
+    Larger is the ξ discretization, ∝ κ³Δξ²: at Δξ = λ_p/40 BDF2 gives 0.013–0.12 rad/mm between the pairs of that
+    ladder and damps the outermost lines by 2–3 % per mm; the trapezoid is neutral and 4× more accurate
+    (λ_p/80: 0.003–0.011 rad/mm; λ_p/160: 0.003–0.006 rad/mm). The time step hardly matters (Δt = 20 → 5 µm changes the slips by < 0.003 rad/mm at λ_p/40, < 0.001 at λ_p/160).
+    For combs use `laser.xi_scheme = trapezoid` and Δξ ≲ λ_p/160, and correct the remaining mean slip with the spot
+    size if needed (validation section 11 checks the measured phase rates against the discrete dispersion relation).
 - **Laser from a LASY file** (`laser.file`, `src/LaserFile.*`; needs a build with HDF5): the envelope of a
   [LASY](https://github.com/LASY-org/lasy) file (openPMD LaserEnvelope: `thetaMode` or `cartesian`, the electric field
   or the normalized vector potential at a plane versus time, any spectrum, chirp or radial structure) is turned into the
@@ -930,6 +945,14 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
 | `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
 | `laser.file_iteration` | last | iteration in the file |
+| `laser.comb_a` | — | comb of lines (instead of `laser.a0`, `L0`, `focus`, `file`): amplitude a_q of each line on the axis (list) |
+| `laser.comb_dw` | — | frequency offsets ω_q − ω₀ in units of ω_p (list; or `laser.comb_lambda_um`) |
+| `laser.comb_lambda_um` | — | wavelengths of the lines in µm (list; needs `units.n0_cm3`) |
+| `laser.comb_p` | 0 … | radial index p of the LG_p mode of each line (list) |
+| `laser.comb_phase` | 0 … | phase φ_q of each line (rad, list) |
+| `laser.comb_chi0` | 1 | χ on the axis for the line wavenumbers (K = χ₀ + 4(2p + 1)/w²) |
+| `laser.fwhm` | — | comb: intensity FWHM of the envelope (1/k_p) |
+| `laser.sg` | 2 | comb: order of the super-Gaussian field envelope exp(−\|(ξ − ξ₀)/L\|^sg) |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets
@@ -1349,6 +1372,7 @@ written together with the native files (`output.format = both`) and compared wit
 | Diffraction in vacuum through the focus (k₀ = 20, w0 = 2, t = −Z_R … +Z_R) | spot size and peak amplitude within 7·10⁻⁴ of the Gaussian-beam formulas; ∫\|â\|² conserved exactly; the centroid slips by 0.0501 vs the group-velocity value t/(k₀w0)² = 0.0500 (the ∂_t∂_ξ term) |
 | LG₀ℓ vortex through the focus (`laser.l`; same case) | ℓ = 1: w_rms/(w(t)(ℓ+1)^{1/2}) within 5.7·10⁻⁴, peak 1.5·10⁻³ (ℓ = 2, 3: 1.2·10⁻³ / 2.1·10⁻³, 2.7·10⁻³ / 2.9·10⁻³); complex profile incl. the Gouy phase (ℓ+1) atan s within 0.4 % (ℓ = 1) to 1.1 % (ℓ = 3); ∫\|â\|² conserved exactly; slippage (ℓ+1)t/(k₀w0)² (0.1001 vs 0.1000) |
 | LWFA benchmarks of Meng et al., PPCF (2026) (QuickPIC laser module; `benchmarks/quickpic_laser`) vs FBPIC 0.27 with the same parameters | a0 = 2.5, k₀/k_p = 34: on-axis E_z in front of the bubble closure to 0.7–1.4 % up to s = 500 k_p⁻¹ (1.5 % over the whole box at s = 500), laser energy loss 3.7 % vs 3.5 %; a0 = 4, k₀/k_p = 20: E_z to 1.0–1.6 % up to s = 200 k_p⁻¹ (ξ < 7), laser energy to 0.5 %; LG₀₁ vortex (`laser.l = 1`, a0 = 2.1, k_p w0 = 6): E_z at r = 4 vs FBPIC 2.6–3.4 % (averaged over a laser period), vs their OSIRIS curves 5–8 % (QuickPIC 4–5 %). Details in that directory's README |
+| Comb of lines (`laser.comb_a`; the luminal ladder at 6·10¹⁸ cm⁻³: 5 lines in LG₀ … LG₄) | envelope vs an independent evaluation of its definition 1.6·10⁻¹⁴; line energies (LG_p projections) vs ε₀cE₀²/2 × area × fluence 9·10⁻⁷ (29.11 mJ); two weak lines (q = ±2) in the channel: phase rates and their beat slip vs the discrete dispersion relation of the scheme within 2·10⁻⁷ ω_p (trapezoid and BDF2) |
 | Linear wake, a0 = 0.05, w0 = 3 | ψ and E_z vs (∂²_ξ + 1)ψ = ⟨a²⟩/2: 1.4·10⁻³; 2.2·10⁻⁴ for a0 = 0.02, i.e. the O(a0²) nonlinearity. The same on a stretched grid. |
 | Matched parabolic channel n = 1 + 4r²/w0⁴, stretched grid, 6.7 Z_R | spot size constant to 2·10⁻⁴; slippage 2.1653 vs (1 + 4/w0²) t/(2k₀²) = 2.1667 (Δt = 2.5; 2.5 % low at Δt = 5) |
 | Relativistic self-focusing of a long pulse, w0 = 20, over one Z_R | vacuum 1 → 0.707 (exact); P/P_c = 0.5: diffraction compensated (1.00); P/P_c = 2: focusing, a → 1.58 a0 |
