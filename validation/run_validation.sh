@@ -196,7 +196,7 @@ sec11() {
     echo " comb of lines (laser.comb_a; luminal ladder lo6, 5 lines in LG_0..LG_4) vs its definition and the line energies:"; python3 comb_check.py init out_laser_comb
     for s in trapezoid bdf2; do
         $QS laser_comb.in laser.xi_scheme=$s "laser.comb_a=1e-4 1e-4" "laser.comb_lambda_um=1.213347 0.89479" "laser.comb_p=0 4" \
-            xi.max=40 laser.xi0=20 laser.fwhm=25 time.steps=$(q 40 20) output.every=$(q 4 2) output.dir=out_laser_comb_$s > out_laser_comb_$s.log
+            grid.regions=50:0.1 xi.max=40 laser.xi0=20 laser.fwhm=25 time.steps=$(q 40 20) output.every=$(q 4 2) output.dir=out_laser_comb_$s > out_laser_comb_$s.log
     done
     echo " two weak comb lines (q = -2 in LG_0, q = +2 in LG_4) in the channel: phase rates vs the discrete dispersion relation:"
     for s in trapezoid bdf2; do python3 comb_check.py drift out_laser_comb_$s 13.23415 9.2582 9.2 0.15707963267948966 $s -2 0 2 4; done
