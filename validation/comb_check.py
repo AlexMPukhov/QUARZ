@@ -1,6 +1,7 @@
 """checks of the comb laser input (laser.comb_a) against an independent evaluation of its definition
 usage: comb_check.py init DIR       initial envelope vs the analytic sum; line energies (radial LG_p projections) vs the
-                                     intensity formula I = 1.38e18 a^2 / lambda^2 W/cm^2 (drive energy of case lo6: 29.4 mJ)
+                                     intensity I = eps0 c E0^2 / 2 = 1.368e18 a^2 / lambda^2 W/cm^2 (drive energy of case lo6: 29.1 mJ;
+                                     the deck generator ps_deck.py rounds the coefficient to 1.38e18 and prints 29.4 mJ)
        comb_check.py drift DIR k0 w dt dxi scheme dw0 p0 dw1 p1
                                      two weak lines: phase rates and their difference (beat slip) vs the discrete
                                      dispersion relation of the envelope scheme (Crank-Nicolson in t, scheme in xi)"""
@@ -54,7 +55,7 @@ if what == "init":
     for ai, q, o, l in zip(a, p, om, lam):
         cq = project(A, r, q, w)
         Ucode.append(0.5 * eps0 * (me * c * wp * o / e) ** 2 * (np.abs(cq) ** 2).sum() * dxi * math.pi * w ** 2 / 2 * (c / wp) ** 3)
-        I = 1.38e18 * ai ** 2 / l ** 2 * 1e4                     # W/m^2 (time-averaged, linear polarisation)
+        I = 0.5 * eps0 * c * (me * c * 2 * math.pi * c / (l * 1e-6) * ai / e) ** 2   # W/m^2 = 1.368e18 a^2/lambda^2 W/cm^2 (linear)
         flu = (env ** 2).sum() * dxi / kp_um * 1e-6 / c           # s
         Uth.append(I * math.pi * (w / kp_um * 1e-6) ** 2 / 2 * flu)
     rel = max(abs(u / v - 1) for u, v in zip(Ucode, Uth))
