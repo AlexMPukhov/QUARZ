@@ -637,6 +637,20 @@ void Simulation::step_fields(const std::vector<double>& msg, size_t& off) {
     for (View1D v : {bg_rhot_.a0, bg_rhot_.ar, bg_rhot_.ai, bg_rho_.a0, bg_rho_.ar, bg_rho_.ai}) Kokkos::deep_copy(v, 0.0);
     unsigned long long sd = seed_;
     for (auto& s : species_) s->load(z_front, sd++);
+    if (!long_box_note_ && comm_.root()) {
+        // Heuristic note, once: clustering plasma macro-particles make field noise that grows with the radial cell
+        // size; in a long box cells above 0.03 inside the plasma spoil the wake far behind the head (README section 5).
+        long_box_note_ = true;
+        double hp = 0, rp = 0;
+        for (const auto& s : species_)
+            if (s->mobile() && !s->frozen() && !s->ionizable()) { hp = std::max(hp, s->loaded_hmax()); rp = std::max(rp, s->loaded_rmax()); }
+        const double len = (box_.nxi - 1) * box_.dxi;
+        if (len > 300 && hp > 0.03)
+            std::cout << "Note: the box is " << len << " c/omega_p long and the radial cells inside the plasma (r < " << rp
+                      << ") reach h = " << hp << ". In boxes longer than about 300 the field noise of clustering plasma\n"
+                      << "      macro-particles grows with the cell size: keep the cells inside the plasma at 0.02-0.03 or below\n"
+                      << "      (grid.regions; coarsen only outside the plasma) and check the wake of the first step along xi.\n";
+    }
     for (auto& s : species_)
         if (!s->mobile()) s->deposit_rho(bg_rhot_, bg_rho_);
     if (neutralize_) {

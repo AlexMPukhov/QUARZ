@@ -210,6 +210,7 @@ void PlasmaSpecies::load(Real z, unsigned long long seed) {
     std::normal_distribution<double> gauss(0.0, 1.0);
     const bool parsed = prof_.parsed();
     const double fz = parsed ? density_factor_ : prof_.longitudinal(z) * density_factor_;
+    double hl = 0, rl = 0;
     int i = 0;
     for (int j = 0; j < grid_.N; ++j) {
         const double h = grid_.h[j];
@@ -251,6 +252,7 @@ void PlasmaSpecies::load(Real z, unsigned long long seed) {
                 hpy(i) = py;
                 hdl(i) = gam - pz;
                 hw(i) = W;
+                if (W != 0) { hl = std::max(hl, h); rl = std::max(rl, rb); }
             }
         }
     }
@@ -262,6 +264,7 @@ void PlasmaSpecies::load(Real z, unsigned long long seed) {
     Kokkos::deep_copy(fresh_, 0);
     if (trap_) { Kokkos::deep_copy(tw_, 0.0); Kokkos::deep_copy(ntrap_, 0); }
     Np_ = i;   // rings with plasma (<= Nload_)
+    hload_ = hl; rload_ = rl;
     nfam_ = i;
     if (decl_) {
         auto x = x_, y = y_, r0 = r0_, dp = dprev_;
