@@ -276,7 +276,8 @@ classical synchrotron limit (χ ≪ 1, local constant crossed field), with K = �
 Λ = (5/(2√3)) Z²α (M/K) χ Δt/γ photons with the one-photon moments m₁ = (4√3/15) χγ and
 m₂ = (11/12) χ²γ² (units M c²), so that Λm₁ is the Landau–Lifshitz loss of `imp_rr` and Λm₂ the
 Sokolov–Ternov quantum excitation. The loss S of the step is drawn from a zero-inflated Gamma law
-(method of N. Elkina and A. Pukhov): S = 0 with probability e^{−Λ}, otherwise
+(N. Elkina and A. Pukhov, *Aggregating soft-photon recoil with a positive finite-step sampler*,
+[arXiv:2611.26402](https://arxiv.org/abs/2611.26402); here in its frozen-step form with the classical moments): S = 0 with probability e^{−Λ}, otherwise
 S ~ Gamma(k, θ) matched to the conditional mean r₁ = Λm₁/q and variance
 σ² = (qΛm₂ − Λ²m₁²e^{−Λ})/q² of the compound-Poisson sum (q = 1 − e^{−Λ}, k = r₁²/σ², θ = σ²/r₁).
 Mean and variance are exact for every Λ, and S ≥ 0: a particle never gains energy by radiating.

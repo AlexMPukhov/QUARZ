@@ -11,7 +11,8 @@
 // excitation (Sokolov-Ternov).
 //
 // The energy loss S of the step (N ~ Poisson(Lambda) photons) is sampled from a zero-inflated Gamma law
-// (N. Elkina, A. Pukhov, "Coarse-grained stochastic radiation reaction with one-sided quantum recoil"):
+// (N. Elkina and A. Pukhov, "Aggregating soft-photon recoil with a positive finite-step sampler",
+// arXiv:2611.26402 (2026); here the frozen-step form with the classical moments, without the state-feedback correction):
 //   S = 0 with probability exp(-Lambda), otherwise S ~ Gamma(k, theta) with the conditional mean r1 and
 //   variance s2 of the compound-Poisson sum:  r1 = Lambda m1 / q,  s2 = (q Lambda m2 - Lambda^2 m1^2 e^-Lambda) / q^2,
 //   q = 1 - exp(-Lambda),  k = r1^2 / s2,  theta = s2 / r1.
