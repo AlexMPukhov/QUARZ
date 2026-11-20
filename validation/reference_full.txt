@@ -71,6 +71,11 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   spot size 8.7e-04, peak amplitude 1.1e-03, int |a|^2 conserved to 1.9e-06; centroid slip 0.0503 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
  vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):
   spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ comb of lines (laser.comb_a; luminal ladder lo6, 5 lines in LG_0..LG_4) vs its definition and the line energies:
+  envelope vs analytic sum: max error 1.6e-14 (on axis |a|^2: 5.9e-15); line energies 1.161 5.507 6.444 7.455 8.539 mJ, total 29.11 mJ (intensity formula: 29.11 mJ, lines within 9.2e-07)
+ two weak comb lines (q = -2 in LG_0, q = +2 in LG_4) in the channel: phase rates vs the discrete dispersion relation:
+  trapezoid: phase rates -0.046147 -0.046003  (theory -0.046147 -0.046003); beat slip +1.442e-04 vs +1.436e-04 per 1/omega_p (difference 5.3e-07)
+  bdf2: phase rates -0.046349 -0.045875  (theory -0.046349 -0.045875); beat slip +4.744e-04 vs +4.738e-04 per 1/omega_p (difference 5.8e-07)
  relativistic self-focusing, P/Pc = 0 (vacuum: 1 .97 .894 .8 .707), 0.5, 2:
   out_laser_sf0: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 0.970 0.895 0.800 0.707
   out_laser_sf05: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 1.003 1.008 1.010 1.002
