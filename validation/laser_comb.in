@@ -1,0 +1,28 @@
+# comb of lines (laser.comb_a): the luminal ladder of arXiv:2611.26032 (case lo6: 6e18 cm^-3, carrier 1.03 um, 0.5 ps),
+# five lines omega_c + q omega_p (q = -2..2) in LG_{q+2} of the matched parabolic channel, k_p w = 9.258
+grid.type = regions
+grid.rmax = 50
+grid.regions = 50:0.25
+xi.min = 0
+xi.max = 110
+xi.step = 0.15707963267948966
+time.dt = 9.2
+time.steps = 0
+plasma.species = electrons
+electrons.ppc = 2
+my_constants.R = 42.8515
+plasma.density(x,y,z) = "1 + (x^2+y^2)/R^2"
+beams =
+units.n0_cm3 = 6e18
+laser.lambda0_um = 1.03
+laser.comb_a = 0.02 0.04 0.04 0.04 0.04
+laser.comb_lambda_um = 1.213347 1.114181 1.03 0.957646 0.89479
+laser.comb_p = 0 1 2 3 4
+laser.w0 = 9.2582
+laser.fwhm = 69.08
+laser.sg = 8
+laser.xi0 = 55
+laser.xi_scheme = trapezoid
+output.every = 1
+output.fields = a
+output.dir = out_laser_comb
