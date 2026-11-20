@@ -46,6 +46,8 @@ The generated grid is written to `out/grid.txt` (j, r_j, h_j, V_j).
 | `pusher.beam` | `vay` | beam momentum pusher: `vay` \| `hc` \| `imp` \| `imp_rr` \| `boris`. Can be overridden per beam with `<beam>.pusher`. |
 | `pusher.rr_n0_cm3` | 0 | plasma density in cm⁻³. With `imp_rr`, a value > 0 switches on radiation reaction. |
 | `pusher.rr_scale` | 1 | multiplies the radiation-reaction strength (testing only) |
+| `pusher.rr_model` | `classical` | `classical` (deterministic Landau–Lifshitz drag, needs `imp_rr`) \| `stochastic` (quantum recoil of discrete photons, zero-inflated Gamma, any pusher) \| `gaussian` (Fokker–Planck recoil, for comparison), see §1. Can be overridden per beam with `<beam>.rr_model`. |
+| `pusher.rr_seed` | 1 | seed of the stochastic recoil |
 | `<beam>.scattering` | 1 if `units.n0_cm3` is given | multiple Coulomb scattering on the plasma ions and electrons (needs `units.n0_cm3`), see §1. The default Z = 1 is hydrogen: set `scattering.Z`, `ion_charge` for other gases |
 | `scattering.Z`, `scattering.ion_charge`, `scattering.A` | 1, Z, 1 (2Z for Z > 1) | nuclear charge, ion charge state, mass number of the background ions |
 | `scattering.coulomb_log_ions`, `scattering.coulomb_log_electrons` | computed | fixed Coulomb logarithms instead of the per-particle formulas |
@@ -124,6 +126,14 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
 | `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
 | `laser.file_iteration` | last | iteration in the file |
+| `laser.comb_a` | — | comb of lines (instead of `laser.a0`, `L0`, `focus`, `file`): amplitude a_q of each line on the axis (list) |
+| `laser.comb_dw` | — | frequency offsets ω_q − ω₀ in units of ω_p (list; or `laser.comb_lambda_um`) |
+| `laser.comb_lambda_um` | — | wavelengths of the lines in µm (list; needs `units.n0_cm3`) |
+| `laser.comb_p` | 0 … | radial index p of the LG_p mode of each line (list) |
+| `laser.comb_phase` | 0 … | phase φ_q of each line (rad, list) |
+| `laser.comb_chi0` | 1 | χ on the axis for the line wavenumbers (K = χ₀ + 4(2p + 1)/w²) |
+| `laser.fwhm` | — | comb: intensity FWHM of the envelope (1/k_p) |
+| `laser.sg` | 2 | comb: order of the super-Gaussian field envelope exp(−\|(ξ − ξ₀)/L\|^sg) |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets
