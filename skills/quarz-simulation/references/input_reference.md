@@ -119,11 +119,19 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
 | `laser.p` | 0 | radial index of the LG mode; only 0 is implemented |
 | `laser.xi_scheme` | `bdf2` | ξ discretization of the envelope march: `bdf2` (second order, weakly dissipative, as in QuickPIC; default since 2026-11-10), `trapezoid` (neutral, second order; the earlier default), `euler` (first order) |
-| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 and `units.n0_cm3` |
+| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 ≥ 1.12 and `units.n0_cm3` |
 | `laser.file_z` | 0 | distance from the pulse centre at t = 0 to the file's plane (1/k_p; > 0: the pulse still travels to it) |
 | `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
 | `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
 | `laser.file_iteration` | last | iteration in the file |
+| `laser.comb_a` | — | comb of lines (instead of `laser.a0`, `L0`, `focus`, `file`): amplitude a_q of each line on the axis (list) |
+| `laser.comb_dw` | — | frequency offsets ω_q − ω₀ in units of ω_p (list; or `laser.comb_lambda_um`) |
+| `laser.comb_lambda_um` | — | wavelengths of the lines in µm (list; needs `units.n0_cm3`) |
+| `laser.comb_p` | 0 … | radial index p of the LG_p mode of each line (list) |
+| `laser.comb_phase` | 0 … | phase φ_q of each line (rad, list) |
+| `laser.comb_chi0` | 1 | χ on the axis for the line wavenumbers (K = χ₀ + 4(2p + 1)/w²) |
+| `laser.fwhm` | — | comb: intensity FWHM of the envelope (1/k_p) |
+| `laser.sg` | 2 | comb: order of the super-Gaussian field envelope exp(−\|(ξ − ξ₀)/L\|^sg) |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets
