@@ -121,6 +121,7 @@ private:
     std::unique_ptr<RadialGrid> grid_;
     std::unique_ptr<FieldSolver> solver_;
     DensityProfile profile_;
+    std::vector<std::string> profile_report_;   // density files: summary lines and warnings
     std::vector<std::unique_ptr<PlasmaSpecies>> species_;
     std::vector<std::unique_ptr<Beam>> beams_;
     std::vector<std::vector<double>> outbox_;   // per beam: particles for the downstream rank

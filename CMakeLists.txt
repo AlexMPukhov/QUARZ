@@ -49,6 +49,7 @@ add_library(quarz_core
   src/Tridiag.cpp
   src/FieldSolver.cpp
   src/Profiles.cpp
+  src/DensityFile.cpp
   src/Parser.cpp
   src/PlasmaSpecies.cpp
   src/Beam.cpp
@@ -87,7 +88,7 @@ if(QUARZ_ENABLE_HDF5)
   elseif(HDF5_FOUND)
     target_include_directories(quarz_core PUBLIC ${HDF5_INCLUDE_DIRS})
     target_link_libraries(quarz_core PUBLIC ${HDF5_C_LIBRARIES})
-    target_compile_definitions(quarz_core PUBLIC QUARZ_USE_HDF5)
+    target_compile_definitions(quarz_core PUBLIC QUARZ_USE_HDF5 DENSITY_FILE_USE_HDF5)
     message(STATUS "QUARZ: LASY laser files enabled (HDF5 ${HDF5_VERSION})")
   else()
     message(WARNING "QUARZ: HDF5 not found - laser.file (LASY) disabled")
@@ -159,6 +160,11 @@ if(QUARZ_BUILD_TESTS)
   add_executable(test_profiles tests/test_profiles.cpp)
   target_link_libraries(test_profiles PRIVATE quarz_core)
   add_test(NAME profiles COMMAND test_profiles)
+  # density profiles from files (plasma.density_file, docs/density_file.md): reader, all layouts and geometries,
+  # file against the built-in tables and parsed functions, loaded plasma
+  add_executable(test_density_file tests/test_density_file.cpp)
+  target_link_libraries(test_density_file PRIVATE quarz_core)
+  add_test(NAME density_file COMMAND test_density_file)
   add_executable(test_laser_file tests/test_laser_file.cpp)
   target_link_libraries(test_laser_file PRIVATE quarz_core)
   add_test(NAME laser_file COMMAND test_laser_file)

@@ -92,9 +92,12 @@ KOKKOS_INLINE_FUNCTION PFields gather(const SliceFields& f, const PGeo& p, bool 
 PlasmaSpecies::PlasmaSpecies(const Config& cfg, const std::string& name, const RadialGrid& grid,
                              const DensityProfile& prof, bool mode1)
     : name_(name), grid_(grid), prof_(prof), m1_(mode1) {
-    {   // species-specific parsed profile <species>.density(x,y,z) overrides the common plasma profile
+    {   // species-specific profile <species>.density(x,y,z) or <species>.density_file overrides the common plasma profile
         Parser tmp;
-        if (read_function(cfg, name + ".density", 3, tmp, {"x", "y", "z"})) prof_ = DensityProfile(cfg, name);
+        if (read_function(cfg, name + ".density", 3, tmp, {"x", "y", "z"}) || cfg.has(name + ".density_file")) {
+            prof_ = DensityProfile(cfg, name);
+            own_profile_ = true;
+        }
     }
     ionizable_ = is_ionizable(cfg, name);
     if (ionizable_) {

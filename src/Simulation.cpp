@@ -114,6 +114,18 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         if (sp.charge() > 0 && (!sp.ionizable() || sp.ion_info().P.z0 > 0)) has_positive = true;
         if (sp.declustering()) { decl_any_ = true; ++decl_n_; }
     }
+    {   // density profiles from files: ranges against the run, peak, warnings (printed with the summary)
+        const double z1 = t_end_ >= 0 ? t_end_ : (adaptive_ ? 1e300 : t_ + nsteps_ * dt_);
+        const double dtc = adaptive_ ? 0.0 : dt_;
+        bool common = false;
+        for (const auto& s : species_) {
+            if (s->own_profile()) {
+                for (const auto& l : s->profile().file_report(t_, z1, dtc)) profile_report_.push_back(l);
+            } else common = true;
+        }
+        if (common)
+            for (const auto& l : profile_.file_report(t_, z1, dtc)) profile_report_.push_back(l);
+    }
     neutralize_ = cfg.get_bool("plasma.neutralize", !has_positive);
     bool any_impact = false, any_delta = false;
     for (size_t i = 0; i < species_.size(); ++i) {
@@ -201,6 +213,7 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
             std::cout << "Plasma species '" << s->name() << "': q = " << s->charge() << ", m = " << s->mass()
                       << (s->frozen() ? ", immobile" : (s->mobile() ? ", mobile" : ", immobile")) << ", "
                       << "up to " << s->num_particles() << " macro-particles per slice (rings without plasma are skipped)\n";
+        for (const auto& l : profile_report_) std::cout << l << "\n";
         for (int i : ion_sp_) std::cout << "Species '" << species_[i]->name() << "'" << species_[i]->ion_info().description() << "\n";
         for (const auto& s : species_)
             if (s->declustering()) std::cout << s->decl_description(box_.dxi) << "\n";

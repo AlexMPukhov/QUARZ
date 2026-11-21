@@ -103,6 +103,8 @@ public:
     Real charge() const { return q_; }
     // maximum density (units of n0) for lab z in [z0, z1], r in [0, R] (sampled; adaptive time step)
     double max_density(double z0, double z1, double R) const;
+    const DensityProfile& profile() const { return prof_; }
+    bool own_profile() const { return own_profile_; }   // <species>.density(x,y,z) or <species>.density_file
     Real mass() const { return m_; }
     bool mobile() const { return mobile_; }
     bool frozen() const { return frozen_; }
@@ -137,6 +139,7 @@ private:
     std::string name_;
     const RadialGrid& grid_;
     DensityProfile prof_;
+    bool own_profile_ = false;
     bool m1_ = false;
     Real q_ = -1, m_ = 1;
     bool mobile_ = true;
