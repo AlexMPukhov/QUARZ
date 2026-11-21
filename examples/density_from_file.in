@@ -1,0 +1,31 @@
+# Plasma density profile from a file (plasma.density_file, format docs/density_file.md): a gas jet with 0.3 mm
+# ramps and a 1.4 mm plateau of 1e18 cm^-3, driven by a narrow electron bunch.
+#   run from the repository root:  quarz examples/density_from_file.in
+# The start of the run prints the range of the file against the run and the peak density.
+units.n0_cm3   = 1e18            # n0: unit density; c/omega_p = 5.314 um
+grid.type      = regions
+grid.rmax      = 8.0
+grid.regions   = 0.5:0.01  2.5:0.02  8.0:0.1
+grid.max_ratio = 1.05
+xi.min  = 0
+xi.max  = 14
+xi.step = 0.02
+time.dt    = 4               # 21 um per step; the 0.3 mm ramps (56 c/omega_p) take 14 steps
+time.steps = 94              # 2 mm
+pusher.ab_order = 3
+plasma.species = electrons
+plasma.density_file = examples/density_from_file.txt   # n(z) in cm^-3 over mm: the absolute density
+# plasma.file_z       = 0        # z of the simulation at the file's z = 0 [c/omega_p]
+# plasma.file_outside = zero     # zero (default) | hold: the density beyond the ends of the file
+plasma.rmax    = 7.0
+electrons.ppc  = 4
+beams = driver
+driver.n0        = 4
+driver.sigma_r   = 0.3
+driver.sigma_xi  = 1.0
+driver.xi0       = 3.0
+driver.gamma     = 20000
+driver.cut       = 4
+driver.nparticles = 200000
+output.dir   = out_density_from_file
+output.every = 47

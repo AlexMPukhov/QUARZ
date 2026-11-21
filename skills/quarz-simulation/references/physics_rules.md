@@ -38,7 +38,11 @@
 5. `time.dt` <= betatron period / 20 of the lowest-energy particles that matter; `time.steps` or `time.t_end`
    from the length.
 6. Plasma: `plasma.z_table` for ramps and gradients (z in c/omega_p from the start of the run), `plasma.rmax`
-   for a finite column; mobile ions as a second species when the beam can move them within its own length:
+   for a finite column; a measured or simulated profile (gas jet, nozzle or hydro simulation) is read with
+   `plasma.density_file` (text table with the header `# geometry = z`, `# columns = z[mm] n[cm^-3]`, or
+   `# geometry = rz` with an r column; physical units need `units.n0_cm3`; `plasma.file_z` shifts it, outside the
+   file the density is zero unless `plasma.file_outside = hold`): do not retype such data into a table, and read
+   the lines and warnings the run prints for the file; mobile ions as a second species when the beam can move them within its own length:
    k_p sigma_xi sqrt((n_b/n0) m_e/m_i) approaching 1 or more.
 7. Beam particles: 1e5-1e6 for short bunches, millions for long bunches whose instability must grow from the
    seed and not from the noise.

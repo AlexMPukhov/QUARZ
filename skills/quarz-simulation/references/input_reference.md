@@ -89,6 +89,11 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 |---|---|---|
 | `plasma.density(x,y,z)` | — | parsed density / n₀. It replaces `plasma.radial`, `rmax`, `channel_*` and the tables. z is the lab position of the box head (the plasma entering the box). With `modes = 0` its azimuthal average is used; with `modes = 1` its value at each particle, so its m = 1 part is kept. |
 | `<species>.density(x,y,z)` | — | the same, for one species only (e.g. a different ion profile) |
+| `plasma.density_file` | — | density profile from a file, n(z) or n(r, z): a text table or an openPMD mesh in the format of [`docs/density_file.md`](docs/density_file.md), see "Density profile from a file" below. It replaces `plasma.radial`, `channel_*` and the tables (giving them too is an error); `plasma.rmax` still cuts the column and `plasma.density(x,y,z)` is a further factor |
+| `plasma.file_z` | 0 | with `density_file`: the z of the simulation at the file's z = 0 (shifts the profile), in c/ω_p |
+| `plasma.file_outside` | `zero` | with `density_file`: the density beyond the ends of the file, `zero` or `hold` (the edge values continued) |
+| `plasma.file_mesh`, `plasma.file_iteration` | `density`, last | with an openPMD `density_file`: the mesh record and the iteration |
+| `<species>.density_file` | — | the same (with `<species>.file_z`, …), for one species only |
 | `plasma.species` | `electrons` | list of species names |
 | `plasma.radial` | `uniform` | `uniform` \| `channel` (n = 1 + depth·(r/r_c)²) \| `table` |
 | `plasma.channel_depth`, `plasma.channel_radius` | | for `channel` |
@@ -106,6 +111,40 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `<species>.u_drift` | 0 0 0 | momentum (m_s c) added at loading (tests, e.g. mono-energetic electrons); the stream density is `density`, the lab density density·γ/Δ |
 | `<species>.tail_dump` | 0 | 1 = write the particles at the end of the box to `tail_<species>_<step>.txt` (x y p_x p_y Δ w; last rank) |
 | `<species>.density` | 1 | density multiplier relative to the profile (e.g. 1/Z for ions) |
+
+**Density profile from a file** (`plasma.density_file`). A measured gas-jet profile (interferometry), a fluid
+simulation of a nozzle or the result of a hydrodynamic code is read from a file in the format of
+[`docs/density_file.md`](docs/density_file.md), which QUARZ shares with GEM-PIC-RZ and GEM-PIC-3D. The header of
+the file defines the geometry; QUARZ reads `z` (profile on the axis) and `rz` (axisymmetric) and rejects the
+Cartesian and 3D geometries.
+
+```
+units.n0_cm3        = 1e18                  # needed for files in physical units
+plasma.density_file = jet.txt
+```
+
+```
+# geometry = z                    # geometry = rz
+# columns  = z[mm]  n[cm^-3]      # columns  = z[mm]  r[um]  n[cm^-3]
+0.00     0                        0.00     0      0
+0.05     2.0e17                   0.00     5      0
+...                               ...
+```
+
+- **Layouts:** coordinates in columns, or the axes in the header and the values alone as data
+  (`# z = uniform 0 0.05 41 mm`, `# r = list 0 5 10 20 um`, `# density_unit = cm^-3`, `# order = z r`); or an
+  openPMD mesh (HDF5 build), regular or with explicit coordinates.
+- **Units:** lengths in `nm`, `um`, `mm`, `cm`, `m` or `kp^-1` (c/ω_p); a density in `cm^-3`, `m^-3` or `n0`,
+  or without unit (the value is then n/n₀ as well). Physical units need `units.n0_cm3`.
+- **Transverse function:** a file with geometry `z` may carry `# transverse = "exp(-(r / (50 um))^2)"`, a
+  function of r, x, y; the density is n(z)·T. With `modes = 0` its azimuthal average is used.
+- **Use:** linear interpolation in z and r; zero outside the file (`plasma.file_outside = hold`: the edge values);
+  `plasma.file_z` shifts the file. z is the lab position of the box head, as for `plasma.z_table`. The profile is
+  evaluated like a parsed profile; `<species>.density` (a number) scales it per species.
+- **Summary and checks:** the start of the run prints the range of the file against the run, the peak density
+  and, as warnings, a file that begins or ends inside the run above 1 % of its peak (a jump to zero) and
+  gradients with a scale length below 4 time steps. Negative or non-finite values, an incomplete grid, an unknown
+  header key and a file outside the run are errors.
 
 **Laser** (envelope model; switched on by `laser.a0`)
 
