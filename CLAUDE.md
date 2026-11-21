@@ -36,7 +36,8 @@ element table, counter-based RNG).
 ## Build and test (this container)
 ```bash
 cmake -B build -DKokkos_ENABLE_OPENMP=ON \
-      -DKokkos_ROOT=/home/claude/kokkos-install -DopenPMD_ROOT=/home/claude/openpmd-install
+      -DKokkos_ROOT=/home/claude/kokkos-install -DopenPMD_ROOT=/home/claude/openpmd-install \
+      -DHDF5_ROOT=/home/claude/hdf5-install -DADIOS2_ROOT=/home/claude/adios2-install   # HDF5 >= 1.12 is required
 cmake --build build -j2 && (cd build && ctest)
 export OMP_PROC_BIND=false            # needed here, otherwise OpenMP runs badly
 cd validation && ./run_validation.sh -q -j 2 -c       # quick regression, ~2 min: after EVERY code change
