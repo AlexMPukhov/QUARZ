@@ -119,14 +119,27 @@ for name, d in zip(["classical", "stochastic", "gaussian"], dirs):
     g = np.sqrt(1 + b["px"] ** 2 + b["py"] ** 2 + b["pz"] ** 2)
     H = g + (b["x"] ** 2 + b["y"] ** 2) / 4
     res[name] = (g, H, ok)
+# The stochastic and Gaussian numbers depend on the random draws, which hash the particle state: another compiler,
+# machine or a GPU (round-off) gives other draws. Their lines therefore end with a verdict (within 3 statistical
+# errors of the expectation) and the marker [verdict]: compare_results.py compares the verdict, not the numbers.
+def verdict(ok):
+    return f"  {'OK' if ok else 'FAIL'} [verdict]"
+
+
 mpred, err = loss[live].mean(), None
+lc = None
 for name in ["classical", "stochastic", "gaussian"]:
     g, H, ok = res[name]
     dl = (H0 - H)[ok]
     se = np.sqrt(vard[ok].mean() / ok.sum()) if name != "classical" else 0
     gain = np.mean(H[ok] > H0[ok] + 1e-6 * H0[ok])
-    print(f"  {name:10s}: mean loss {dl.mean():8.2f}  (LL orbits {mpred:8.2f}, ratio {dl.mean() / mpred:.4f}"
-          + (f", statistical error {se / mpred:.4f})" if se else ")") + f"; particles that gained energy: {gain:.4f}")
+    line = (f"  {name:10s}: mean loss {dl.mean():8.2f}  (LL orbits {mpred:8.2f}, ratio {dl.mean() / mpred:.4f}"
+            + (f", statistical error {se / mpred:.4f})" if se else ")") + f"; particles that gained energy: {gain:.4f}")
+    if name == "classical":
+        lc = dl.mean()
+    else:   # expected: the classical loss (same time step); stochastic recoil never gains energy
+        line += verdict(abs(dl.mean() - lc) <= 3 * se and (name != "stochastic" or gain == 0))
+    print(line)
 gc, _, okc = res["classical"]
 for name in ["stochastic", "gaussian"]:
     g, _, ok = res[name]
@@ -136,4 +149,5 @@ for name in ["stochastic", "gaussian"]:
     # statistical error of a variance: sqrt((mu4 - v^2)/N)
     ev = np.sqrt(max(np.mean((d - d.mean()) ** 4) - v * v, 0) / m.sum())
     print(f"  {name:10s}: Var(gamma - gamma_classical) = {v:9.4g}  (Sokolov-Ternov along the LL orbits {var[m].mean():9.4g},"
-          f" with damping {vard[m].mean():9.4g}; ratio to the damped {v / vard[m].mean():.4f} +- {ev / vard[m].mean():.4f})")
+          f" with damping {vard[m].mean():9.4g}; ratio to the damped {v / vard[m].mean():.4f} +- {ev / vard[m].mean():.4f})"
+          + verdict(abs(v / vard[m].mean() - 1) <= 3 * ev / vard[m].mean()))
