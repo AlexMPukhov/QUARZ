@@ -1345,7 +1345,13 @@ are compared with the stored reference (`reference_full.txt`, `reference_quick.t
 `compare_results.py`: PASS/FAIL per section, exit code 1 on failure. A number passes if it agrees
 to its last printed digit or to 10⁻³ relative (OpenMP atomics change round-off between runs);
 numbers below 10⁻⁶ measure round-off themselves and only have to stay below 10⁻⁶, except that
-an exact 0 (bit-identity of MPI and serial runs) must stay 0. The quick mode uses smaller cases
+an exact 0 (bit-identity of MPI and serial runs) must stay 0. Lines ending with `[verdict]`
+are compared by their text and OK / FAIL verdict only: their numbers legitimately differ between
+builds. In section 26 these are the stochastic radiation-reaction results (the random draws hash
+the particle state, so another compiler or a GPU draws other numbers; each line checks itself
+against the expectation within 3 statistical errors) and the restart check (bit-identical on CPU
+backends; a GPU build deposits with atomics in a run-dependent order, so there the tolerance is
+10⁻¹² relative). The quick mode uses smaller cases
 (fewer particles and steps, a coarser reference grid in section 5, no blowout part in section 6
 and no self-focusing in section 11); its numbers are for regression only, the physics results
 quoted below are from the full mode. After a deliberate change of results, check them and store
