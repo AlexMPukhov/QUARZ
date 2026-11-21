@@ -653,10 +653,12 @@ sec26() {
     python3 radiation_check.py 1e19 100 out_rad_c out_rad_s out_rad_g
     local M="radiation.in pusher.rr_model=stochastic time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp"
     M="$M witness.nparticles=20000"
-    $QS $M checkpoint.every=4 checkpoint.keep=0 checkpoint.dir=out_rad_chk output.dir=out_rad_A > /dev/null
+    $QS $M checkpoint.every=4 checkpoint.keep=0 checkpoint.dir=out_rad_chk output.dir=out_rad_A > out_rad_A.log 2>&1
     $QS $M restart.from=out_rad_chk/chk_000004 output.dir=out_rad_B > /dev/null
-    echo " restart (expected: bit-identical):"
-    python3 restart_check.py out_rad_A out_rad_B 0 || true
+    # bit-identical on CPU backends; a GPU build deposits with atomics in a run-dependent order: round-off
+    local RTOL=0; grep -q -E "execution space: (OpenMP|Serial|Threads)" out_rad_A.log || RTOL=1e-12
+    echo " restart (expected: bit-identical; on a GPU round-off, tolerance 1e-12):"
+    python3 restart_check.py out_rad_A out_rad_B $RTOL verdict || true
     if [ -n "$MPIRUN" ]; then
         $MPIRUN 2 $QS $M output.dir=out_rad_P > /dev/null
         echo " 2 ranks vs serial (expected: particles bit-identical; fields at round-off):"
