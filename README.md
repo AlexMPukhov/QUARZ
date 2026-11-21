@@ -1559,7 +1559,7 @@ focusing gradient at r = 0.01 is 0.88 instead of 0.5.
   1 s per sweep).
 - `examples/awake_seeded_smi.in`: AWAKE-like seeded self-modulation of a
   long proton bunch (n₀ = 7·10¹⁴ cm⁻³, 6000 slices, Δt = 4 cm). It is set to
-  3 steps; 250 steps give 10 m, in about 6 min on 2 cores. In a 16 m test
+  3 steps; 250 steps give 10 m, in about 12 min on 2 cores. In a 16 m test
   run the on-axis wakefield 6 cm behind the seed grows from 5 MV/m to a peak
   of 240 MV/m at z ≈ 4 m and then decays. That is the expected SMI
   growth-and-saturation behaviour, but it has **not** been benchmarked
