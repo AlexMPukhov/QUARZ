@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..25 (default: all)
+#   sections   numbers 1..26 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 25)}
+SECTIONS=${*:-$(seq 1 26)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -638,6 +638,32 @@ sec25() {
         python3 cmp_runs.py out_shot_s out_shot_p 1e-14 || true
     fi
     rm -rf out_shot*
+}
+
+sec26() {
+    echo "== 26. stochastic radiation reaction (pusher.rr_model): 100 GeV electrons in an ion channel at 1e19 cm^-3 =="
+    # chi ~ 2e-3, ~5 photons per particle: strongly non-Gaussian recoil. One thread (random numbers hash the state).
+    export OMP_NUM_THREADS=1
+    local R="radiation.in witness.nparticles=$(q 100000 20000)"
+    $QS $R output.dir=out_rad_c > /dev/null
+    $QS $R pusher.rr_model=stochastic output.dir=out_rad_s > /dev/null
+    $QS $R pusher.rr_model=gaussian output.dir=out_rad_g > /dev/null
+    echo " classical (imp_rr), stochastic (zero-inflated Gamma) and Gaussian (Fokker-Planck) recoil vs RK4 of the"
+    echo " Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them:"
+    python3 radiation_check.py 1e19 100 out_rad_c out_rad_s out_rad_g
+    local M="radiation.in pusher.rr_model=stochastic time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp"
+    M="$M witness.nparticles=20000"
+    $QS $M checkpoint.every=4 checkpoint.keep=0 checkpoint.dir=out_rad_chk output.dir=out_rad_A > /dev/null
+    $QS $M restart.from=out_rad_chk/chk_000004 output.dir=out_rad_B > /dev/null
+    echo " restart (expected: bit-identical):"
+    python3 restart_check.py out_rad_A out_rad_B 0 || true
+    if [ -n "$MPIRUN" ]; then
+        $MPIRUN 2 $QS $M output.dir=out_rad_P > /dev/null
+        echo " 2 ranks vs serial (expected: particles bit-identical; fields at round-off):"
+        python3 cmp_runs.py out_rad_A out_rad_P 1e-14 || true
+    fi
+    unset OMP_NUM_THREADS
+    rm -rf out_rad*
 }
 
 MODE=$(q full quick); TMP=$(mktemp -d); T0=$(date +%s)

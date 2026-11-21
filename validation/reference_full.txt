@@ -352,3 +352,19 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 0.00e+00  (beams.txt col 1)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 26. stochastic radiation reaction (pusher.rr_model): 100 GeV electrons in an ion channel at 1e19 cm^-3 ==
+ classical (imp_rr), stochastic (zero-inflated Gamma) and Gaussian (Fokker-Planck) recoil vs RK4 of the
+ Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them:
+  gamma0 = 2e+05, T = 10000: chi max 8.13e-03, mean 1.99e-03; photons per particle 4.58
+  classical : mean loss  1065.04  (LL orbits  1061.34, ratio 1.0035); particles that gained energy: 0.0000
+  stochastic: mean loss  1065.31  (LL orbits  1061.34, ratio 1.0037, statistical error 0.0033); particles that gained energy: 0.0000
+  gaussian  : mean loss  1062.25  (LL orbits  1061.34, ratio 1.0009, statistical error 0.0033); particles that gained energy: 0.1667
+  stochastic: Var(gamma - gamma_classical) = 1.219e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, ratio 0.9882 +- 0.0104)
+  gaussian  : Var(gamma - gamma_classical) = 1.227e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, ratio 0.9950 +- 0.0070)
+ restart (expected: bit-identical):
+  7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: particles bit-identical; fields at round-off):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 5.24e-22  (beams.txt col 7)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
