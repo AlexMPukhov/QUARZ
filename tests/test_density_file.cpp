@@ -254,7 +254,7 @@ int main(int argc, char* argv[]) {
         densfile::DensityFileUnits u;
         u.length = [](double x, const std::string& unit) { return unit == "mm" ? 1e3 * x : x; };   // code unit: um
         u.density = [](double x, const std::string&) { return x * 1e-18; };
-        auto f = [](double x, double y, double z) { return 2 + 0.1 * x - 0.05 * y + 0.01 * z + 0.002 * x * y - 0.0003 * y * z + 0.0001 * x * y * z; };
+        auto f = [](double x, double y, double z) { return 2 + 0.01 * x - 0.005 * y + 0.001 * z + 0.0002 * x * y - 0.00001 * y * z + 0.000001 * x * y * z; };
         const std::vector<double> xs = {-30, -5, 10, 30}, ys = {-20, 0, 25}, zv = {0, 100, 250, 1000};
         std::string grid = "# geometry = xyz\n# density_unit = cm^-3\n# x = list -30 -5 10 30 um\n# y = list -20 0 25 um\n"
                            "# z = list 0 0.1 0.25 1 mm\n# order = z y x\n";
@@ -364,7 +364,7 @@ int main(int argc, char* argv[]) {
         densfile::DensityFileUnits u;
         u.length = [](double x, const std::string&) { return x * 1e6; };   // m -> um
         u.density = [](double x, const std::string&) { return x * 1e-24; };
-        auto fn = [](double x, double y, double z) { return 2 + 0.1 * x - 0.05 * y + 0.01 * z + 0.0001 * x * y * z; };
+        auto fn = [](double x, double y, double z) { return 2 + 0.01 * x - 0.005 * y + 0.001 * z + 0.00001 * x * y * z; };
         std::vector<double> v3;
         for (int k = 0; k < 4; ++k)
             for (int j = 0; j < 3; ++j)
