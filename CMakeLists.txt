@@ -76,11 +76,15 @@ if(QUARZ_ENABLE_MPI)
   endif()
 endif()
 
-# LASY laser files (optional, laser.file): the HDF5 C library, e.g. -DHDF5_ROOT=/path/to/hdf5
-option(QUARZ_ENABLE_HDF5 "Read LASY laser files (needs HDF5)" ON)
+# LASY laser files (optional, laser.file): the HDF5 C library, version 1.12 or newer (older releases are no longer
+# maintained and lack the H5L API used here), e.g. -DHDF5_ROOT=/path/to/hdf5
+option(QUARZ_ENABLE_HDF5 "Read LASY laser files (needs HDF5 >= 1.12)" ON)
 if(QUARZ_ENABLE_HDF5)
   find_package(HDF5 COMPONENTS C)
-  if(HDF5_FOUND)
+  if(HDF5_FOUND AND HDF5_VERSION VERSION_LESS 1.12)
+    message(WARNING "QUARZ: HDF5 ${HDF5_VERSION} is too old (need 1.12 or newer) - laser.file (LASY) disabled; "
+                    "point HDF5_ROOT to a newer installation")
+  elseif(HDF5_FOUND)
     target_include_directories(quarz_core PUBLIC ${HDF5_INCLUDE_DIRS})
     target_link_libraries(quarz_core PUBLIC ${HDF5_C_LIBRARIES})
     target_compile_definitions(quarz_core PUBLIC QUARZ_USE_HDF5)

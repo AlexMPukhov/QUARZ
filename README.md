@@ -384,7 +384,7 @@ frequency shift (depletion).
     (λ_p/80: 0.003–0.011 rad/mm; λ_p/160: 0.003–0.006 rad/mm). The time step hardly matters (Δt = 20 → 5 µm changes the slips by < 0.003 rad/mm at λ_p/40, < 0.001 at λ_p/160).
     For combs use `laser.xi_scheme = trapezoid` and Δξ ≲ λ_p/160, and correct the remaining mean slip with the spot
     size if needed (validation section 11 checks the measured phase rates against the discrete dispersion relation).
-- **Laser from a LASY file** (`laser.file`, `src/LaserFile.*`; needs a build with HDF5): the envelope of a
+- **Laser from a LASY file** (`laser.file`, `src/LaserFile.*`; needs a build with HDF5 1.12 or newer): the envelope of a
   [LASY](https://github.com/LASY-org/lasy) file (openPMD LaserEnvelope: `thetaMode` or `cartesian`, the electric field
   or the normalized vector potential at a plane versus time, any spectrum, chirp or radial structure) is turned into the
   box snapshot â(r, ξ) at t = 0:
@@ -940,7 +940,7 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
 | `laser.p` | 0 | radial index of the LG mode; only 0 is implemented |
 | `laser.xi_scheme` | `bdf2` | ξ discretization of the envelope march: `bdf2` (second order, weakly dissipative, as in QuickPIC; default since 2026-11-10), `trapezoid` (neutral, second order; the earlier default), `euler` (first order) |
-| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 and `units.n0_cm3` |
+| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 ≥ 1.12 and `units.n0_cm3` |
 | `laser.file_z` | 0 | distance from the pulse centre at t = 0 to the file's plane (1/k_p; > 0: the pulse still travels to it) |
 | `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
 | `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
