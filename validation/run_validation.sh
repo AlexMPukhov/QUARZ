@@ -649,7 +649,7 @@ sec26() {
     $QS $R pusher.rr_model=stochastic output.dir=out_rad_s > /dev/null
     $QS $R pusher.rr_model=gaussian output.dir=out_rad_g > /dev/null
     echo " classical (imp_rr), stochastic (zero-inflated Gamma) and Gaussian (Fokker-Planck) recoil vs RK4 of the"
-    echo " Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them:"
+    echo " Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them, damped (linearized motion):"
     python3 radiation_check.py 1e19 100 out_rad_c out_rad_s out_rad_g
     local M="radiation.in pusher.rr_model=stochastic time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp"
     M="$M witness.nparticles=20000"

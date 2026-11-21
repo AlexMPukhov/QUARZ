@@ -1502,15 +1502,20 @@ measurable, fixed Coulomb logarithms):
 pure ion channel at 10¹⁹ cm⁻³, t = 10⁴ ω_p⁻¹ (2.5 betatron periods, 40 steps per period, 10⁵
 particles): χ ≈ 2·10⁻³ (max 8·10⁻³), 4.6 photons per particle (Λ ≈ 0.05 per step), so the recoil is
 far from Gaussian. Independent reference: a Python RK4 of every particle's orbit with the
-Landau–Lifshitz drag, and the Sokolov–Ternov variance integrated along it.
+Landau–Lifshitz drag, and the Sokolov–Ternov variance integrated along it *with radiative damping*:
+a particle that lost more than the mean radiates less afterwards (P ∝ γ²r²), so the reference
+integrates the covariance of the linearized deviations from each orbit, dC/dt = AC + CAᵀ + D nnᵀ
+(A the Jacobian of the Landau–Lifshitz equations, D the Sokolov–Ternov rate, n = ∂u/∂γ: recoil along
+u), and takes Var γ = gᵀCg. Here the damping lowers the variance to 0.979 × the plain integral; an
+independent Fokker–Planck Monte Carlo along the same orbits gives 0.981 ± 0.004.
 
 | test | result |
 |---|---|
 | sampler, 2·10⁶ draws at Λ = 0.02, 0.3, 3, 30 | P(S = 0) = e^{−Λ}, mean Λm₁ and variance Λm₂ within the statistical error; S ≥ 0 (Gaussian model: 47 %…0.4 % of the steps gain energy) |
 | sampler vs the exact compound-Poisson sum of synchrotron photons (spectrum ∫K₅/₃, 4·10⁵ draws) | Wasserstein distance / σ: 0.002, 0.008, 0.025, 0.021, 0.009 at Λ = 0.3, 1, 3, 10, 100 (Gaussian 0.71, 0.55, 0.35, 0.19, 0.06) |
 | photon statistics | Λm₁ = Landau–Lifshitz loss of `imp_rr` (3·10⁻¹¹), Λm₂ = Sokolov–Ternov excitation |
-| mean energy loss, ion channel: `imp_rr` / stochastic / Gaussian | 1.0035 / 1.0037 / 1.0009 × the RK4 orbits (statistical error 0.0033; `imp_rr` 1.0005 at Δt/4) |
-| Var(γ_stochastic − γ_imp_rr), particle by particle | 0.988 ± 0.010 × Sokolov–Ternov along the orbits (Gaussian model 0.995 ± 0.007) |
+| mean energy loss, ion channel: `imp_rr` / stochastic / Gaussian | 1.0035 / 1.0031 / 1.0018 × the RK4 orbits (statistical error 0.0033; `imp_rr` 1.0005 at Δt/4) |
+| Var(γ_stochastic − γ_imp_rr), particle by particle | 0.9995 ± 0.010 × the damped Sokolov–Ternov variance (Gaussian model 1.013 ± 0.007); 8 independent seeds (`pusher.rr_seed`): 1.007 ± 0.004 (Gaussian 1.005 ± 0.002); at Δt/4, 4 seeds: 0.998 ± 0.005 (Gaussian 1.004 ± 0.004). Without the damping the ratio would be 0.98 |
 | H = γ + r²/4 (conserved without radiation) increased | stochastic: no particle; Gaussian: 16.7 % of the particles |
 | restart; 2 ranks vs serial | bit-identical (random numbers from the particle state) |
 

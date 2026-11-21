@@ -341,17 +341,17 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
 == 26. stochastic radiation reaction (pusher.rr_model): 100 GeV electrons in an ion channel at 1e19 cm^-3 ==
  classical (imp_rr), stochastic (zero-inflated Gamma) and Gaussian (Fokker-Planck) recoil vs RK4 of the
- Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them:
+ Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them, damped (linearized motion):
   gamma0 = 2e+05, T = 10000: chi max 7.90e-03, mean 1.99e-03; photons per particle 4.58
   classical : mean loss  1065.06  (LL orbits  1061.36, ratio 1.0035); particles that gained energy: 0.0000
-  stochastic: mean loss  1077.66  (LL orbits  1061.36, ratio 1.0154, statistical error 0.0074); particles that gained energy: 0.0000
-  gaussian  : mean loss  1072.67  (LL orbits  1061.36, ratio 1.0107, statistical error 0.0074); particles that gained energy: 0.1617
-  stochastic: Var(gamma - gamma_classical) = 1.243e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, ratio 1.0074 +- 0.0254)
-  gaussian  : Var(gamma - gamma_classical) =   1.2e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, ratio 0.9723 +- 0.0156)
+  stochastic: mean loss  1077.20  (LL orbits  1061.36, ratio 1.0149, statistical error 0.0073); particles that gained energy: 0.0000
+  gaussian  : mean loss  1061.36  (LL orbits  1061.36, ratio 1.0000, statistical error 0.0073); particles that gained energy: 0.1661
+  stochastic: Var(gamma - gamma_classical) =   1.2e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.209e+06; ratio to the damped 0.9928 +- 0.0214)
+  gaussian  : Var(gamma - gamma_classical) = 1.225e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.209e+06; ratio to the damped 1.0134 +- 0.0161)
  restart (expected: bit-identical):
   7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
  2 ranks vs serial (expected: particles bit-identical; fields at round-off):
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
-  beamlog  max rel diff 5.24e-22  (beams.txt col 7)
+  beamlog  max rel diff 5.19e-22  (beams.txt col 7)
   dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
