@@ -81,11 +81,19 @@ The same pair of skills, sync script and test exists in GEM-PIC-RZ; the tests di
   step behind xi = 300 (phase by up to 2.6 rad): there the wake of the cut has decayed to the level of the
   macro-particle noise of the beam (4e6 particles), which then seeds the self-modulation of the rear half. With
   16e6 particles the first-step wake there is 2-3 times smaller, and two seeds still disagree during the growth.
-  A physical answer for the rear half needs a quiet beam (rule 8), not a finer plasma grid.
+  The quiet loader (rule 8) with the physical shot noise does not remove this: in eight runs of the example that
+  differ only in the beam seed, the rear half (xi 500-900) has no common phase at 2-3 m (phase spread up to
+  0.8 rad on the axis, amplitude spread 11-19 %), while from 5 m on all runs are one wave (phase spread
+  0.1-0.2 rad, amplitude 2-10 %, charge 0.2-0.5 %). A warm plasma (5 eV, four seeds) gives the same picture with
+  a somewhat larger spread after saturation (phase 0.2-0.3 rad). So the rear half during the growth is one
+  realization per run, whatever the loader; the saturated state is reproducible.
 - **Note in the code:** since then QUARZ prints a note at the first step when a box longer than 300 has plasma in
-  cells above 0.03 (ctest `long_box_note`). Of the 36 shipped inputs it appears for `examples/awake_seeded_smi.in`
+  cells above 0.03 (ctest `long_box_note`). Of the 36 shipped inputs it appeared for `examples/awake_seeded_smi.in`
   (box of 302, cells of 0.1 inside the plasma) and for `validation/eimpact.in` (box of 1000, cells of 0.05; a
-  test without fields, where it does not matter).
+  test without fields, where it does not matter). The example now uses `grid.regions = 2.0:0.01 7.3:0.02
+  10.0:0.1` as the rule asks. At this box length the grid hardly matters: over 10 m the on-axis wake of the two
+  grids agrees to 3 % in amplitude and 0.05 rad in phase, whereas another beam seed changes the amplitude by up
+  to 37 % at 1 m and about 20 % at 2-4 m (2e6 beam particles); the run takes 20 % longer.
 
 ## Trial with a fresh agent
 

@@ -2,11 +2,11 @@
 # AWAKE-like seeded self-modulation of a long proton bunch (LCODE's classic use case)
 #   n0 = 7e14 cm^-3:  c/omega_p = 0.2 mm,  1/omega_p = 0.67 ps,  E0 = 2.54 GV/m
 #   400 GeV protons (gamma = 427), sigma_r = 0.2 mm, sigma_z = 6 cm, cut at the bunch centre
-# Full 10 m run: time.steps = 250 (about 6 min on 2 CPU cores). Growth saturates after ~4-5 m.
+# Full 10 m run: time.steps = 250 (about 12 min on 2 CPU cores). Growth saturates after ~4-5 m.
 # ---------------------------------------------------------------------------
 grid.type      = regions
 grid.rmax      = 10.0
-grid.regions   = 2.0:0.01  10.0:0.1
+grid.regions   = 2.0:0.01  7.3:0.02  10.0:0.1   # cells of 0.02 or below inside the plasma column (long box)
 grid.max_ratio = 1.05
 
 xi.min  = -2        # bunch head (cut) at xi = 0
