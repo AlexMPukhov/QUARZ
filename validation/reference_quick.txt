@@ -378,9 +378,9 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  beam with spin (10 doubles per particle), written again (expected identical): identical
  the same dump into a beam without spin: 20000 particles, x y p xi w identical
  truncated file: is not a native beam dump
- 2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of
- the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
-  bit-identical (axis dumps fields): OK;  within 1e-05 (beamlog): OK
+ 2 ranks vs serial, both from the dump (expected: particles bit-identical; fields round-off at the rank boundary; beam log
+ round-off of the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
+  bit-identical (axis dumps): OK;  within 1e-05 (beamlog fields): OK
 == 29. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions ==
  QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:
   si         4000 particles, max rel. difference 2.1e-16  (expected: SI round-off, normalised 0)
@@ -393,5 +393,5 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  deck mass 1 instead of the file's: warning given: 1; gamma beta / the file's = 1.0000000000 ... 1.0000000000 (expected 1: velocity kept)
  particle_stride = 4: charge of the import / of the original beam: 0.2500, with openpmd_scale_stride = 1: 1.0000; warning given: 1
  muons with spin (normalised units) imported and written again vs the native dump: 20000 particles; spins 0.0e+00, x y xi w 0.0e+00, momenta 1.8e-16 (expected: 0, 0, round-off of the mass factor 206.77)
- 2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):
-  bit-identical (axis dumps fields): OK;  within 1e-05 (beamlog): OK
+ 2 ranks vs serial, both from the openPMD file (expected: particles bit-identical; fields and beam log round-off):
+  bit-identical (axis dumps): OK;  within 1e-05 (beamlog fields): OK

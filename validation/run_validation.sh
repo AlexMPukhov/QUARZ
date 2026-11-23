@@ -733,11 +733,11 @@ print(' the same dump into a beam without spin: %d particles, x y p xi w %s' % (
     echo " truncated file: $r"
     if [ -n "$MPIRUN" ]; then
         local M="$B time.steps=2 output.every=1 output.beam_every=1 beams.xi_shape=ngp $F=out_imp_src/beam_witness_000002.bin"
-        $QS $M output.dir=out_imp_s > /dev/null
-        $MPIRUN 2 $QS $M output.dir=out_imp_p > /dev/null
-        echo " 2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of"
-        echo " the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):"
-        python3 cmp_runs.py out_imp_s out_imp_p 1e-5 --exact axis,dumps,fields || true
+        OMP_NUM_THREADS=1 $QS $M output.dir=out_imp_s > /dev/null
+        OMP_NUM_THREADS=1 $MPIRUN 2 $QS $M output.dir=out_imp_p > /dev/null
+        echo " 2 ranks vs serial, both from the dump (expected: particles bit-identical; fields round-off at the rank boundary; beam log"
+        echo " round-off of the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):"
+        python3 cmp_runs.py out_imp_s out_imp_p 1e-5 --exact axis,dumps || true
     fi
     rm -rf out_imp_*
 }
@@ -804,10 +804,10 @@ print(' muons with spin (normalised units) imported and written again vs the nat
       ' x y xi w %.1e, momenta %.1e (expected: 0, 0, round-off of the mass factor 206.77)' % (len(b), r([7, 8, 9]), r([0, 1, 5, 6]), r([2, 3, 4])))"
     if [ -n "$MPIRUN" ]; then
         local M="$B units.n0_cm3=1e17 time.steps=2 output.every=1 output.beam_every=1 beams.xi_shape=ngp witness.profile=openpmd witness.file=out_op_si/openpmd/data_000002.h5"
-        $QS $M output.dir=out_op_s > /dev/null
-        $MPIRUN 2 $QS $M output.dir=out_op_p > /dev/null
-        echo " 2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):"
-        python3 cmp_runs.py out_op_s out_op_p 1e-5 --exact axis,dumps,fields || true
+        OMP_NUM_THREADS=1 $QS $M output.dir=out_op_s > /dev/null
+        OMP_NUM_THREADS=1 $MPIRUN 2 $QS $M output.dir=out_op_p > /dev/null
+        echo " 2 ranks vs serial, both from the openPMD file (expected: particles bit-identical; fields and beam log round-off):"
+        python3 cmp_runs.py out_op_s out_op_p 1e-5 --exact axis,dumps || true
     fi
     rm -rf out_op_*
 }

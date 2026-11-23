@@ -1591,7 +1591,7 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 |---|---|
 | dump read back (`<beam>.file = beam_*.bin`) and written again at step 0 | byte-identical to the file; also with spins (10 doubles per particle); without `<beam>.spin` the spins are dropped, the rest identical |
 | 2 steps from the dump vs from the same particles as a text file | bit-identical |
-| 2 ranks vs serial, from the dump | particles and fields bit-identical (beam log: summation order over the ranks) |
+| 2 ranks vs serial, from the dump | particles bit-identical; fields round-off at the rank boundary (with 20 000 particles: 5·10⁻¹⁷ of max), beam log: summation order over the ranks |
 | 2·10⁶ particles | whole run (load only) 0.27 s vs 2.1 s from the equivalent text file; file 112 vs 216 MB |
 | read in blocks of 777 particles vs the default | identical (also for openPMD, section 29) |
 | peak memory, 2·10⁶ particles (beam 112 MB) | serial: openPMD 275 → 239 MB, text 453 → 234 MB, dump 249 MB (the transfer to the device now dominates); 4 MPI ranks, openPMD: 257 MB per rank → 65–134 MB |
@@ -1607,7 +1607,7 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | deck mass 1 for the antiproton file | used, with a warning; γβ identical to the file's (velocity kept) |
 | `particle_stride = 4` | charge 0.25 of the beam with a warning; 1.0000 with `openpmd_scale_stride = 1` |
 | muons with spin | spins, positions, weights identical; momenta 2·10⁻¹⁶ (mass factor) |
-| 2 ranks vs serial | particles and fields bit-identical |
+| 2 ranks vs serial | particles bit-identical; fields round-off at the rank boundary (2·10⁻¹⁸ of max) |
 
 **Two-stage runs** (section 19, `boundary.in`, `bnd_check.py`; driver in −5…0, witness at ξ = −7,
 stage 2 from ξ = −5.01):
