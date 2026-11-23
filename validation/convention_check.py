@@ -1,4 +1,4 @@
-"""Section 26: the longitudinal convention xi = z - t of the inputs and outputs (beams move towards +xi).
+"""Section 27: the longitudinal convention xi = z - t of the inputs and outputs (beams move towards +xi).
 usage: convention_check.py OUT XI_MIN XI_MAX XI0 STEP_END
   (1) the field file covers [xi.min, xi.max] in increasing xi (the head of the box is the last row);
   (2) the beam charge per slice (field file) and the particle dump are centred at the deck's xi0;

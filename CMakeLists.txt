@@ -77,11 +77,15 @@ if(QUARZ_ENABLE_MPI)
   endif()
 endif()
 
-# LASY laser files (optional, laser.file): the HDF5 C library, e.g. -DHDF5_ROOT=/path/to/hdf5
-option(QUARZ_ENABLE_HDF5 "Read LASY laser files (needs HDF5)" ON)
+# LASY laser files (optional, laser.file): the HDF5 C library, version 1.12 or newer (older releases are no longer
+# maintained and lack the H5L API used here), e.g. -DHDF5_ROOT=/path/to/hdf5
+option(QUARZ_ENABLE_HDF5 "Read LASY laser files (needs HDF5 >= 1.12)" ON)
 if(QUARZ_ENABLE_HDF5)
   find_package(HDF5 COMPONENTS C)
-  if(HDF5_FOUND)
+  if(HDF5_FOUND AND HDF5_VERSION VERSION_LESS 1.12)
+    message(WARNING "QUARZ: HDF5 ${HDF5_VERSION} is too old (need 1.12 or newer) - laser.file (LASY) disabled; "
+                    "point HDF5_ROOT to a newer installation")
+  elseif(HDF5_FOUND)
     target_include_directories(quarz_core PUBLIC ${HDF5_INCLUDE_DIRS})
     target_link_libraries(quarz_core PUBLIC ${HDF5_C_LIBRARIES})
     target_compile_definitions(quarz_core PUBLIC QUARZ_USE_HDF5)
@@ -141,6 +145,9 @@ if(QUARZ_BUILD_TESTS)
   add_executable(test_pushers tests/test_pushers.cpp)
   target_link_libraries(test_pushers PRIVATE quarz_core)
   add_test(NAME pushers COMMAND test_pushers)
+  add_executable(test_radiation tests/test_radiation.cpp)
+  target_link_libraries(test_radiation PRIVATE quarz_core)
+  add_test(NAME radiation COMMAND test_radiation)
   add_executable(test_ab tests/test_ab.cpp)
   target_link_libraries(test_ab PRIVATE quarz_core)
   add_test(NAME adams_bashforth COMMAND test_ab)
@@ -156,4 +163,8 @@ if(QUARZ_BUILD_TESTS)
   add_executable(test_laser_file tests/test_laser_file.cpp)
   target_link_libraries(test_laser_file PRIVATE quarz_core)
   add_test(NAME laser_file COMMAND test_laser_file)
+  # agent skills (skills/*/SKILL.md, docs/agent_skill.md): format, copies of the README sections and examples in
+  # sync, every input key named in the skills exists in the code, snippets and example inputs pass the check and run
+  add_test(NAME agent_skill COMMAND sh ${CMAKE_SOURCE_DIR}/tests/agent_skill.sh $<TARGET_FILE:quarz>)
+  add_test(NAME long_box_note COMMAND sh ${CMAKE_SOURCE_DIR}/tests/long_box_note.sh $<TARGET_FILE:quarz>)
 endif()

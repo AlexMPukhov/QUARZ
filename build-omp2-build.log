@@ -1,0 +1,46 @@
+[ 16%] Building CXX object CMakeFiles/quarz_core.dir/src/Tridiag.cpp.o
+[ 16%] Building CXX object CMakeFiles/quarz_core.dir/src/FieldSolver.cpp.o
+[ 16%] Building CXX object CMakeFiles/quarz_core.dir/src/Config.cpp.o
+[ 16%] Building CXX object CMakeFiles/quarz_core.dir/src/RadialGrid.cpp.o
+[ 22%] Building CXX object CMakeFiles/quarz_core.dir/src/Profiles.cpp.o
+[ 22%] Building CXX object CMakeFiles/quarz_core.dir/src/Parser.cpp.o
+[ 22%] Building CXX object CMakeFiles/quarz_core.dir/src/PlasmaSpecies.cpp.o
+[ 22%] Building CXX object CMakeFiles/quarz_core.dir/src/Beam.cpp.o
+[ 22%] Building CXX object CMakeFiles/quarz_core.dir/src/Simulation.cpp.o
+[ 22%] Building CXX object CMakeFiles/quarz_core.dir/src/BeamRegular.cpp.o
+[ 30%] Building CXX object CMakeFiles/quarz_core.dir/src/SimulationIO.cpp.o
+[ 33%] Building CXX object CMakeFiles/quarz_core.dir/src/Parallel.cpp.o
+[ 36%] Building CXX object CMakeFiles/quarz_core.dir/src/OpenPMDWriter.cpp.o
+[ 38%] Building CXX object CMakeFiles/quarz_core.dir/src/OpenPMDReader.cpp.o
+[ 41%] Building CXX object CMakeFiles/quarz_core.dir/src/Laser.cpp.o
+[ 44%] Building CXX object CMakeFiles/quarz_core.dir/src/LaserFile.cpp.o
+[ 47%] Building CXX object CMakeFiles/quarz_core.dir/src/Ionization.cpp.o
+[ 50%] Linking CXX static library libquarz_core.a
+[ 50%] Built target quarz_core
+[ 75%] Building CXX object CMakeFiles/test_ab.dir/tests/test_ab.cpp.o
+[ 75%] Building CXX object CMakeFiles/test_pushers.dir/tests/test_pushers.cpp.o
+[ 75%] Building CXX object CMakeFiles/test_parser.dir/tests/test_parser.cpp.o
+[ 75%] Building CXX object CMakeFiles/quarz.dir/src/main.cpp.o
+[ 75%] Building CXX object CMakeFiles/test_laser_file.dir/tests/test_laser_file.cpp.o
+[ 75%] Building CXX object CMakeFiles/test_profiles.dir/tests/test_profiles.cpp.o
+[ 75%] Building CXX object CMakeFiles/test_filter.dir/tests/test_filter.cpp.o
+[ 75%] Building CXX object CMakeFiles/test_sampling.dir/tests/test_sampling.cpp.o
+[ 75%] Building CXX object CMakeFiles/test_solvers.dir/tests/test_solvers.cpp.o
+[ 77%] Linking CXX executable test_sampling
+[ 77%] Built target test_sampling
+[ 80%] Linking CXX executable test_laser_file
+[ 80%] Built target test_laser_file
+[ 83%] Linking CXX executable test_ab
+[ 86%] Linking CXX executable test_pushers
+[ 86%] Built target test_ab
+[ 86%] Built target test_pushers
+[ 88%] Linking CXX executable quarz
+[ 88%] Built target quarz
+[ 91%] Linking CXX executable test_profiles
+[ 91%] Built target test_profiles
+[ 94%] Linking CXX executable test_filter
+[ 94%] Built target test_filter
+[ 97%] Linking CXX executable test_parser
+[ 97%] Built target test_parser
+[100%] Linking CXX executable test_solvers
+[100%] Built target test_solvers

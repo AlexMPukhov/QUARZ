@@ -39,8 +39,11 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
         k0_ = 0;   // a LASY file without laser.k0: the file's omega_L (below)
     }
     const bool file = cfg.has("laser.file");
+    const bool comb = cfg.has("laser.comb_a");
     if (file && cfg.has("laser.a0"))
         throw std::runtime_error("laser: laser.file or the Gaussian pulse (laser.a0, w0, L0): not both (laser.file_a0 rescales a file)");
+    if (comb && (file || cfg.has("laser.a0") || cfg.has("laser.L0") || cfg.has("laser.focus")))
+        throw std::runtime_error("laser.comb_a (a comb of lines) replaces laser.a0, L0, focus and laser.file");
     if (k0_ <= 1 && !file) throw std::runtime_error("laser: k0 = omega0/omega_p must be > 1 (underdense plasma)");
     const std::string pol = cfg.get_string("laser.polarization", "linear");
     if (pol != "linear" && pol != "circular") throw std::runtime_error("laser.polarization must be linear or circular");
@@ -106,6 +109,86 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
                 if (box.k0 == 0 && kl == 0) head = std::max(head, std::abs(v));
             }
         peak = std::max(peak, R.peak_file);
+    } else if (comb) {
+        // ---- comb of lines (luminal ladder): line q at omega_q = k0 + dw_q in the radial mode LG_p (l = 0) of spot w,
+        //   a^ = sum_q a_q f(xi - xi0) L_p(2 r^2/w^2) e^{-r^2/w^2} e^{-i kap_q (xi - xi0) + i phi_q},
+        //   f = exp(-|(xi - xi0)/L|^sg), L from the intensity FWHM (exp(-2 (x/L)^sg) = 1/2).
+        // a_q is the normalized vector potential of line q on the axis (L_p(0) = 1). The box holds a snapshot at t = 0, so
+        // a line is set by its wavenumber k0 + kap_q; it is chosen such that the line has the frequency omega_q in the
+        // envelope model, 2 nu (k0 + kap) = -K, omega = k0 + kap - nu, with K = chi0 + 4 (2p + 1)/w^2 the eigenvalue of
+        // LG_p in the matched channel chi = chi0 (1 + r^2/R^2), R = w^2/2 (exact for that channel; elsewhere approximate):
+        //   kap_q = (omega_q + sqrt(omega_q^2 - 2 K))/2 - k0.
+        if (l_ != 0) throw std::runtime_error("laser.comb_a: the comb lines are LG_p with l = 0 (laser.l must be 0)");
+        auto nums = [&](const std::string& key, size_t n, double def) {
+            std::vector<double> v;
+            for (const auto& t : cfg.get_list(key)) v.push_back(std::stod(t));
+            if (v.empty()) v.assign(n, def);
+            if (v.size() != n) throw std::runtime_error(key + ": give one value per comb line (" + std::to_string(n) + ")");
+            return v;
+        };
+        const std::vector<double> amp = nums("laser.comb_a", cfg.get_list("laser.comb_a").size(), 0.0);
+        const size_t nl = amp.size();
+        std::vector<double> dw;
+        if (cfg.has("laser.comb_dw") == cfg.has("laser.comb_lambda_um"))
+            throw std::runtime_error("laser.comb_a: give the line frequencies as laser.comb_dw (omega_q - omega0 in omega_p) or "
+                                     "laser.comb_lambda_um (wavelengths, with units.n0_cm3): one of them");
+        if (cfg.has("laser.comb_dw")) {
+            dw = nums("laser.comb_dw", nl, 0.0);
+        } else {
+            const double n0 = cfg.get_double("units.n0_cm3", 0.0);
+            if (n0 <= 0) throw std::runtime_error("laser.comb_lambda_um needs the plasma density units.n0_cm3");
+            const double lambda_p_um = 2 * PI * 299792458.0 /
+                                       std::sqrt(n0 * 1e6 * 1.602176634e-19 * 1.602176634e-19 / (8.8541878128e-12 * 9.1093837015e-31)) * 1e6;
+            for (double lam : nums("laser.comb_lambda_um", nl, 0.0)) {
+                if (!(lam > 0)) throw std::runtime_error("laser.comb_lambda_um: wavelengths must be positive");
+                dw.push_back(lambda_p_um / lam - k0_);
+            }
+        }
+        const std::vector<double> pv = nums("laser.comb_p", nl, 0.0), phi = nums("laser.comb_phase", nl, 0.0);
+        const double w = cfg.get_double("laser.w0"), fwhm = cfg.get_double("laser.fwhm"), xi0 = xi_from_user(cfg.get_double("laser.xi0"));   // internal xi (Types.hpp)
+        const double sg = cfg.get_double("laser.sg", 2.0), chi0 = cfg.get_double("laser.comb_chi0", 1.0);
+        if (!(w > 0) || !(fwhm > 0) || !(sg >= 1)) throw std::runtime_error("laser.comb_a: needs laser.w0 > 0, laser.fwhm > 0, laser.sg >= 1");
+        const double L = fwhm / (2 * std::pow(0.5 * std::log(2.0), 1 / sg));
+        std::vector<double> kap(nl);
+        std::vector<int> pi(nl);
+        for (size_t q = 0; q < nl; ++q) {
+            pi[q] = static_cast<int>(std::lround(pv[q]));
+            if (pi[q] < 0 || std::abs(pv[q] - pi[q]) > 1e-12) throw std::runtime_error("laser.comb_p: radial indices must be integers >= 0");
+            const double om = k0_ + dw[q], K = chi0 + 4 * (2 * pi[q] + 1) / (w * w);
+            if (!(om * om > 2 * K)) throw std::runtime_error("laser.comb_a: line " + std::to_string(q) + " does not propagate (omega^2 < 2 K)");
+            kap[q] = 0.5 * (om + std::sqrt(om * om - 2 * K)) - k0_;
+            char b[200];
+            std::snprintf(b, sizeof(b), "line %zu: a = %g, omega = k0 %+.6f, LG_%d, phase %g: wavenumber k0 %+.8f (K = %.6f)", q,
+                          amp[q], dw[q], pi[q], phi[q], kap[q], K);
+            comb_info_.push_back(b);
+        }
+        char b[200];
+        std::snprintf(b, sizeof(b), "envelope exp(-|(xi - %g)/%g|^%g) (intensity FWHM %g), spot w = %g, chi0 = %g", xi_to_user(xi0), L, sg, fwhm, w, chi0);
+        comb_info_.push_back(b);
+        auto laguerre = [](int p, double x) {   // L_p(x)
+            double l0 = 1, l1 = 1 - x;
+            if (p == 0) return l0;
+            for (int k = 1; k < p; ++k) { const double l2 = ((2 * k + 1 - x) * l1 - k * l0) / (k + 1); l0 = l1; l1 = l2; }
+            return l1;
+        };
+        for (int kl = 0; kl < KL; ++kl) {
+            const double xi = box.xi_min + (box.k0 + kl) * box.dxi, d = xi - xi0;
+            const double f = std::exp(-std::pow(std::abs(d) / L, sg));
+            for (int j = 0; j < M; ++j) {
+                const double r = grid.r[j], x = 2 * r * r / (w * w);
+                std::complex<double> v = 0;
+                for (size_t q = 0; q < nl; ++q)
+                    v += amp[q] * laguerre(pi[q], x) * std::exp(-0.5 * x) * std::polar(1.0, -kap[q] * d + phi[q]);
+                v *= f;
+                if (j == M - 1) v = 0;   // a^ = 0 at the wall
+                h(kl, j, 0) = v.real(); h(kl, j, 1) = v.imag();
+                peak = std::max(peak, std::abs(v));
+                if (box.k0 == 0 && kl == 0) head = std::max(head, std::abs(v));
+            }
+        }
+        double s = 0;
+        for (double a : amp) s += std::abs(a);
+        peak = std::max(peak, s);   // the head check is relative to the largest possible peak (all lines in phase)
     } else {
         // ---- Gaussian pulse:  a^ = a0 / (1 + i s) exp(-r^2 / (w0^2 (1 + i s))) exp(-(xi - xi0)^2 / L0^2),
         //      s = (t - t_focus)/Z_R,  Z_R = k0 w0^2 / 2;  laser.focus = distance to the focal plane
@@ -162,6 +245,7 @@ std::string Laser::description() const {
                   k0_, circular_ ? "circular" : "linear", m, xsn[xi_scheme_]);
     std::string s = b;
     for (const std::string& line : file_info_) s += "\n  laser file: " + line;
+    for (const std::string& line : comb_info_) s += "\n  comb " + line;
     return s;
 }
 

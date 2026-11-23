@@ -284,6 +284,28 @@ schemes agree with each other to ≤ 10⁻⁷.
 from the momentum before the push and applied implicitly as in the note. To
 enable it, set `pusher.rr_n0_cm3` to the physical plasma density.
 
+**Stochastic radiation reaction** (`pusher.rr_model = stochastic`, any pusher; needs
+`pusher.rr_n0_cm3`) replaces the deterministic drag by the quantum recoil of discrete photons, for
+long-scale lepton acceleration where the quantum noise of the emission adds energy spread. In the
+classical synchrotron limit (χ ≪ 1, local constant crossed field), with K = ħω_p/(m_e c²),
+χ = K (|Z|/M²) γ [(E + v×B)² − (v·E)²]^{1/2}, a step Δt emits on average
+Λ = (5/(2√3)) Z²α (M/K) χ Δt/γ photons with the one-photon moments m₁ = (4√3/15) χγ and
+m₂ = (11/12) χ²γ² (units M c²), so that Λm₁ is the Landau–Lifshitz loss of `imp_rr` and Λm₂ the
+Sokolov–Ternov quantum excitation. The loss S of the step is drawn from a zero-inflated Gamma law
+(N. Elkina and A. Pukhov, *Aggregating soft-photon recoil with a positive finite-step sampler*,
+[arXiv:2611.26402](https://arxiv.org/abs/2611.26402); here in its frozen-step form with the classical moments): S = 0 with probability e^{−Λ}, otherwise
+S ~ Gamma(k, θ) matched to the conditional mean r₁ = Λm₁/q and variance
+σ² = (qΛm₂ − Λ²m₁²e^{−Λ})/q² of the compound-Poisson sum (q = 1 − e^{−Λ}, k = r₁²/σ², θ = σ²/r₁).
+Mean and variance are exact for every Λ, and S ≥ 0: a particle never gains energy by radiating.
+The classical synchrotron photon spectrum is itself close to a Gamma law (k = 0.30 for one photon),
+so the shape is good for any number of photons per step: the Wasserstein distance to the exact
+compound-Poisson distribution is ≤ 0.025 σ for Λ = 0.3…100 (`test_radiation`). S is removed
+along u after the Lorentz push; χ and Λ are taken from the momentum before it, as ν of `imp_rr`.
+The random numbers are a hash of the particle state and the step (MPI and restarts bit-identical).
+`pusher.rr_model = gaussian` draws S = Λm₁ + (Λm₂)^{1/2} N(0,1) (the Fokker–Planck model, which
+lets particles gain energy) for comparison. Validity: χ ≲ 10⁻² (the quantum reduction of the
+emitted power, ≈ 1 − 5.95 χ, is not included) and a loss per step small compared with γ.
+
 **Multiple Coulomb scattering** on the plasma: on by default for every non-rigid beam when the
 physical density `units.n0_cm3` is given (`<beam>.scattering = 0` switches it off; without
 `units.n0_cm3` it is off). Cost: about twice the time of a beam push without it (1 thread, 10⁶
@@ -385,7 +407,22 @@ frequency shift (depletion).
   equation with ∇⊥² → L_ℓ = (1/r)∂_r r∂_r − ℓ²/r², discretized by the finite-volume operator
   of the field solver (self-adjoint with the weights r dV, â = 0 on the axis); one complex
   tridiagonal solve per slice as before.
-- **Laser from a LASY file** (`laser.file`, `src/LaserFile.*`; needs a build with HDF5): the envelope of a
+- **Comb of lines** (`laser.comb_a`): a sum of lines at frequencies ω_q = ω₀ + Δω_q, line q in the radial mode
+  LG_p (ℓ = 0) of spot w with a common longitudinal envelope f (super-Gaussian of order `laser.sg` in the field),
+  â = Σ_q a_q f(ξ − ξ₀) L_p(2r²/w²) e^{−r²/w²} e^{−iκ_q(ξ−ξ₀) + iφ_q}; a_q is the normalized vector potential of line q on
+  the axis. Example: the luminal ladder of matched-channel LG modes (Pukhov, arXiv:2611.26032), five lines ω_c + qω_p
+  in LG_{q+2}, whose neighbour beats drive the wake at v = c. The box holds a snapshot at t = 0, so a line is set by
+  its wavenumber k₀ + κ_q, chosen such that the line has the frequency ω_q in the envelope model, 2ν(k₀ + κ) = −K,
+  ω = k₀ + κ − ν, with K = χ₀ + 4(2p + 1)/w² the eigenvalue of LG_p in the matched channel χ = χ₀(1 + r²/R²),
+  R = w²/2: κ_q = [ω_q + (ω_q² − 2K)^{1/2}]/2 − k₀ (exact for that channel, approximate in others).
+  - **Accuracy for beat-wave work.** The beat of two lines moves at c when Δk_z = Δω/c; the envelope model drops
+    ∂²_t and changes that by ~K²/(8ω³) per line, a beat slip of +0.003 rad/mm for the ladder at 6·10¹⁸ cm⁻³ (k₀/k_p = 13.2).
+    Larger is the ξ discretization, ∝ κ³Δξ²: at Δξ = λ_p/40 BDF2 gives 0.013–0.12 rad/mm between the pairs of that
+    ladder and damps the outermost lines by 2–3 % per mm; the trapezoid is neutral and 4× more accurate
+    (λ_p/80: 0.003–0.011 rad/mm; λ_p/160: 0.003–0.006 rad/mm). The time step hardly matters (Δt = 20 → 5 µm changes the slips by < 0.003 rad/mm at λ_p/40, < 0.001 at λ_p/160).
+    For combs use `laser.xi_scheme = trapezoid` and Δξ ≲ λ_p/160, and correct the remaining mean slip with the spot
+    size if needed (validation section 11 checks the measured phase rates against the discrete dispersion relation).
+- **Laser from a LASY file** (`laser.file`, `src/LaserFile.*`; needs a build with HDF5 1.12 or newer): the envelope of a
   [LASY](https://github.com/LASY-org/lasy) file (openPMD LaserEnvelope: `thetaMode` or `cartesian`, the electric field
   or the normalized vector potential at a plane versus time, any spectrum, chirp or radial structure) is turned into the
   box snapshot â(r, ξ) at t = 0:
@@ -835,7 +872,7 @@ never read are reported at the end of the run, which catches typos.
 | `grid.type` | `uniform` | `uniform` \| `regions` (alias `stretched`) \| `file` |
 | `grid.rmax` | — | outer radius R (conducting wall) |
 | `grid.dr` | — | spacing for `uniform` |
-| `grid.regions` | — | `r_end:h` pairs, e.g. `0.05:0.0005 2.5:0.01 8:0.05`. Spacing h is used for r < r_end. Transitions are geometric. A coarse→fine transition starts early enough to reach the fine spacing at the boundary. |
+| `grid.regions` | — | `r_end:h` pairs, e.g. `0.05:0.0005 2.5:0.01 8:0.05`. Spacing h is used for r < r_end. Transitions are geometric. A coarse→fine transition starts early enough to reach the fine spacing at the boundary. In boxes longer than about 300 c/ω_p keep the cells inside the plasma at 0.02–0.03 or below and coarsen only outside it: the field noise of clustering plasma macro-particles grows with the cell size. QUARZ prints a note at the first step when a box longer than 300 has plasma in cells above 0.03. |
 | `grid.max_ratio` | 1.05 | maximum ratio of neighbouring cells |
 | `grid.file` | — | text file with one node radius per line (first 0, last R) |
 
@@ -868,6 +905,8 @@ The generated grid is written to `out/grid.txt` (j, r_j, h_j, V_j).
 | `pusher.beam` | `vay` | beam momentum pusher: `vay` \| `hc` \| `imp` \| `imp_rr` \| `boris`. Can be overridden per beam with `<beam>.pusher`. |
 | `pusher.rr_n0_cm3` | 0 | plasma density in cm⁻³. With `imp_rr`, a value > 0 switches on radiation reaction. |
 | `pusher.rr_scale` | 1 | multiplies the radiation-reaction strength (testing only) |
+| `pusher.rr_model` | `classical` | `classical` (deterministic Landau–Lifshitz drag, needs `imp_rr`) \| `stochastic` (quantum recoil of discrete photons, zero-inflated Gamma, any pusher) \| `gaussian` (Fokker–Planck recoil, for comparison), see §1. Can be overridden per beam with `<beam>.rr_model`. |
+| `pusher.rr_seed` | 1 | seed of the stochastic recoil |
 | `<beam>.scattering` | 1 if `units.n0_cm3` is given | multiple Coulomb scattering on the plasma ions and electrons (needs `units.n0_cm3`), see §1. The default Z = 1 is hydrogen: set `scattering.Z`, `ion_charge` for other gases |
 | `scattering.Z`, `scattering.ion_charge`, `scattering.A` | 1, Z, 1 (2Z for Z > 1) | nuclear charge, ion charge state, mass number of the background ions |
 | `scattering.coulomb_log_ions`, `scattering.coulomb_log_electrons` | computed | fixed Coulomb logarithms instead of the per-particle formulas |
@@ -941,11 +980,19 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
 | `laser.p` | 0 | radial index of the LG mode; only 0 is implemented |
 | `laser.xi_scheme` | `bdf2` | ξ discretization of the envelope march: `bdf2` (second order, weakly dissipative, as in QuickPIC; default since 2026-11-10), `trapezoid` (neutral, second order; the earlier default), `euler` (first order) |
-| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 and `units.n0_cm3` |
+| `laser.file` | — | LASY file (instead of `laser.a0`, `w0`, `L0`, `focus`, `polarization`); needs HDF5 ≥ 1.12 and `units.n0_cm3` |
 | `laser.file_z` | 0 | distance from the pulse centre at t = 0 to the file's plane (1/k_p; > 0: the pulse still travels to it) |
 | `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
 | `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
 | `laser.file_iteration` | last | iteration in the file |
+| `laser.comb_a` | — | comb of lines (instead of `laser.a0`, `L0`, `focus`, `file`): amplitude a_q of each line on the axis (list) |
+| `laser.comb_dw` | — | frequency offsets ω_q − ω₀ in units of ω_p (list; or `laser.comb_lambda_um`) |
+| `laser.comb_lambda_um` | — | wavelengths of the lines in µm (list; needs `units.n0_cm3`) |
+| `laser.comb_p` | 0 … | radial index p of the LG_p mode of each line (list) |
+| `laser.comb_phase` | 0 … | phase φ_q of each line (rad, list) |
+| `laser.comb_chi0` | 1 | χ on the axis for the line wavenumbers (K = χ₀ + 4(2p + 1)/w²) |
+| `laser.fwhm` | — | comb: intensity FWHM of the envelope (1/k_p) |
+| `laser.sg` | 2 | comb: order of the super-Gaussian field envelope exp(−\|(ξ − ξ₀)/L\|^sg) |
 | `units.n0_cm3` | — | plasma density (needed with `laser.lambda0_um`; also gives SI units in openPMD output) |
 
 **Adaptive time step** (`time.adaptive = 1`). Before step n, rank 0 sets
@@ -1331,7 +1378,7 @@ All results can be reproduced with `validation/run_validation.sh`:
 
 ```bash
 cd validation
-./run_validation.sh -j 4 -c          # full suite (sections 1-28), compared with reference_full.txt
+./run_validation.sh -j 4 -c          # full suite (sections 1-29), compared with reference_full.txt
 ./run_validation.sh -q -j 4 -c       # quick regression test after code changes (~2 min on 2 cores)
 ./run_validation.sh -c 9 10          # selected sections only
 ```
@@ -1354,6 +1401,7 @@ A planted bug (π changed by 0.3 %) is caught by the quick mode in 4 of 6 sectio
 | test | result |
 |---|---|
 | Unit: pushers (`test_pushers`) | Identities: `imp` = HC to 5·10⁻¹⁴ and `imp_rr`(ν=0) = Vay exactly, over 10⁶ random states. Force-free γ = 2·10⁴ particle: Vay/HC/IMP exact, Boris drifts. Radiation-reaction energy loss equals ∫ν u·v dt to 0.05 %. |
+| Unit: stochastic radiation reaction (`test_radiation`) | zero-inflated Gamma sampler: exact zero probability, mean and variance; shape vs the exact compound-Poisson synchrotron emission (see section 26 below) |
 | Unit: tridiagonal (M = 16 … 9001) | Thomas, PCR and partition all at round-off level (≤ 7·10⁻¹⁶) |
 | Unit: L₀, L₁ (flux and Dirichlet wall), L₂ with χ, manufactured solutions | second order: measured 1.9–2.0 on uniform and 1.98–2.0 on stretched grids (h₀ = 0.01 → 0.00125, ratio ≤ 1.05) |
 | Cartesian particle rewrite, `modes = 0`, vs the earlier ring version | linear wake and blowout fields agree to 10⁻¹⁰–10⁻¹³; beam energies identical |
@@ -1394,6 +1442,7 @@ written together with the native files (`output.format = both`) and compared wit
 | Diffraction in vacuum through the focus (k₀ = 20, w0 = 2, t = −Z_R … +Z_R) | spot size and peak amplitude within 7·10⁻⁴ of the Gaussian-beam formulas; ∫\|â\|² conserved exactly; the centroid slips by 0.0501 vs the group-velocity value t/(k₀w0)² = 0.0500 (the ∂_t∂_ξ term) |
 | LG₀ℓ vortex through the focus (`laser.l`; same case) | ℓ = 1: w_rms/(w(t)(ℓ+1)^{1/2}) within 5.7·10⁻⁴, peak 1.5·10⁻³ (ℓ = 2, 3: 1.2·10⁻³ / 2.1·10⁻³, 2.7·10⁻³ / 2.9·10⁻³); complex profile incl. the Gouy phase (ℓ+1) atan s within 0.4 % (ℓ = 1) to 1.1 % (ℓ = 3); ∫\|â\|² conserved exactly; slippage (ℓ+1)t/(k₀w0)² (0.1001 vs 0.1000) |
 | LWFA benchmarks of Meng et al., PPCF (2026) (QuickPIC laser module; `benchmarks/quickpic_laser`) vs FBPIC 0.27 with the same parameters | a0 = 2.5, k₀/k_p = 34: on-axis E_z in front of the bubble closure to 0.7–1.4 % up to s = 500 k_p⁻¹ (1.5 % over the whole box at s = 500), laser energy loss 3.7 % vs 3.5 %; a0 = 4, k₀/k_p = 20: E_z to 1.0–1.6 % up to s = 200 k_p⁻¹ (ξ < 7), laser energy to 0.5 %; LG₀₁ vortex (`laser.l = 1`, a0 = 2.1, k_p w0 = 6): E_z at r = 4 vs FBPIC 2.6–3.4 % (averaged over a laser period), vs their OSIRIS curves 5–8 % (QuickPIC 4–5 %). Details in that directory's README |
+| Comb of lines (`laser.comb_a`; the luminal ladder at 6·10¹⁸ cm⁻³: 5 lines in LG₀ … LG₄) | envelope vs an independent evaluation of its definition 1.6·10⁻¹⁴; line energies (LG_p projections) vs ε₀cE₀²/2 × area × fluence 9·10⁻⁷ (29.11 mJ); two weak lines (q = ±2) in the channel: phase rates and their beat slip vs the discrete dispersion relation of the scheme within 2·10⁻⁷ ω_p (trapezoid and BDF2) |
 | Linear wake, a0 = 0.05, w0 = 3 | ψ and E_z vs (∂²_ξ + 1)ψ = ⟨a²⟩/2: 1.4·10⁻³; 2.2·10⁻⁴ for a0 = 0.02, i.e. the O(a0²) nonlinearity. The same on a stretched grid. |
 | Matched parabolic channel n = 1 + 4r²/w0⁴, stretched grid, 6.7 Z_R | spot size constant to 2·10⁻⁴; slippage 2.1653 vs (1 + 4/w0²) t/(2k₀²) = 2.1667 (Δt = 2.5; 2.5 % low at Δt = 5) |
 | Relativistic self-focusing of a long pulse, w0 = 20, over one Z_R | vacuum 1 → 0.707 (exact); P/P_c = 0.5: diffraction compensated (1.00); P/P_c = 2: focusing, a → 1.58 a0 |
@@ -1493,6 +1542,28 @@ measurable, fixed Coulomb logarithms):
 | Scattering only (section 18 deck, rate × 10⁶), spin along z | s_⊥ / (κ θ_⊥) = 0.999999 / 0.999998 (first-order small-angle result) |
 | Restart; 2 ranks vs serial | bit-identical; particles and spins bit-identical (fields 5·10⁻¹⁶, beam moments in `beams.txt` 10⁻⁹ at print precision) |
 
+**Stochastic radiation reaction** (section 26, `radiation.in`, `radiation_check.py`; unit test
+`test_radiation`). Matched 100 GeV electron beam (γ = 2·10⁵, ε_n = 1.55 c/ω_p, σ_r = 0.07 c/ω_p) in a
+pure ion channel at 10¹⁹ cm⁻³, t = 10⁴ ω_p⁻¹ (2.5 betatron periods, 40 steps per period, 10⁵
+particles): χ ≈ 2·10⁻³ (max 8·10⁻³), 4.6 photons per particle (Λ ≈ 0.05 per step), so the recoil is
+far from Gaussian. Independent reference: a Python RK4 of every particle's orbit with the
+Landau–Lifshitz drag, and the Sokolov–Ternov variance integrated along it *with radiative damping*:
+a particle that lost more than the mean radiates less afterwards (P ∝ γ²r²), so the reference
+integrates the covariance of the linearized deviations from each orbit, dC/dt = AC + CAᵀ + D nnᵀ
+(A the Jacobian of the Landau–Lifshitz equations, D the Sokolov–Ternov rate, n = ∂u/∂γ: recoil along
+u), and takes Var γ = gᵀCg. Here the damping lowers the variance to 0.979 × the plain integral; an
+independent Fokker–Planck Monte Carlo along the same orbits gives 0.981 ± 0.004.
+
+| test | result |
+|---|---|
+| sampler, 2·10⁶ draws at Λ = 0.02, 0.3, 3, 30 | P(S = 0) = e^{−Λ}, mean Λm₁ and variance Λm₂ within the statistical error; S ≥ 0 (Gaussian model: 47 %…0.4 % of the steps gain energy) |
+| sampler vs the exact compound-Poisson sum of synchrotron photons (spectrum ∫K₅/₃, 4·10⁵ draws) | Wasserstein distance / σ: 0.002, 0.008, 0.025, 0.021, 0.009 at Λ = 0.3, 1, 3, 10, 100 (Gaussian 0.71, 0.55, 0.35, 0.19, 0.06) |
+| photon statistics | Λm₁ = Landau–Lifshitz loss of `imp_rr` (3·10⁻¹¹), Λm₂ = Sokolov–Ternov excitation |
+| mean energy loss, ion channel: `imp_rr` / stochastic / Gaussian | 1.0035 / 1.0031 / 1.0018 × the RK4 orbits (statistical error 0.0033; `imp_rr` 1.0005 at Δt/4) |
+| Var(γ_stochastic − γ_imp_rr), particle by particle | 0.9995 ± 0.010 × the damped Sokolov–Ternov variance (Gaussian model 1.013 ± 0.007); 8 independent seeds (`pusher.rr_seed`): 1.007 ± 0.004 (Gaussian 1.005 ± 0.002); at Δt/4, 4 seeds: 0.998 ± 0.005 (Gaussian 1.004 ± 0.004). Without the damping the ratio would be 0.98 |
+| H = γ + r²/4 (conserved without radiation) increased | stochastic: no particle; Gaussian: 16.7 % of the particles |
+| restart; 2 ranks vs serial | bit-identical (random numbers from the particle state) |
+
 **Trapping → beam particles** (section 21, `trap.in`, `trap_check.py`): Trojan-horse injection,
 rigid driver (n_b = 5, σ_r = 0.3) in hydrogen with 0.1 % neutral helium, laser a0 = 0.06, w0 = 0.5
 in the bubble ionizes it; the helium electrons are trapped at the rear of the bubble (748
@@ -1507,14 +1578,14 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | `max_qsa_factor` 20 / 35 / 70 | the same trapped charge (identical) |
 | with beam loading (1 % He, not passive): restart; 2 and 3 ranks vs serial | bit-identical |
 
-**Longitudinal convention ξ = z − t** (section 26, `convention_check.py`, `v1_parsed_profiles.in`):
+**Longitudinal convention ξ = z − t** (section 27, `convention_check.py`, `v1_parsed_profiles.in`):
 
 | test | result |
 |---|---|
 | v1.0.0 deck (parsed beams with functions of ξ, `xi_range`, chirp, slices) converted by `tools/convert_deck.py` vs `examples/parsed_profiles.in` | bit-identical (fields, axis, beam log, particles, slices). All 34 validation and example decks, run with QUARZ v1.0.0 and converted with this version: bit-identical (checked once, single thread, not part of the suite) |
 | γ = 3 beam drifting in vacuum, deck ξ0 = −2 | field file from `xi.min` to `xi.max` in increasing ξ; beam charge and particles centred at ξ = −1.9962 (sampling); every particle slips backwards by ∫(v_z − 1) dt to 7·10⁻⁷ |
 
-**Beam import from native dumps** (section 27):
+**Beam import from native dumps** (section 28):
 
 | test | result |
 |---|---|
@@ -1522,10 +1593,10 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | 2 steps from the dump vs from the same particles as a text file | bit-identical |
 | 2 ranks vs serial, from the dump | particles and fields bit-identical (beam log: summation order over the ranks) |
 | 2·10⁶ particles | whole run (load only) 0.27 s vs 2.1 s from the equivalent text file; file 112 vs 216 MB |
-| read in blocks of 777 particles vs the default | identical (also for openPMD, section 28) |
+| read in blocks of 777 particles vs the default | identical (also for openPMD, section 29) |
 | peak memory, 2·10⁶ particles (beam 112 MB) | serial: openPMD 275 → 239 MB, text 453 → 234 MB, dump 249 MB (the transfer to the device now dominates); 4 MPI ranks, openPMD: 257 MB per rank → 65–134 MB |
 
-**Beam import from openPMD** (section 28, `openpmd_import_check.py`):
+**Beam import from openPMD** (section 29, `openpmd_import_check.py`):
 
 | test | result |
 |---|---|
@@ -1611,7 +1682,7 @@ focusing gradient at r = 0.01 is 0.88 instead of 0.5.
   1 s per sweep).
 - `examples/awake_seeded_smi.in`: AWAKE-like seeded self-modulation of a
   long proton bunch (n₀ = 7·10¹⁴ cm⁻³, 6000 slices, Δt = 4 cm). It is set to
-  3 steps; 250 steps give 10 m, in about 6 min on 2 cores. In a 16 m test
+  3 steps; 250 steps give 10 m, in about 12 min on 2 cores. In a 16 m test
   run the on-axis wakefield 6 cm behind the seed grows from 5 MV/m to a peak
   of 240 MV/m at z ≈ 4 m and then decays. That is the expected SMI
   growth-and-saturation behaviour, but it has **not** been benchmarked
@@ -1724,15 +1795,40 @@ comparison, the blowout on the stretched grid, and the SMI run.
 | `src/Ionization.*` | element tables, ADK and cycle-averaged laser rates, Bethe impact cross-section; the ionization kernel is in `PlasmaSpecies.cpp` |
 | `src/Beam.*` | beam loading, 2D deposit, push, diagnostics |
 | `src/Pushers.hpp` | Boris, Vay, Higuera–Cary and the two schemes of the IMP note (+ radiation reaction) |
+| `src/Radiation.hpp` | stochastic radiation reaction: photon statistics, zero-inflated Gamma sampler of the step energy loss |
 | `src/Simulation.*` | slice sweep, pipelined time loop, MPI messages, output |
 | `src/Parallel.*` | thin MPI layer (point-to-point messages, offset file writes; serial stub without MPI) |
 | `src/OpenPMDReader.*` | beam import from openPMD particle data (units, conventions; stub without openPMD-api) |
 | `src/OpenPMDWriter.*`, `src/FieldTable.hpp` | openPMD output through openPMD-api (fields in thetaMode, beam particles; stub without openPMD-api) |
 | `src/Parser.*` | function parser (compiler to a device-evaluable stack program), `my_constants` |
 | `src/Profiles.*`, `src/Config.*` | density profiles, input parser |
-| `tests/test_solvers.cpp`, `tests/test_pushers.cpp`, `tests/test_parser.cpp`, `tests/test_profiles.cpp` | unit tests (run by `ctest`) |
+| `tests/test_solvers.cpp`, `tests/test_pushers.cpp`, `tests/test_radiation.cpp`, `tests/test_parser.cpp`, `tests/test_profiles.cpp` | unit tests (run by `ctest`) |
 | `validation/` | physics validation inputs and scripts |
 | `tools/` | Python readers and plotting (optional; `quarz_read.head_first()` reorders fields from the head with s = −ξ); `convert_deck.py`: v1.0.0 decks and beam files → ξ = z − t; `quarz_gui.py` + `quarz_gui.html`: browser GUI (`quarz_machines.example.json`: clusters / remote hosts) |
+| `skills/`, `tools/sync_skills.sh`, `tests/agent_skill.sh` | agent skills `quarz-setup`, `quarz-simulation` (section "Agent skill"), their generated copies and the test that keeps them in step with the code |
+
+## Agent skill
+
+QUARZ ships two skills in the open [Agent Skills](https://agentskills.io) format (`SKILL.md`), so that AI coding
+agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI and others) can build the code and set up a run from a
+physics problem stated in plain words:
+
+```
+npx skills add AlexMPukhov/QUARZ
+```
+
+or copy the folders `skills/quarz-setup` and `skills/quarz-simulation` into the skills directory of the agent
+(Claude Code: `~/.claude/skills/`).
+
+| skill | for |
+|---|---|
+| `quarz-setup` | clone, build (Kokkos, MPI, GPU), tests, how to run, where the output goes |
+| `quarz-simulation` | is QUARZ the right code; dialogue with the user; the input in one page; rules for the grid, the box and the time step; checking an input (`scripts/check_input.sh`: a zero-step solve that fails on errors and on keys that were not read); reading the output; debugging |
+
+The skills help the user run the code; they tell the agent not to modify the source. They cannot drift from the
+code: `ctest -R agent_skill` checks their format, that the copied README sections and examples are current
+(`sh tools/sync_skills.sh` regenerates them), that every input key they name exists in the code and in section 5,
+and runs every example they ship. Details and the trial with a fresh agent: `docs/agent_skill.md`.
 
 ## Citing QUARZ
 

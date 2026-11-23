@@ -107,6 +107,9 @@ public:
     bool mobile() const { return mobile_; }
     bool frozen() const { return frozen_; }
     int  num_particles() const { return Np_; }
+    // largest radial cell that holds a loaded ring with plasma, and the outer radius of those rings (last load)
+    double loaded_hmax() const { return hload_; }
+    double loaded_rmax() const { return rload_; }
     int  lost_count() const;
     void reset_lost();
 
@@ -153,6 +156,7 @@ private:
     double xi_slot_[5] = {0, 0, 0, 0, 0};
     int Np_ = 0;      // active particles (loaded + born in this sweep)
     int Nload_ = 0;   // loaded at the head of the box
+    double hload_ = 0, rload_ = 0;   // largest cell with a loaded ring, outer radius of the loaded rings
     int nfam_ = 0;    // declustering: rings loaded at the head (the lattice), indices [0, nfam_)
     bool decl_ = false;
     Real decl_K_ = 0, decl_kappa_ = 0, decl_D0_ = 0;   // restoring force, damping, range (units of the local cell)

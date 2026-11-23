@@ -1,4 +1,4 @@
-"""Section 28: beam import from openPMD files of other codes (synthetic files in their conventions).
+"""Section 29: beam import from openPMD files of other codes (synthetic files in their conventions).
 write DIR       : DIR/foreign_si_%06T.h5 (iteration 7) and DIR/foreign_norm_%06T.h5 (iteration 3), plus the
                   expected beams in code units (DIR/expected_*.npy), computed here independently:
   si   : SI units, co-moving z with an origin moved into positionOffset (position z = xi - 1 mm,

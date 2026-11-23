@@ -73,6 +73,11 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   spot size 8.7e-04, peak amplitude 1.1e-03, int |a|^2 conserved to 1.9e-06; centroid slip 0.0503 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
  vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):
   spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ comb of lines (laser.comb_a; luminal ladder lo6, 5 lines in LG_0..LG_4) vs its definition and the line energies:
+  envelope vs analytic sum: max error 1.6e-14 (on axis |a|^2: 5.9e-15); line energies 1.161 5.507 6.444 7.455 8.539 mJ, total 29.11 mJ (intensity formula: 29.11 mJ, lines within 9.2e-07)
+ two weak comb lines (q = -2 in LG_0, q = +2 in LG_4) in the channel: phase rates vs the discrete dispersion relation:
+  trapezoid: phase rates -0.046147 -0.046003  (theory -0.046147 -0.046003); beat slip +1.442e-04 vs +1.436e-04 per 1/omega_p (difference 5.3e-07)
+  bdf2: phase rates -0.046349 -0.045875  (theory -0.046349 -0.045875); beat slip +4.744e-04 vs +4.738e-04 per 1/omega_p (difference 5.8e-07)
  relativistic self-focusing, P/Pc = 0 (vacuum: 1 .97 .894 .8 .707), 0.5, 2:
   out_laser_sf0: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 0.970 0.895 0.800 0.707
   out_laser_sf05: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 1.003 1.008 1.010 1.002
@@ -349,7 +354,23 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 0.00e+00  (beams.txt col 1)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
-== 26. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output ==
+== 26. stochastic radiation reaction (pusher.rr_model): 100 GeV electrons in an ion channel at 1e19 cm^-3 ==
+ classical (imp_rr), stochastic (zero-inflated Gamma) and Gaussian (Fokker-Planck) recoil vs RK4 of the
+ Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them, damped (linearized motion):
+  gamma0 = 2e+05, T = 10000: chi max 8.13e-03, mean 1.99e-03; photons per particle 4.58
+  classical : mean loss  1065.04  (LL orbits  1061.34, ratio 1.0035); particles that gained energy: 0.0000
+  stochastic: mean loss  1065.31  (LL orbits  1061.34, ratio 1.0037, statistical error 0.0033); particles that gained energy: 0.0000  OK [verdict]
+  gaussian  : mean loss  1062.25  (LL orbits  1061.34, ratio 1.0009, statistical error 0.0033); particles that gained energy: 0.1667  OK [verdict]
+  stochastic: Var(gamma - gamma_classical) = 1.219e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.208e+06; ratio to the damped 1.0088 +- 0.0106)  OK [verdict]
+  gaussian  : Var(gamma - gamma_classical) = 1.227e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.208e+06; ratio to the damped 1.0157 +- 0.0072)  OK [verdict]
+ restart (expected: bit-identical; on a GPU round-off, tolerance 1e-12):
+  7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK [verdict]
+ 2 ranks vs serial (expected: particles bit-identical; fields at round-off):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 5.24e-22  (beams.txt col 7)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 27. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output ==
  v1.0 deck converted by tools/convert_deck.py vs examples/parsed_profiles.in (expected bit-identical, 0):
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 0.00e+00  (beams.txt col 1)
@@ -359,7 +380,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
  gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):
   field file: xi = -4 ... 0, increasing: OK;  beam charge centred at -1.9962, particles at -1.9962 (deck xi0 = -2)
   slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07
-== 27. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) ==
+== 28. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) ==
  imported dump written again at step 0 vs the file (expected identical): identical
  read in blocks of 777 particles vs the default block (expected identical): identical
  2 steps from the dump vs from the same particles as a text file (expected bit-identical, 0):
@@ -373,7 +394,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
  2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of
  the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
   bit-identical (axis dumps fields): FAIL fields 4.9e-17 (fields_000002.bin:bz);  within 1e-05 (beamlog): OK
-== 28. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions ==
+== 29. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions ==
  QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:
   si         20000 particles, max rel. difference 2.0e-16  (expected: SI round-off, normalised 0)
   normalised 20000 particles, max rel. difference 0.0e+00  (expected: SI round-off, normalised 0)

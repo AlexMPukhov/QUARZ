@@ -1,0 +1,62 @@
+# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+# ---------------------------------------------------------------------------
+# AWAKE-like seeded self-modulation with a plasma density gradient
+#   n0 = 7e14 cm^-3 (reference density, at z = 0):  c/omega_p = 0.2008 mm,  E0 = 2.54 GV/m
+#   proton bunch: 4e11 protons (uncut), 400 GeV, sigma_z = 5 cm, sigma_r = 0.2 mm, eps_n = 3.5 mm mrad,
+#   cut one sigma_z ahead of its centre (sharp front = seed of the self-modulation)
+#   plasma density rising linearly by 5 % over 10 m
+# Numbers from:  python3 scripts/quarz_numbers.py --density 7e14 --length-m 10 --particles 4e11 --species proton \
+#                --energy-gev 400 --sigma-r-um 200 --sigma-z-um 5e4 --emit-n-um 3.5
+# Full run: 250 steps of 4 cm = 10 m, 24 min on 32 threads, about 0.9 GB of output. Result of that run (not
+# compared with another code): the r.m.s. of the on-axis E_z over xi = -500 ... -300 grows from 0.0015 E0 to 0.32 E0
+# (0.81 GV/m) at 4 m and falls to 0.08 E0 at 10 m; 69 % of the cut bunch is lost by then (defocused to the wall).
+# Against a run with cells of 0.01 everywhere: front half of the bunch and everything after saturation (5 m on)
+# within 10 % and 0.3 rad; the rear half during the growth (2-4 m) differs from run to run (also with more rings).
+#
+# The box holds the whole bunch (3 sigma_z behind the centre), which needs fine radial cells over the whole plasma
+# column: far behind the head the cold plasma macro-particles cluster (Kargapolov et al., Phys. Plasmas 32, 023905
+# (2025)) and coarse cells turn that into field noise (rule 9 of SKILL.md). Measured for this input at t = 0, where
+# the wake averaged over r < 1 must stay near 0.001 E0 in the tail: 0.001 with the grid below, 0.023 with
+# grid.regions = 2.0:0.01 10.0:0.1 (same cost); with that coarse grid and 16 rings per cell 0.0024 (twice the time).
+# Look at the wake of the first step along xi (scripts/quick_look.py prints it) before a long run.
+# ---------------------------------------------------------------------------
+grid.type      = regions
+grid.rmax      = 10.0                  # conducting wall at 2 mm, 10 sigma_r
+grid.regions   = 2.0:0.01  7.3:0.02  10.0:0.1   # 0.01 over the beam (sigma_r = 1), 0.02 over the plasma, coarse outside it
+grid.max_ratio = 1.05
+
+xi.min  = -1000          # tail of the box: 3 sigma_z behind the centre (xi = z - t, the beam moves towards +xi)
+xi.max  = 2              # head of the box, just ahead of the cut (head of the bunch) at xi = 0
+xi.step = 0.05        # 126 slices per plasma wavelength
+
+time.dt    = 199.15   # 4 cm; the betatron period of 400 GeV protons in a full ion channel is 7860 (1.58 m)
+time.steps = 250      # 10 m
+
+pusher.ab_order = 3
+
+plasma.species = electrons             # an immobile neutralising background is added automatically
+plasma.radial  = uniform
+plasma.rmax    = 7.0                   # plasma column of 1.4 mm radius
+plasma.z_table = 0:1  49787:1.05       # density / n0 against z [c/omega_p]: +5 % over 10 m
+electrons.ppc  = 4                     # rings per radial cell; fine cells matter more (see above)
+
+beams = protons
+protons.charge      = 1
+protons.mass        = 1836.15
+protons.profile     = gaussian
+protons.n0          = 0.018141         # peak density / n0 of the uncut bunch
+protons.sigma_r     = 0.99575          # 0.2 mm
+protons.sigma_xi    = 248.94           # 5 cm
+protons.xi0         = -248.94           # centre one sigma_z behind the cut
+protons.xi_cut_head = 0                # particles ahead of it (xi > 0) are dropped
+protons.gamma       = 426.32           # 400 GeV
+protons.espread     = 3.5e-4
+protons.emit_n      = 0.017426         # 3.5 mm mrad
+protons.nparticles  = 4000000
+
+output.dir         = out_awake_gradient
+output.every       = 25                # 1 m
+output.fields     = ez er bth ne rhob      # 2D maps of these fields only
+output.rmax       = 3                      # ... for r <= 3 c/omega_p
+output.xi_stride  = 5                      # ... every 5th slice: 40 MB per output step instead of 800 MB
+output.beam_every  = 250

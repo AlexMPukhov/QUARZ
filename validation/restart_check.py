@@ -2,7 +2,10 @@
 Every output file of B (fields, axis, beam dumps, in all diagnostic directories) must agree with
 A's file of the same step; log files (beams.txt, laser.txt, ionization.txt): the lines of B's steps.
 Beam particles are compared after sorting (their order depends on the number of ranks).
-usage: restart_check.py A B [tol]      (tol = 0: bit-identical)"""
+usage: restart_check.py A B [tol [verdict]]      (tol = 0: bit-identical)
+With "verdict" the line ends with [verdict] and omits the file of the maximum: the reference comparison
+(compare_results.py) then checks OK / FAIL against tol, not the number (used where the tolerance depends on the
+build, e.g. round-off of a GPU restart)."""
 import os
 import sys
 
@@ -13,6 +16,7 @@ from quarz_read import read_beam, read_fields  # noqa: E402
 
 A, B = sys.argv[1], sys.argv[2]
 tol = float(sys.argv[3]) if len(sys.argv) > 3 else 0.0
+vmode = len(sys.argv) > 4 and sys.argv[4] == "verdict"
 
 
 def rel(a, b):
@@ -59,5 +63,5 @@ for root, _, files in os.walk(B):
             worst, where = d, os.path.relpath(pb, B)
 ok = n > 0 and worst <= tol
 print(f"  {n} output files of the restarted run vs the uninterrupted run: max rel. difference {worst:.2e}"
-      f"{' (' + where + ')' if where else ''}  {'OK' if ok else 'FAIL'}")
+      f"{' (' + where + ')' if where and not vmode else ''}  {'OK' if ok else 'FAIL'}{' [verdict]' if vmode else ''}")
 sys.exit(0 if ok else 1)

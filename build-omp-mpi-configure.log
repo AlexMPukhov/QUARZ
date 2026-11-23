@@ -1,0 +1,145 @@
+-- The C compiler identification is GNU 14.1.0
+-- The CXX compiler identification is GNU 14.1.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /opt/gcc-14.1.0/bin/gcc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /opt/gcc-14.1.0/bin/g++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found MPI_C: /.netmount/storage1/tcwilson/work/anaconda3/lib/libmpi.so (found version "4.0")
+-- Found MPI_CXX: /.netmount/storage1/tcwilson/work/anaconda3/lib/libmpicxx.so (found version "4.0")
+-- Found MPI: TRUE (found version "4.0") found components: C CXX
+-- QUARZ: MPI enabled ()
+-- Found HDF5: /home/tcwilson/work/src/hdf5-1.14.5/hdf5_cuda/lib/libhdf5.so;/usr/lib64/libz.so;/usr/lib64/libdl.so;/usr/lib64/libm.so (found version "1.14.5") found components: C
+-- QUARZ: LASY laser files enabled (HDF5 1.14.5)
+-- QUARZ: openPMD output enabled (openPMD-api 0.18.0, MPI: FALSE)
+-- Performing Test QUARZ_OPENPMD_HAS_GRID_COORDINATES
+-- Performing Test QUARZ_OPENPMD_HAS_GRID_COORDINATES - Success
+-- QUARZ: openPMD-api writes coordinate data sets: native grid in the openPMD 2.0 form
+CMake Warning at CMakeLists.txt:126 (message):
+  QUARZ: openPMD-api has no MPI support: openPMD output only for single-rank
+  runs
+
+
+-- Configuring done (3.7s)
+CMake Warning at CMakeLists.txt:133 (add_executable):
+  Cannot generate a safe runtime search path for target quarz because files
+  in some directories may conflict with libraries in implicit directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:139 (add_executable):
+  Cannot generate a safe runtime search path for target test_solvers because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:142 (add_executable):
+  Cannot generate a safe runtime search path for target test_pushers because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:145 (add_executable):
+  Cannot generate a safe runtime search path for target test_ab because files
+  in some directories may conflict with libraries in implicit directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:148 (add_executable):
+  Cannot generate a safe runtime search path for target test_filter because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:151 (add_executable):
+  Cannot generate a safe runtime search path for target test_parser because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:154 (add_executable):
+  Cannot generate a safe runtime search path for target test_sampling because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:157 (add_executable):
+  Cannot generate a safe runtime search path for target test_profiles because
+  files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+CMake Warning at CMakeLists.txt:160 (add_executable):
+  Cannot generate a safe runtime search path for target test_laser_file
+  because files in some directories may conflict with libraries in implicit
+  directories:
+
+    runtime library [libgomp.so.1] in /opt/gcc-14.1.0/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+    runtime library [libz.so.1] in /usr/lib64 may be hidden by files in:
+      /.netmount/storage1/tcwilson/work/anaconda3/lib
+
+  Some of these libraries may not be found correctly.
+
+
+-- Generating done (0.3s)
+-- Build files have been written to: /home/tcwilson/work/src/qsrz/QUARZ/build-omp-mpi

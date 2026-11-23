@@ -12,6 +12,9 @@ Every number must agree within
   * both values below 1e-6: they measure round-off themselves (e.g. MPI vs serial,
     parsed vs built-in profiles), so only "still round-off" is required, except that an
     exact 0 in the reference (bit-identity) must stay exactly 0.
+Lines ending with "[verdict]" print numbers that legitimately differ between builds (random draws that hash the
+particle state; round-off of a GPU restart): only their text, including the OK / FAIL verdict that the check
+computed against its own expectation or tolerance, is compared, not the numbers.
 """
 import re
 import sys
@@ -55,6 +58,8 @@ def compare_line(r, n):
     r, n = LOC.sub("(...)", r), LOC.sub("(...)", n)
     if NUM.sub("#", r) != NUM.sub("#", n):
         return "text differs"
+    if r.rstrip().endswith("[verdict]"):
+        return None
     for a, b in zip(NUM.findall(r), NUM.findall(n)):
         if not num_ok(a, b):
             return "%s -> %s" % (a, b)

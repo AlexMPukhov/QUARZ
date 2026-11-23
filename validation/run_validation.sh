@@ -2,7 +2,7 @@
 # Validation suite of QUARZ (results quoted in README §7).
 #
 # usage: cd validation && ./run_validation.sh [options] [sections]
-#   sections   numbers 1..28 (default: all)
+#   sections   numbers 1..29 (default: all)
 #   -q         quick mode: reduced sizes, ~2-3 min on 2 cores (regression test after code changes)
 #   -j N       run N sections in parallel (OpenMP threads are split between them)
 #   -c         compare with the stored reference (reference_full.txt / reference_quick.txt):
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"
 QS=../build/quarz; QUICK=0; JOBS=1; CMP=0; UPD=0
 while getopts "qj:cx:u" o; do case $o in q) QUICK=1;; j) JOBS=$OPTARG;; c) CMP=1;; x) QS=$OPTARG;; u) UPD=1;; *) exit 2;; esac; done
 shift $((OPTIND-1))
-SECTIONS=${*:-$(seq 1 28)}
+SECTIONS=${*:-$(seq 1 29)}
 export OMP_PROC_BIND=${OMP_PROC_BIND:-false}
 NCORES=$(nproc); export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(( NCORES / JOBS > 0 ? NCORES / JOBS : 1 ))}
 MPIRUN=""; if command -v mpirun > /dev/null 2>&1; then MPIRUN="mpirun --oversubscribe -np"; [ "$(id -u)" = "0" ] && MPIRUN="mpirun --allow-run-as-root --oversubscribe -np"; fi
@@ -89,7 +89,7 @@ sec6() {
     $QS linear.in xi.min=-12 driver.analytic=1 driver.n0=0.01 modes=1 driver.x0=0.01 output.dir=out_m1_shift > /dev/null
     echo " linear regime (d = 0.01):"
     python3 check_shift2.py out_m1_ref out_m1_shift 0.01 3 -1e9 1e9 0.15 2>/dev/null
-    [ "$QUICK" = 1 ] && { rm -rf out_m1_*; return 0; }
+    [ "$QUICK" = 1 ] && { rm -rf out_m1_ref out_m1_shift; return 0; }
     B="blowout.in xi.min=-9 xi.step=0.005 grid.type=regions grid.max_ratio=1.05 driver.analytic=1"
     $QS $B "grid.regions=0.5:0.0025 2.5:0.01 8:0.05" output.dir=out_m1_bref > /dev/null
     $QS $B "grid.regions=0.5:0.0025 2.5:0.01 8:0.05" modes=1 driver.x0=0.002 output.dir=out_m1_bshift > /dev/null
@@ -205,6 +205,15 @@ sec11() {
     else echo " LASY file (laser.file): skipped (no h5py, or a build without HDF5)"; fi
     $QS laser_vacuum.in laser.xi_scheme=trapezoid output.dir=out_laser_trap > /dev/null
     echo " vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):"; python3 laser_check.py vacuum out_laser_trap 20 2 40 0.1
+    $QS laser_comb.in > /dev/null
+    echo " comb of lines (laser.comb_a; luminal ladder lo6, 5 lines in LG_0..LG_4) vs its definition and the line energies:"; python3 comb_check.py init out_laser_comb
+    for s in trapezoid bdf2; do
+        $QS laser_comb.in laser.xi_scheme=$s "laser.comb_a=1e-4 1e-4" "laser.comb_lambda_um=1.213347 0.89479" "laser.comb_p=0 4" \
+            grid.regions=50:0.1 xi.min=-40 laser.xi0=-20 laser.fwhm=25 time.steps=$(q 40 20) output.every=$(q 4 2) output.dir=out_laser_comb_$s > out_laser_comb_$s.log
+    done
+    echo " two weak comb lines (q = -2 in LG_0, q = +2 in LG_4) in the channel: phase rates vs the discrete dispersion relation:"
+    for s in trapezoid bdf2; do python3 comb_check.py drift out_laser_comb_$s 13.23415 9.2582 9.2 0.15707963267948966 $s -2 0 2 4; done
+    rm -f out_laser_comb_*.log
     [ "$QUICK" = 1 ] && { rm -rf out_laser_*; return 0; }
     S="laser_selffocus.in grid.rmax=90 grid.regions=40:0.2 90:0.5 xi.step=0.1 time.dt=100 time.steps=40 laser.w0=20"
     $QS $S laser.a0=0.4 electrons.density=1e-9 output.dir=out_laser_sf0 > /dev/null
@@ -645,7 +654,35 @@ sec25() {
 }
 
 sec26() {
-    echo "== 26. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output =="
+    echo "== 26. stochastic radiation reaction (pusher.rr_model): 100 GeV electrons in an ion channel at 1e19 cm^-3 =="
+    # chi ~ 2e-3, ~5 photons per particle: strongly non-Gaussian recoil. One thread (random numbers hash the state).
+    export OMP_NUM_THREADS=1
+    local R="radiation.in witness.nparticles=$(q 100000 20000)"
+    $QS $R output.dir=out_rad_c > /dev/null
+    $QS $R pusher.rr_model=stochastic output.dir=out_rad_s > /dev/null
+    $QS $R pusher.rr_model=gaussian output.dir=out_rad_g > /dev/null
+    echo " classical (imp_rr), stochastic (zero-inflated Gamma) and Gaussian (Fokker-Planck) recoil vs RK4 of the"
+    echo " Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them, damped (linearized motion):"
+    python3 radiation_check.py 1e19 100 out_rad_c out_rad_s out_rad_g
+    local M="radiation.in pusher.rr_model=stochastic time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp"
+    M="$M witness.nparticles=20000"
+    $QS $M checkpoint.every=4 checkpoint.keep=0 checkpoint.dir=out_rad_chk output.dir=out_rad_A > out_rad_A.log 2>&1
+    $QS $M restart.from=out_rad_chk/chk_000004 output.dir=out_rad_B > /dev/null
+    # bit-identical on CPU backends; a GPU build deposits with atomics in a run-dependent order: round-off
+    local RTOL=0; grep -q -E "execution space: (OpenMP|Serial|Threads)" out_rad_A.log || RTOL=1e-12
+    echo " restart (expected: bit-identical; on a GPU round-off, tolerance 1e-12):"
+    python3 restart_check.py out_rad_A out_rad_B $RTOL verdict || true
+    if [ -n "$MPIRUN" ]; then
+        $MPIRUN 2 $QS $M output.dir=out_rad_P > /dev/null
+        echo " 2 ranks vs serial (expected: particles bit-identical; fields at round-off):"
+        python3 cmp_runs.py out_rad_A out_rad_P 1e-14 || true
+    fi
+    unset OMP_NUM_THREADS
+    rm -rf out_rad*
+}
+
+sec27() {
+    echo "== 27. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output =="
     export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparison
     python3 ../tools/convert_deck.py v1_parsed_profiles.in -o out_conv_deck.in
     local O="time.steps=1 output.every=1 output.beam_every=1 output.dir"
@@ -659,8 +696,8 @@ sec26() {
     rm -rf out_conv_*
 }
 
-sec27() {
-    echo "== 27. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) =="
+sec28() {
+    echo "== 28. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) =="
     export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparisons
     local B="betatron.in output.every=0 witness.nparticles=$(q 20000 4000)" F="witness.profile=file witness.file"
     $QS $B time.steps=2 output.beam_every=2 output.dir=out_imp_src > /dev/null
@@ -705,8 +742,8 @@ print(' the same dump into a beam without spin: %d particles, x y p xi w %s' % (
     rm -rf out_imp_*
 }
 
-sec28() {
-    echo "== 28. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions =="
+sec29() {
+    echo "== 29. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions =="
     export OMP_NUM_THREADS=1   # deterministic deposits: bit-identical comparisons
     if ! python3 -c "import openpmd_api" 2> /dev/null || ! $QS betatron.in time.steps=0 output.every=1 output.format=openpmd \
             witness.nparticles=200 output.dir=out_op_probe > /dev/null 2>&1; then

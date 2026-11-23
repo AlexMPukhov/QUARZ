@@ -1,7 +1,9 @@
 #!/bin/bash
 # Rebuild the QUARZ development environment in a fresh Ubuntu 24.04 container (Claude sessions).
-# Installs system packages, builds Kokkos (OpenMP) and openPMD-api (C++: MPI, HDF5, ADIOS2; Python from the pip wheel),
-# builds QUARZ and runs the unit tests. Takes ~6 min on 2 cores (tested 2026-10-22: from scratch, quick suite 21/21).
+# Installs system packages, builds Kokkos (OpenMP), HDF5 1.14 (parallel), ADIOS2 and openPMD-api (C++: MPI, HDF5,
+# ADIOS2; Python from the pip wheel),
+# builds QUARZ and runs the unit tests. Kokkos, openPMD-api and QUARZ take ~6 min on 2 cores; HDF5 and ADIOS2 add
+# about 20 min on 4 cores (2026-11-21: these steps were run by hand in an existing container, not yet from scratch).
 #
 # usage: tools/dev/setup_container.sh [PREFIX]      (default PREFIX = /home/claude)
 # Every step writes its output to $PREFIX/setup-logs/<step>.log; on failure the script names the step and prints
@@ -13,13 +15,16 @@
 #                     slurm + sshd on localhost (GUI remote-machine test, section 17 with QUARZ_TEST_REMOTE=1)
 #     WITH_CUDA=1     also the CUDA compile check toolchain (pip nvidia-cuda-nvcc, Kokkos 5 with CUDA)
 # Afterwards build QUARZ as in CLAUDE.md:
-#   cmake -B build -DKokkos_ENABLE_OPENMP=ON -DKokkos_ROOT=$PREFIX/kokkos-install -DopenPMD_ROOT=$PREFIX/openpmd-install
+#   cmake -B build -DKokkos_ENABLE_OPENMP=ON -DKokkos_ROOT=$PREFIX/kokkos-install -DopenPMD_ROOT=$PREFIX/openpmd-install \
+#         -DHDF5_ROOT=$PREFIX/hdf5-install -DADIOS2_ROOT=$PREFIX/adios2-install
 set -eEuo pipefail   # -E: the ERR trap also fires inside functions (run)
 PREFIX=${1:-/home/claude}
 QUARZ=$(cd "$(dirname "$0")/../.." && pwd)
 NJ=${NJ:-2}
 KOKKOS_TAG=4.4.01
 OPENPMD_TAG=0.17.1
+HDF5_TAG=hdf5_1.14.6
+ADIOS2_TAG=v2.10.2
 export DEBIAN_FRONTEND=noninteractive
 LOGDIR=$PREFIX/setup-logs
 mkdir -p "$LOGDIR"
@@ -40,7 +45,7 @@ rm -f "$LOGDIR"/*.log
 # apt-get update: unreachable third-party repositories (e.g. nodesource) only warn; that is fine
 run apt apt-get update -q
 run apt apt-get install -y -q build-essential cmake git pkg-config \
-    openmpi-bin libopenmpi-dev libhdf5-openmpi-dev libadios2-mpi-c++11-dev \
+    openmpi-bin libopenmpi-dev zlib1g-dev \
     nlohmann-json3-dev libtoml11-dev python3-dev python3-pip
 # vtk: ParaView plugin test in validation section 10 (part of the stored references)
 run pip pip install --break-system-packages numpy scipy matplotlib h5py mpi4py openPMD-api vtk
@@ -57,6 +62,34 @@ if [ ! -f "$PREFIX/kokkos-install/.setup-done" ]; then
     run kokkos cmake --install kokkos-build
     touch "$PREFIX/kokkos-install/.setup-done"
 fi
+# HDF5 >= 1.12 is required (LASY laser files, src/LaserFile.cpp); Ubuntu 24.04 packages 1.10, so build it here
+# (parallel, C only). openPMD-api below and QUARZ must use this one library: two HDF5 versions in one executable clash.
+if [ ! -f "$PREFIX/hdf5-install/.setup-done" ]; then
+    log "HDF5 $HDF5_TAG (parallel)"
+    [ -d hdf5-src/.git ] || { rm -rf hdf5-src; run hdf5 git clone -q --depth 1 --branch $HDF5_TAG https://github.com/HDFGroup/hdf5.git hdf5-src; }
+    run hdf5 cmake -S hdf5-src -B hdf5-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX/hdf5-install" \
+        -DHDF5_ENABLE_PARALLEL=ON -DCMAKE_C_COMPILER=mpicc -DBUILD_TESTING=OFF -DHDF5_BUILD_EXAMPLES=OFF \
+        -DHDF5_BUILD_CPP_LIB=OFF -DHDF5_BUILD_FORTRAN=OFF -DHDF5_BUILD_HL_LIB=ON -DBUILD_SHARED_LIBS=ON \
+        -DHDF5_ENABLE_Z_LIB_SUPPORT=ON
+    run hdf5 cmake --build hdf5-build -j$NJ
+    run hdf5 cmake --install hdf5-build
+    touch "$PREFIX/hdf5-install/.setup-done"
+    rm -f "$PREFIX/openpmd-install/.setup-done"   # openPMD-api must be rebuilt against this HDF5
+fi
+# ADIOS2 from source, without HDF5: the Ubuntu package libadios2-mpi links the system HDF5 1.10, which would be
+# loaded next to HDF5 1.14 in the same executable
+if [ ! -f "$PREFIX/adios2-install/.setup-done" ]; then
+    log "ADIOS2 $ADIOS2_TAG (MPI, no HDF5)"
+    [ -d adios2-src/.git ] || { rm -rf adios2-src; run adios2 git clone -q --depth 1 --branch $ADIOS2_TAG https://github.com/ornladios/ADIOS2.git adios2-src; }
+    run adios2 cmake -S adios2-src -B adios2-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX/adios2-install" \
+        -DADIOS2_USE_MPI=ON -DADIOS2_USE_HDF5=OFF -DADIOS2_USE_Fortran=OFF -DADIOS2_USE_Python=OFF -DADIOS2_USE_SST=OFF \
+        -DADIOS2_USE_ZeroMQ=OFF -DADIOS2_USE_DataMan=OFF -DADIOS2_USE_Campaign=OFF -DBUILD_TESTING=OFF \
+        -DADIOS2_BUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=ON
+    run adios2 cmake --build adios2-build -j$NJ
+    run adios2 cmake --install adios2-build
+    touch "$PREFIX/adios2-install/.setup-done"
+    rm -f "$PREFIX/openpmd-install/.setup-done"
+fi
 if [ ! -f "$PREFIX/openpmd-install/.setup-done" ]; then
     # C++ library only (MPI, HDF5, ADIOS2); Python uses the pip wheel (installing the module from this
     # build into site-packages would replace the wheel). System json/toml11: FetchContent downloads fail here.
@@ -64,6 +97,7 @@ if [ ! -f "$PREFIX/openpmd-install/.setup-done" ]; then
     [ -d openpmd-src/.git ] || { rm -rf openpmd-src; run openpmd git clone -q --depth 1 --branch $OPENPMD_TAG https://github.com/openPMD/openPMD-api.git openpmd-src; }
     run openpmd cmake -S openpmd-src -B openpmd-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX/openpmd-install" \
         -DopenPMD_USE_MPI=ON -DopenPMD_USE_HDF5=ON -DopenPMD_USE_ADIOS2=ON -DopenPMD_USE_PYTHON=OFF \
+        -DHDF5_ROOT="$PREFIX/hdf5-install" -DADIOS2_ROOT="$PREFIX/adios2-install" \
         -DopenPMD_USE_INTERNAL_JSON=OFF -DopenPMD_USE_INTERNAL_TOML11=OFF \
         -DBUILD_TESTING=OFF -DopenPMD_BUILD_EXAMPLES=OFF -DopenPMD_BUILD_CLI_TOOLS=ON
     run openpmd cmake --build openpmd-build -j$NJ
@@ -74,7 +108,7 @@ fi
 log "QUARZ"
 cd "$QUARZ"
 run quarz cmake -B build -DKokkos_ENABLE_OPENMP=ON -DKokkos_ROOT="$PREFIX/kokkos-install" \
-    -DopenPMD_ROOT="$PREFIX/openpmd-install"
+    -DopenPMD_ROOT="$PREFIX/openpmd-install" -DHDF5_ROOT="$PREFIX/hdf5-install" -DADIOS2_ROOT="$PREFIX/adios2-install"
 run quarz cmake --build build -j$NJ
 STEP=ctest
 (cd build && OMP_PROC_BIND=false ctest --output-on-failure > "$LOGDIR/ctest.log" 2>&1)
@@ -120,7 +154,7 @@ fi
 if [ "${WITH_CUDA:-0}" = 1 ]; then
     log "CUDA compile-check toolchain (no GPU here: compile only)"
     run cuda pip install --break-system-packages nvidia-cuda-nvcc nvidia-cuda-runtime nvidia-cuda-cccl
-    CU=$(python3 -c 'import nvidia,os;print(os.path.join(os.path.dirname(nvidia.__file__),"cu13"))')
+    CU=$(python3 -c 'import nvidia,os;print(os.path.join(list(nvidia.__path__)[0],"cu13"))')   # namespace package: no __file__
     cd "$PREFIX"
     [ -d kokkos5-src/.git ] || run cuda git clone -q --depth 1 --branch 5.2.2 https://github.com/kokkos/kokkos.git kokkos5-src
     PATH=$CU/bin:$PATH CUDA_HOME=$CU run cuda cmake -S kokkos5-src -B kokkos5-cuda-build -DCMAKE_BUILD_TYPE=Release \

@@ -111,6 +111,7 @@ private:
     bool m1_ = false;
     int picard_ = 1;
     Real smooth_a_ = 0;      // plasma.smooth_length
+    bool long_box_note_ = false;   // the note on coarse cells in a long box was considered (printed once)
     bool decl_any_ = false;  // plasma.declustering: some species declusters
     int decl_n_ = 0;         //   how many
     std::vector<double> decl_rec_;   //   per slice: slice index, max |D|/h per declustering species
