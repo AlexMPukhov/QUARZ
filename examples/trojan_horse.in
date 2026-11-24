@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Trojan-horse (plasma photocathode) injection, after Hidding et al., PRL 108, 035001 (2012):
 # a rigid electron driver blows out a bubble in a hydrogen plasma (n0 = 1e17 cm^-3) with an
 # admixture of neutral helium (1 %), which the driver's fields cannot ionize. A weak, tightly

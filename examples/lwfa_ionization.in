@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Laser wakefield in a gas that the laser ionizes itself: helium (n_He = 5e17 cm^-3, i.e. n_e = 1e18
 # when fully ionized) doped with 1 % nitrogen.  0.8 um laser, a0 = 4, k_p w0 = 4 (as lwfa_laser.in).
 #  - He 1+, 2+ and N 1+ ... 5+ are ionized in the leading edge of the pulse (E_L = 31 a.u. at the peak),

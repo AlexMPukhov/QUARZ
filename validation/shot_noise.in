@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Shot noise of the beam (section 25): a long proton bunch (Arthur's case 1 parameters: 400 GeV, sigma_r = 200 um,
 # eps_n = 2.2 um, n0 = 2.965e16 cm^-3 -> c/omega_p = 30.87 um) drifting 1 m in vacuum (no plasma particles).
 # The noise power of sum_i w_i K(r_i) exp(i k xi_i) over k must equal that of the real protons (Poisson) for every

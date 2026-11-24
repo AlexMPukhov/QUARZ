@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # ---------------------------------------------------------------------------
 # PWFA with a strongly pinched, low-emittance witness and mobile hydrogen ions.
 # Normalised units: n0, omega_p, c/omega_p, m_e c omega_p / e.   xi = t - z

@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Radiation reaction of a 100 GeV electron beam in a pure ion channel (n0 = 1e19 cm^-3): classical (imp_rr) vs
 # stochastic recoil (pusher.rr_model = stochastic | gaussian). Matched witness, betatron period 3974 / omega_p,
 # 40 steps per period; chi ~ 2e-3, about 5 photons per particle over the run (Lambda ~ 0.05 per step).

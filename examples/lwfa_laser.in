@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Laser wakefield acceleration with the laser envelope solver: 0.8 um laser, a0 = 4,
 # matched spot k_p w0 = 2 sqrt(a0) = 4 (blowout regime), plasma n0 = 1e18 cm^-3, and an
 # external witness bunch in the first bucket.

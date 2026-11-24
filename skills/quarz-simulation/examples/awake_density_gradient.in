@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # ---------------------------------------------------------------------------
 # AWAKE-like seeded self-modulation with a plasma density gradient
 #   n0 = 7e14 cm^-3 (reference density, at z = 0):  c/omega_p = 0.2008 mm,  E0 = 2.54 GV/m

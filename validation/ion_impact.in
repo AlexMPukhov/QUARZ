@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # beam impact ionization of neutral argon by a rigid 400 GeV proton beam
 units.n0_cm3 = 1e15
 grid.type = uniform

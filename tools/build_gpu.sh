@@ -140,7 +140,7 @@ if [ "$HAVE_GPU" = "1" ]; then
     say "Unit tests on the GPU"
     (cd "$SRC/build-gpu" && ctest --output-on-failure)
     say "Short GPU run (blowout, one quasi-static solve)"
-    (cd "$SRC/validation" && "$SRC/build-gpu/quarz" blowout.in xi.max=10 output.dir=out_gpu_check | grep -E "execution space|tridiagonal|sweep")
+    (cd "$SRC/validation" && "$SRC/build-gpu/quarz" blowout.in xi.min=-10 output.dir=out_gpu_check | grep -E "execution space|tridiagonal|sweep")
     echo "Compare with the CPU numbers: cd validation && python3 bsum.py out_gpu_check gpu"
 else
     say "Compile-only build finished (no GPU here): $SRC/build-gpu/quarz"

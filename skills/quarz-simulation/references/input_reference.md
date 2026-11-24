@@ -25,6 +25,7 @@ The generated grid is written to `out/grid.txt` (j, r_j, h_j, V_j).
 |---|---|---|
 | `modes` | 0 | 0 = axisymmetric (m = 0), 1 = modes m = 0 and 1 |
 | `solver.picard` | 3 (modes=1) | Picard iterations for the χ₁ mode coupling of B⊥ |
+| `xi.convention` | — (required) | must be `z-t`: states that the deck uses ξ = z − t (v2.0.0 and later). Decks without it are refused, so that a v1 deck (ξ = t − z) cannot run unnoticed; `tools/convert_deck.py` converts a v1 deck and adds the key |
 | `xi.min`, `xi.max`, `xi.step` | —, 0, — | box (ξ = z − t; the head of the box is at `xi.max`) and slice spacing Δξ. The slices are xi.max, xi.max − Δξ, … |
 | `time.dt`, `time.steps`, `time.start` | 0, 0, 0 | beam time step and number of steps (0 = one quasi-static solve). With `time.adaptive`, `time.dt` (if given) is the largest step |
 | `time.t_end` | — | end the run at this time instead of after `time.steps` steps (then only an upper bound); the last step is shortened to land on it exactly, without a tiny final step |

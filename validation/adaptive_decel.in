@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Adaptive time step with a decelerating witness (inside the rigid driver, gamma 50 -> ~20)
 grid.type = regions
 grid.rmax = 8

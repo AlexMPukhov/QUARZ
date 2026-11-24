@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # field ionization of dilute H and He by the field of a rigid electron beam (ions immobile: clean reference)
 units.n0_cm3 = 1e17
 grid.type = uniform

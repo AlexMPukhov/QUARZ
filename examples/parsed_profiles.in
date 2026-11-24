@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # ---------------------------------------------------------------------------
 # Flexible profiles with the function parser (HiPACE++ style).
 #   my_constants.<name> = expression        user constants (may use each other)

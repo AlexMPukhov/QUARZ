@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # relativistic self-focusing of a long pulse (L > lambda_p), P/Pc = (k_p w0 a0)^2/32;
 # run_validation.sh uses w0 = 20 with a0 = 0.2, 0.4 (P/Pc = 0.5, 2) and a vacuum reference
 grid.type = regions

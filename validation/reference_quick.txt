@@ -364,6 +364,8 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
   slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
+ the v1.0 deck unconverted, and xi.convention = t-z (expected: refused at startup):
+  refused: xi.convention is missing;  refused: only z-t is supported
  gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):
   field file: xi = -4 ... 0, increasing: OK;  beam charge centred at -1.9962, particles at -1.9962 (deck xi0 = -2)
   slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07

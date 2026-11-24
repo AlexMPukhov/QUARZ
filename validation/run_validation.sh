@@ -690,6 +690,14 @@ sec27() {
     $QS ../examples/parsed_profiles.in $O=out_conv_b > /dev/null
     echo " v1.0 deck converted by tools/convert_deck.py vs examples/parsed_profiles.in (expected bit-identical, 0):"
     python3 cmp_runs.py out_conv_a out_conv_b 0 || true
+    refused() {   # <exit code> <message> <log>: the run must fail with this message
+        if [ "$1" = 0 ]; then echo "ran (WRONG)"; else grep -q "$2" "$3" && echo "refused: $2" || echo "failed without the message (WRONG)"; fi
+    }
+    local r1=0 r2=0
+    $QS v1_parsed_profiles.in $O=out_conv_v1 > out_conv_v1.log 2>&1 || r1=$?
+    $QS ../examples/parsed_profiles.in xi.convention=t-z $O=out_conv_tz > out_conv_tz.log 2>&1 || r2=$?
+    echo " the v1.0 deck unconverted, and xi.convention = t-z (expected: refused at startup):"
+    echo "  $(refused $r1 'xi.convention is missing' out_conv_v1.log);  $(refused $r2 'only z-t is supported' out_conv_tz.log)"
     echo " gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):"
     $QS betatron.in time.steps=2 output.every=2 output.beam_every=2 witness.gamma=3 "plasma.density(x,y,z)=0" output.dir=out_conv_c > /dev/null
     python3 convention_check.py out_conv_c -4 0 -2 2

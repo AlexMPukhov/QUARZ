@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Linear wake of a weak Gaussian electron driver (validation against Green's function)
 grid.type   = uniform
 grid.rmax   = 8.0

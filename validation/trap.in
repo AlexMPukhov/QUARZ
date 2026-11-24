@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Trojan-horse injection (section 21): a rigid electron driver blows out a bubble in a hydrogen
 # plasma with a 0.1 % admixture of neutral helium; a weak laser (a0 = 0.06, w0 = 0.5) sits inside
 # the bubble and ionizes the helium. The freed electrons (species 'hel', born at rest) slide back,

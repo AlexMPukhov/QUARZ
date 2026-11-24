@@ -1,4 +1,4 @@
-# QUARZ v1.0.0 deck (xi = t - z, head at the smallest xi), kept unconverted for section 26:
+# QUARZ v1.0.0 deck (xi = t - z, head at the smallest xi), kept unconverted for section 27:
 # tools/convert_deck.py must turn it into examples/parsed_profiles.in
 # ---------------------------------------------------------------------------
 # Flexible profiles with the function parser (HiPACE++ style).

@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # comb of lines (laser.comb_a): the luminal ladder of arXiv:2611.26032 (case lo6: 6e18 cm^-3, carrier 1.03 um, 0.5 ps),
 # five lines omega_c + q omega_p (q = -2..2) in LG_{q+2} of the matched parabolic channel, k_p w = 9.258
 grid.type = regions

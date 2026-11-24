@@ -7,6 +7,7 @@ smallest xi) to the current one (xi = z - t, beam moving towards +xi, head at th
     tools/convert_deck.py --beam-file beam_b_000010.bin new.bin   # the same for a v1.0 native dump
 
 What changes (every other line is copied unchanged, comments included):
+    xi.convention = z-t                 added (required since v2.0.0: decks without it are refused)
     xi.min = a, xi.max = b              ->  xi.min = -b, xi.max = -a   (old default xi.min = 0)
     <x>.xi0, <beam>.xi_cut_head         ->  negated
     <beam>.x_slope, <beam>.y_slope      ->  negated (d x_c / d xi)
@@ -17,6 +18,7 @@ What changes (every other line is copied unchanged, comments included):
                                             describes the same beam
 Plasma functions (x,y,z) use the lab position z and are not changed. The converted deck gives
 the same physics; the numbers are negated exactly, so the results are identical to the old run.
+A deck converted by an earlier version of this tool (marker line, but no xi.convention) only gets the key.
 """
 import argparse
 import re
@@ -25,6 +27,7 @@ import sys
 BEAM_FUNCS = ("density", "ux_mean", "uy_mean", "uz_mean", "ux_std", "uy_std", "uz_std")
 PLAIN_FUNCS = ("ux_mean", "uy_mean", "uz_mean", "ux_std", "uy_std", "uz_std")   # default vars x, y, xi
 MARK = "# converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py"
+CONV = "xi.convention = z-t"
 
 LINE = re.compile(r'^(\s*)([A-Za-z_][A-Za-z0-9_.]*)(\([^)]*\))?(\s*=\s*)(.*?)$')
 
@@ -61,12 +64,15 @@ def convert(lines):
         m = LINE.match(ln)
         if m and not ln.lstrip().startswith("#"):
             keys[m.group(2) + (m.group(3) or "")] = split_value(m.group(5))[0]
-    if any(MARK in ln for ln in lines):
-        raise SystemExit("convert_deck: this deck is already converted")
+    if "xi.convention" in keys:
+        raise SystemExit(f"convert_deck: this deck already states xi.convention = {keys['xi.convention']}")
+    if any(MARK in ln for ln in lines):   # converted before the key existed: add it under the marker
+        i = next(i for i, ln in enumerate(lines) if MARK in ln)
+        return lines[:i + 1] + [CONV + "\n"] + lines[i + 1:], []
     beams = keys.get("beams", "").strip('"').split()
     old_min = keys.get("xi.min", "0")
     old_max = keys.get("xi.max")
-    out, warn = [MARK + "\n"], []
+    out, warn = [MARK + "\n", CONV + "\n"], []
     for ln in lines:
         m = LINE.match(ln)
         if not m or ln.lstrip().startswith("#"):

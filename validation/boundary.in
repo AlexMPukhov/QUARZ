@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Two-stage runs through the rear boundary (section 19): rigid or evolving driver in 0..5,
 # witness at xi = 7; stage 1 = driver box 0..5 (boundary.write), stage 2 = witness box from 5.01 (boundary.read)
 grid.type = regions

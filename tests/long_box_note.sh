@@ -9,6 +9,7 @@ trap 'rm -rf "$W"' EXIT
 cd "$W" || exit 1
 fail=0
 cat > base.in <<'IN'
+xi.convention = z-t
 grid.type = regions
 grid.rmax = 10
 xi.max = 0

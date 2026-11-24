@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # linear laser wake: (d^2/dxi^2 + 1) psi = <a^2>/2,  <a^2> = |a|^2/2
 grid.type = uniform
 grid.rmax = 15

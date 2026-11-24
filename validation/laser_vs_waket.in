@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 units.n0_cm3 = 1e18
 grid.type = uniform
 grid.rmax = 14

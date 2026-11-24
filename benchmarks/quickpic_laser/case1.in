@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Laser wakefield benchmark of Meng et al., PPCF (2026), doi 10.1088/1361-6587/aebd1b, case 4.1:
 # Gaussian, linearly polarized laser, |a| = 2.5, k_p w0 = 3.162 (matched, k_p w0 = 2 sqrt(a0)),
 # k0/k_p = 34, omega_p tau_FWHM = 2.26 (FWHM of |a|; the OSIRIS lineouts fit this, not the intensity FWHM), uniform plasma.

@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # electron-impact ionization: dilute Xe atoms (or ions with xe.z0) in a uniform, mono-energetic
 # electron population (two counter-streaming species with u_z = +-u: no net current); no beam, no fields
 # to speak of. Set the electron energy with ea.u_drift = 0 0 u, eb.u_drift = 0 0 -u.

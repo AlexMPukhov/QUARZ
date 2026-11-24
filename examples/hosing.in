@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # ---------------------------------------------------------------------------
 # Electron hosing of a long, slightly offset driver in the blowout regime
 # (needs azimuthal mode 1).  Normalised units, xi = t - z.

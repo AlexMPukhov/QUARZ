@@ -32,6 +32,18 @@ void ion_line(std::ostream& o, int n, double t, const std::vector<std::array<dou
 } // namespace
 
 Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
+    // v2.0.0 changed the longitudinal convention from xi = t - z (v1) to xi = z - t. A v1 deck would run without
+    // error but describe a different box and beam, so for a transition period every deck must state the convention.
+    if (!cfg.has("xi.convention"))
+        throw std::runtime_error(
+            "xi.convention is missing. Since v2.0.0 QUARZ uses xi = z - t (the beam moves towards +xi, the head of "
+            "the box is at xi.max); v1 decks used xi = t - z. Convert a v1 deck with tools/convert_deck.py, which "
+            "adds the key, or add xi.convention = z-t to a deck written for v2");
+    const std::string conv = cfg.get_string("xi.convention");
+    if (conv != "z-t")
+        throw std::runtime_error("xi.convention = " + conv + ": only z-t is supported" +
+                                 (conv == "t-z" ? " (xi = t - z was the v1 convention: convert the deck with "
+                                                  "tools/convert_deck.py)" : ""));
     const int modes = cfg.get_int("modes", 0);
     if (modes != 0 && modes != 1) throw std::runtime_error("modes must be 0 (axisymmetric) or 1 (m = 0 and 1)");
     m1_ = (modes == 1);

@@ -91,7 +91,8 @@ lengths in c/omega_p, times in 1/omega_p, densities in n0, momenta in m c, field
 co-moving coordinate is **xi = z - ct: the beams move towards +xi, the head of the box is at `xi.max` (often 0)
 and the box extends to negative xi**; the plasma is swept from the head (large xi) to the tail. A beam's head is at
 its largest xi, and a witness behind a driver is at smaller xi. (QUARZ v1.0.0 used xi = ct - z, head at small xi:
-convert old inputs with `tools/convert_deck.py` of the repository.)
+convert old inputs with `tools/convert_deck.py` of the repository. Every input states `xi.convention = z-t`;
+inputs without it are refused.)
 
 ```quarz
 grid.type      = regions                # radial grid: fine near the axis, coarser outside
@@ -99,6 +100,7 @@ grid.rmax      = 8.0                    # conducting wall
 grid.regions   = 1.0:0.01  8.0:0.05     # spacing 0.01 for r < 1, growing to 0.05 for r < 8
 grid.max_ratio = 1.05
 
+xi.convention = z-t                     # required (since v2.0.0): states the convention xi = z - t
 xi.min  = -12                           # tail of the box
 xi.max  = 0                             # head of the box
 xi.step = 0.01

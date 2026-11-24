@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # MPI test: low-energy beam slipping backwards through several ranks; mobile ions; m = 1
 modes = 1
 solver.picard = 2

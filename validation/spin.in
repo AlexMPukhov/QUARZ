@@ -1,4 +1,5 @@
 # converted to the xi = z - t convention (beam head at the largest xi) by tools/convert_deck.py
+xi.convention = z-t
 # Spin precession (Thomas-BMT) in a pure ion channel (immobile ions, no plasma electrons, no scattering).
 # (gamma of the muons and antiprotons chosen so that they do not slip out of the box: dxi = t / (2 gamma^2))
 # Cold beams start on the axis direction (p_perp = 0) with the spin along z: every particle moves in
