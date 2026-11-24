@@ -77,14 +77,15 @@ def deck_info(text, overrides=()):
 
 # ----------------------------------------------------------------------------- field files
 def field_header(fn):
-    """(M, K, mode1, t, r, xi, names, offsets) or None if the file is incomplete."""
+    """(M, K, mode1, t, r, xi, names, offsets, v1) or None if the file is incomplete. v1: a version-2 file of
+    QUARZ v1 (xi = t - z, head first); xi is returned converted to z - t, and its rows must be reversed."""
     try:
         size = os.path.getsize(fn)
         with open(fn, "rb") as f:
             hdr = np.fromfile(f, dtype=np.int32, count=4)
-            if len(hdr) < 4 or hdr[0] != 2:
+            if len(hdr) < 4 or hdr[0] not in (2, 3):
                 return None
-            _, M, K, m1 = (int(x) for x in hdr)
+            ver, M, K, m1 = (int(x) for x in hdr)
             t = float(np.fromfile(f, dtype=np.float64, count=1)[0])
             r = np.fromfile(f, dtype=np.float64, count=M)
             xi = np.fromfile(f, dtype=np.float64, count=K)
@@ -98,7 +99,8 @@ def field_header(fn):
                 pos += 16 + 8 * M * K
             if size < pos:
                 return None
-            return M, K, bool(m1), t, r, xi, names, offs
+            v1 = ver == 2
+            return M, K, bool(m1), t, r, (-xi[::-1] if v1 else xi), names, offs, v1
     except (OSError, ValueError, IndexError):
         return None
 
@@ -116,12 +118,14 @@ class FieldCache:
         h = field_header(fn)
         if h is None:
             return None
-        M, K, m1, t, r, xi, names, offs = h
+        M, K, m1, t, r, xi, names, offs, v1 = h
         comps = {}
         with open(fn, "rb") as f:
             for nm, off in zip(names, offs):
                 f.seek(off)
                 comps[nm] = np.fromfile(f, dtype=np.float64, count=M * K).reshape(K, M)
+                if v1:
+                    comps[nm] = comps[nm][::-1]
         rec = {"t": t, "r": r, "xi": xi, "mode1": m1, "comps": comps}
         with self.lock:
             self.d[fn] = (mt, rec)

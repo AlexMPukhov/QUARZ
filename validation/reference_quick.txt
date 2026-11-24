@@ -366,6 +366,10 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
  the v1.0 deck unconverted, and xi.convention = t-z (expected: refused at startup):
   refused: xi.convention is missing;  refused: only z-t is supported
+ output files of QUARZ v1.0.0 (written here in the v1 formats from this run's files; v1_files_check.py):
+  field file version 2 vs version 3: quarz_read identical (warnings: 1), GUI identical
+  beam dump without header: refused: no QUARZDMP header;  convert_deck.py --beam-file: identical
+   to the v2 dump;  quarz_read: identical (warnings: 1)
  gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):
   field file: xi = -4 ... 0, increasing: OK;  beam charge centred at -1.9962, particles at -1.9962 (deck xi0 = -2)
   slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07
@@ -395,5 +399,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  deck mass 1 instead of the file's: warning given: 1; gamma beta / the file's = 1.0000000000 ... 1.0000000000 (expected 1: velocity kept)
  particle_stride = 4: charge of the import / of the original beam: 0.2500, with openpmd_scale_stride = 1: 1.0000; warning given: 1
  muons with spin (normalised units) imported and written again vs the native dump: 20000 particles; spins 0.0e+00, x y xi w 0.0e+00, momenta 1.8e-16 (expected: 0, 0, round-off of the mass factor 206.77)
+ QUARZ v1.0.0 openPMD file (lab frame, SI, t = 12.5) imported vs the dump it was written from (expected round-off):
+  4000 of 4000 particles, max rel. difference 1.2e-15;  note in the log: 1
  2 ranks vs serial, both from the openPMD file (expected: particles bit-identical; fields and beam log round-off):
   bit-identical (axis dumps): OK;  round-off, within 1e-12 of the maximum (fields): OK;  within 1e-05 (beamlog): OK

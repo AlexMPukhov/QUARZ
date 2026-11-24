@@ -3,10 +3,11 @@
 
 Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QUARZ.
 
-- **`fields_NNNNNN.bin`** (format version 2). Header: int32 version = 2,
+- **`fields_NNNNNN.bin`** (format version 3). Header: int32 version = 3,
   int32 M, int32 K, int32 mode1, float64 t, r[M], ξ[K], int32 ncomp. Then
   ncomp blocks of {char name[16], float64 [K][M]}. ξ = z − t increases with the slice index:
-  the head of the box is the last slice (v1.0.0 files: ξ = t − z, head first).
+  the head of the box is the last slice. Version 2 = QUARZ v1.0.0 (ξ = t − z, head first):
+  `tools/quarz_read.py` and the GUI read both and convert version 2 (slices reversed, ξ negated).
   - m = 0 components: `psi ez er eth br bth bz ne ni rhob`.
   - m = 1 components (when present): the same names with `_c` / `_s`, the
     cos / sin amplitudes in f = f₀ + f_c cos θ + f_s sin θ.
@@ -42,9 +43,12 @@ Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QU
   the slice files and the particle dumps are first written per rank
   (`*.partN`) and merged into the usual files by rank 0 at the end of the run;
   if a run is killed, the `.partN` files hold the data.
-- **`beam_<name>_NNNNNN.bin`**: int32 n, then n × (x, y, p_x, p_y, p_z, ξ, w), or n × (…, w, s_x, s_y, s_z)
-  for a beam with `<beam>.spin` (readers infer 7 or 10 doubles from the file size). Code units: x, y, ξ in
-  c/ω_p, p in m_s c of the species, w in n₀(c/ω_p)³. Particles removed from the beam (w = 0) are not written.
+- **`beam_<name>_NNNNNN.bin`**: a 24-byte header, char magic[8] = `QUARZDMP`, int32 version = 1, int32 columns
+  (7, or 10 for a beam with `<beam>.spin`), int64 n; then n × (x, y, p_x, p_y, p_z, ξ, w), or
+  n × (…, w, s_x, s_y, s_z). Code units: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the species, w in
+  n₀(c/ω_p)³. Dumps of QUARZ v1.0.0 have no header (int32 n, then the records; ξ = t − z): the beam import
+  refuses them, `tools/convert_deck.py --beam-file OLD NEW` converts them, and `tools/quarz_read.py`
+  reads them converted, with a warning. Particles removed from the beam (w = 0) are not written.
   A dump can be read back as a beam (`<beam>.profile = file`, `<beam>.file = beam_<name>_NNNNNN.bin`). The
   momenta of a dump are half a time step behind the positions (leapfrog), so a run started from a dump is not
   an exact continuation (use checkpoints for that); with `particle_stride` > 1 the dump holds a subset
@@ -58,7 +62,9 @@ Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QU
     (geometryParameters `m=2;imag=+`), the convention of openPMD-viewer, FBPIC and WarpX.
   - **Longitudinal axis:** co-moving, as in other quasi-static codes: the mesh axis `z` is ξ = z_lab − ct (the
     same values and order as the native files; `gridGlobalOffset` = ξ_min). The lab position is z_lab = ξ + ct
-    with the iteration time t (series attribute `quarz_coordinates`). Until this version: lab z = t + ξ.
+    with the iteration time t (series attribute `quarz_coordinates`). QUARZ v1.0.0 files are in the lab frame
+    (z = t − ξ_v1 = ξ + t, `quarz_coordinates` = "z = t - xi (lab frame); …"); the beam import
+    (`<beam>.profile = openpmd`) recognises them and converts the positions exactly with the iteration time.
   - **Radial grid:** openPMD requires uniform spacing, so by default the fields are
     interpolated (piecewise linearly, consistent with the hat functions) onto a
     uniform radial grid. The default spacing is h_min, which can make the files much

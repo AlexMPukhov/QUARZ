@@ -869,8 +869,8 @@ std::vector<double> Simulation::make_message(int n) {
 }
 
 // ---------------------------------------------------------------------------
-// Output format (version 2):
-//   int32 version(=2), int32 M, int32 K, int32 mode1, float64 t, float64 r[M], float64 xi[K],
+// Output format (version 3; version 2 = QUARZ v1: xi = t - z, head first):
+//   int32 version(=3), int32 M, int32 K, int32 mode1, float64 t, float64 r[M], float64 xi[K],
 //   int32 ncomp, then ncomp x { char name[16], float64 data[K][M] }
 // mode 0: psi ez er eth br bth bz ne ni rhob
 // mode 1 (if present): <name>_c, <name>_s  (cos and sin amplitudes: f = f0 + f_c cos + f_s sin)
@@ -964,7 +964,7 @@ void Simulation::write_fields(const std::string& fn, const OutputGroup* g) const
     if (comm_.root()) {
         std::vector<char> h(static_cast<size_t>(hbytes));
         char* p = h.data();
-        const int32_t hdr[4] = {2, M, K, m1_ ? 1 : 0};
+        const int32_t hdr[4] = {3, M, K, m1_ ? 1 : 0};   // version 3: xi = z - t, head last
         std::memcpy(p, hdr, sizeof(hdr)); p += sizeof(hdr);
         std::memcpy(p, &t_, 8); p += 8;
         std::memcpy(p, grid_->r.data(), 8 * static_cast<size_t>(M)); p += 8 * static_cast<size_t>(M);
@@ -1282,16 +1282,16 @@ void Simulation::merge_partial_outputs() {
             std::vector<double> all;
             for (int r = 0; r < P; ++r) {
                 std::ifstream in(base + ".part" + std::to_string(r), std::ios::binary);
-                int32_t n = 0;
-                in.read(reinterpret_cast<char*>(&n), 4);
+                int64_t n = 0;
+                in.seekg(16);   // header: magic[8], version, columns (as nc), n
+                in.read(reinterpret_cast<char*>(&n), 8);
                 std::vector<double> v(nc * static_cast<size_t>(n));
                 in.read(reinterpret_cast<char*>(v.data()), static_cast<std::streamsize>(8 * v.size()));
                 all.insert(all.end(), v.begin(), v.end());
                 fs::remove(base + ".part" + std::to_string(r));
             }
             std::ofstream o(base, std::ios::binary);
-            const int32_t n = static_cast<int32_t>(all.size() / nc);
-            o.write(reinterpret_cast<const char*>(&n), 4);
+            Beam::write_dump_header(o, static_cast<int>(nc), static_cast<long long>(all.size() / nc));
             o.write(reinterpret_cast<const char*>(all.data()), static_cast<std::streamsize>(8 * all.size()));
         }
     }

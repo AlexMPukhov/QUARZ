@@ -12,6 +12,7 @@
 #include <limits>
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -640,8 +641,9 @@ void Beam::init_file(const std::string& filename, const std::string& format, siz
     finish_init(local, acc);
 }
 
-// native dump: int32 n, then n records of 7 doubles (x y px py pz xi w) or 10 (+ sx sy sz), as written by
-// dump(). Read in chunks; every rank keeps the particles of its slices (as adopt_local). Spins in the file
+// native dump: header (Beam.hpp: magic, version, columns, n), then n records of 7 doubles (x y px py pz xi w) or
+// 10 (+ sx sy sz), as written by dump(). A file without the header is a dump of QUARZ v1.0.0 (xi = t - z) and is
+// refused (tools/convert_deck.py --beam-file converts it). Read in chunks; every rank keeps the particles of its slices (as adopt_local). Spins in the file
 // are used if the beam has <beam>.spin, otherwise <beam>.spin sets them (or a file with spins is read
 // without them).
 void Beam::init_dump(const std::string& filename, size_t block) {
@@ -649,15 +651,26 @@ void Beam::init_dump(const std::string& filename, size_t block) {
     if (!f) throw std::runtime_error(name_ + ": cannot open beam dump '" + filename + "'");
     std::error_code ec;
     const auto size = std::filesystem::file_size(filename, ec);
-    int32_t n = -1;
-    if (ec || std::fread(&n, 4, 1, f) != 1 || n < 0) { std::fclose(f); throw std::runtime_error(name_ + ": '" + filename + "' is not a native beam dump"); }
-    const unsigned long long body = size - 4, nn = static_cast<unsigned long long>(n);
-    const int nf = (body == 56ULL * nn) ? 7 : (body == 80ULL * nn ? 10 : 0);
-    if (nf == 0 || n == 0) {
+    char magic[8] = {};
+    int32_t ver = 0, nf = 0;
+    int64_t n = -1;
+    const bool head = !ec && size >= 24 && std::fread(magic, 1, 8, f) == 8 && std::fread(&ver, 4, 1, f) == 1 &&
+                      std::fread(&nf, 4, 1, f) == 1 && std::fread(&n, 8, 1, f) == 1;
+    if (!head || std::memcmp(magic, kDumpMagic, 8) != 0) {
         std::fclose(f);
-        throw std::runtime_error(name_ + ": '" + filename + "' is not a native beam dump with particles (int32 n, then n x 7 or "
-                                 "10 doubles; size " + std::to_string(size) + " bytes for n = " + std::to_string(n) + ")");
+        throw std::runtime_error(name_ + ": '" + filename + "' is not a native beam dump of QUARZ v2 (no QUARZDMP header). "
+                                 "A dump of QUARZ v1.0.0 (xi = t - z) must be converted with tools/convert_deck.py "
+                                 "--beam-file OLD NEW");
     }
+    if (ver != kDumpVersion || (nf != 7 && nf != 10) || n <= 0 ||
+        size != 24ULL + 8ULL * static_cast<unsigned long long>(nf) * static_cast<unsigned long long>(n)) {
+        std::fclose(f);
+        throw std::runtime_error(name_ + ": '" + filename + "' is not a native beam dump with particles (version " +
+                                 std::to_string(ver) + ", " + std::to_string(nf) + " columns, n = " + std::to_string(n) +
+                                 ", size " + std::to_string(size) + " bytes; expected version 1, 7 or 10 columns, n > 0 "
+                                 "and 24 + 8 columns n bytes)");
+    }
+    const unsigned long long nn = static_cast<unsigned long long>(n);
     const bool keep = spin_ && nf == 10;
     if (bg_.k0 == 0 && nf == 10 && !spin_)
         std::cout << "Beam '" << name_ << "': the dump has spins, read without them (no " << name_ << ".spin)\n";
@@ -1292,11 +1305,18 @@ void Beam::dump(const std::string& filename, int stride) const {
         p.swap(q);
     }
     for (size_t i = 5; i < p.size(); i += static_cast<size_t>(nc_)) p[i] = xi_to_user(p[i]);   // user xi
-    // int32 n, then n records of 7 doubles (10 with spin: + s_x s_y s_z; readers infer it from the size)
+    // header (Beam.hpp), then n records of 7 doubles (10 with spin: + s_x s_y s_z)
     std::ofstream out(filename, std::ios::binary);
-    const int32_t n = static_cast<int32_t>(p.size() / static_cast<size_t>(nc_));
-    out.write(reinterpret_cast<const char*>(&n), sizeof(n));
+    write_dump_header(out, nc_, static_cast<long long>(p.size() / static_cast<size_t>(nc_)));
     out.write(reinterpret_cast<const char*>(p.data()), sizeof(double) * p.size());
+}
+
+void Beam::write_dump_header(std::ostream& out, int ncols, long long n) {
+    const int32_t v[2] = {kDumpVersion, static_cast<int32_t>(ncols)};
+    const int64_t nn = static_cast<int64_t>(n);
+    out.write(kDumpMagic, 8);
+    out.write(reinterpret_cast<const char*>(v), sizeof(v));
+    out.write(reinterpret_cast<const char*>(&nn), sizeof(nn));
 }
 
 // replace the particle arrays by the packed list (host -> device)

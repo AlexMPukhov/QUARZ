@@ -14,6 +14,9 @@ import sys
 
 import numpy as np
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+from quarz_read import read_dump  # noqa: E402
+
 C, E, ME, EPS0 = 299792458.0, 1.602176634e-19, 9.1093837015e-31, 8.8541878128e-12
 
 
@@ -84,10 +87,7 @@ def write(d):
 
 
 def dump(fn):
-    with open(fn, "rb") as f:
-        n = int(np.frombuffer(f.read(4), np.int32)[0])
-        a = np.frombuffer(f.read(), np.float64)
-    return a.reshape(n, -1)
+    return read_dump(fn)[0]
 
 
 if sys.argv[1] == "write":

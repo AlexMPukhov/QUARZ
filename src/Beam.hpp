@@ -84,6 +84,11 @@ public:
     static void write_slices_file(const std::string& filename, Real t, Real q, double lo, double hi, int nbins,
                                   const std::vector<double>& sums);
     void dump(const std::string& filename, int stride = 1) const;   // every stride-th live particle
+    // native dump header (24 bytes): char magic[8] = "QUARZDMP", int32 version (1), int32 columns per particle
+    // (7, or 10 with spin), int64 n; then n x columns doubles. Dumps of QUARZ v1.0.0 have no header (xi = t - z).
+    static constexpr char kDumpMagic[9] = "QUARZDMP";
+    static constexpr int32_t kDumpVersion = 1;
+    static void write_dump_header(std::ostream& out, int ncols, long long n);
     Real charge() const { return q_; }
     Real mass() const { return m_; }
     bool adaptive_dt() const { return adaptive_dt_ && !rigid_; }

@@ -8,9 +8,13 @@ R is averaged over k in [k1, k2] (wavelengths 31-310 c/omega_p = 1-10 mm, away f
 usage: shot_check.py dir label   (beam_p_000000.bin and the last beam_p_*.bin)
 """
 import glob
+import os
 import sys
 
 import numpy as np
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+from quarz_read import read_dump  # noqa: E402
 
 n0 = 2.965e16
 kpi = 2.99792458e10 / (5.64146e4 * np.sqrt(n0))
@@ -22,10 +26,7 @@ KERNELS = [("K=1 (current)", lambda r: np.ones_like(r)), ("K=exp(-r^2/2sr^2)", l
 
 
 def load(fn):
-    with open(fn, "rb") as f:
-        n = np.frombuffer(f.read(4), np.int32)[0]
-        a = np.frombuffer(f.read(), np.float64)
-    return a.reshape(n, a.size // n)
+    return read_dump(fn)[0]
 
 
 def ratios(fn):

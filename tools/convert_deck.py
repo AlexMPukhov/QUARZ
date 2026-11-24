@@ -4,7 +4,7 @@ smallest xi) to the current one (xi = z - t, beam moving towards +xi, head at th
 
     tools/convert_deck.py old.in > new.in          # or: -o new.in, or -i (in place)
     tools/convert_deck.py --beam-file old.txt new.txt   # profile = file: negate the xi column
-    tools/convert_deck.py --beam-file beam_b_000010.bin new.bin   # the same for a v1.0 native dump
+    tools/convert_deck.py --beam-file beam_b_000010.bin new.bin   # v1.0 native dump -> v2 dump (with header)
 
 What changes (every other line is copied unchanged, comments included):
     xi.convention = z-t                 added (required since v2.0.0: decks without it are refused)
@@ -114,18 +114,17 @@ def convert(lines):
 
 
 def convert_beam_file(src, dst):
-    if src.endswith(".bin"):   # native dump: int32 n, n x 7 (or 10 with spin) doubles; column 5 = xi
-        import numpy as np
-        with open(src, "rb") as f:
-            n = int(np.frombuffer(f.read(4), np.int32)[0])
-            a = np.frombuffer(f.read(), np.float64).copy()
-        if n <= 0 or a.size % n or a.size // n not in (7, 10):
+    if src.endswith(".bin"):   # native dump of v1.0 (no header; column 5 = xi) -> v2 dump with header
+        from quarz_read import read_dump, write_dump   # tools/quarz_read.py, next to this script
+        try:
+            a, v1 = read_dump(src)
+        except ValueError:
             raise SystemExit("convert_deck: %s is not a native beam dump" % src)
-        a = a.reshape(n, -1)
+        if not v1:
+            raise SystemExit("convert_deck: %s already is a v2 dump (QUARZDMP header, xi = z - t)" % src)
+        a = a.copy()
         a[:, 5] = 0.0 - a[:, 5]
-        with open(dst, "wb") as g:
-            g.write(np.int32(n).tobytes())
-            g.write(a.tobytes())
+        write_dump(dst, a)
         return
     with open(src) as f, open(dst, "w") as g:
         g.write("# xi = z - t convention (converted by tools/convert_deck.py)\n")

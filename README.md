@@ -1081,10 +1081,10 @@ separate species.
 | `<beam>.xp0`, `<beam>.yp0` | 0 | centroid angle, p_x = p_z·xp0 (modes = 1) |
 | `<beam>.nsym` | 1 | quiet start: replicate every particle at nsym azimuths (nparticles must be a multiple) |
 | `<beam>.mirror_y` | 0 | quiet start: also add the mirror image y → −y (keeps an x-only offset/tilt exactly y-symmetric) |
-| `<beam>.file` | | for `profile = file`: a text file with columns x y p_x p_y p_z ξ w, or a native particle dump `beam_<name>_NNNNNN.bin` of a QUARZ run (binary, about 8× faster to read; spins are kept if the beam has `<beam>.spin`). Units in both: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the beam's species, w in n₀(c/ω_p)³, i.e. exactly the columns of the native dumps (openPMD particles differ: momentum in m_e c per physical particle, weighting in physical particles). v1.0 files (ξ = t − z): `tools/convert_deck.py --beam-file` |
+| `<beam>.file` | | for `profile = file`: a text file with columns x y p_x p_y p_z ξ w, or a native particle dump `beam_<name>_NNNNNN.bin` of a QUARZ run (binary, about 8× faster to read; spins are kept if the beam has `<beam>.spin`). Units in both: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the beam's species, w in n₀(c/ω_p)³, i.e. exactly the columns of the native dumps (openPMD particles differ: momentum in m_e c per physical particle, weighting in physical particles). v1.0 files (ξ = t − z; dumps without the `QUARZDMP` header are refused): `tools/convert_deck.py --beam-file` |
 | `<beam>.file_format` | `auto` | `text`, `native` (dump), or `auto`: native if the name ends in `.bin` |
 | `<beam>.read_block` | 262144 | particles per read for native dumps and openPMD files. All beam files are read in blocks (text line by line): each rank keeps only its own particles, so no rank holds the whole file (results do not depend on the block size) |
-| `<beam>.file` (`profile = openpmd`) | | a file of an openPMD series, e.g. `out/openpmd/data_000200.h5` (its iteration is taken from the name), or a pattern with `%T`. QUARZ output or another code's particles in the co-moving frame (needs openPMD-api in the build; ADIOS2 `.bp` untested) |
+| `<beam>.file` (`profile = openpmd`) | | a file of an openPMD series, e.g. `out/openpmd/data_000200.h5` (its iteration is taken from the name), or a pattern with `%T`. QUARZ output or another code's particles in the co-moving frame (needs openPMD-api in the build; ADIOS2 `.bp` untested). Files of QUARZ v1.0.0 (lab frame) are converted to ξ = z − t with the iteration time, with a note in the log |
 | `<beam>.openpmd_iteration` | from the name, else the last | iteration to read |
 | `<beam>.openpmd_species` | the beam's name | particle species in the file |
 | `<beam>.openpmd_xi_shift` | 0 | ξ = z + `positionOffset`_z + shift (c/ω_p): for codes whose co-moving ξ = 0 lies elsewhere; QUARZ files need none |
@@ -1186,10 +1186,11 @@ frequent small dumps and rare full dumps can be combined (§6):
 
 ## 6. Output
 
-- **`fields_NNNNNN.bin`** (format version 2). Header: int32 version = 2,
+- **`fields_NNNNNN.bin`** (format version 3). Header: int32 version = 3,
   int32 M, int32 K, int32 mode1, float64 t, r[M], ξ[K], int32 ncomp. Then
   ncomp blocks of {char name[16], float64 [K][M]}. ξ = z − t increases with the slice index:
-  the head of the box is the last slice (v1.0.0 files: ξ = t − z, head first).
+  the head of the box is the last slice. Version 2 = QUARZ v1.0.0 (ξ = t − z, head first):
+  `tools/quarz_read.py` and the GUI read both and convert version 2 (slices reversed, ξ negated).
   - m = 0 components: `psi ez er eth br bth bz ne ni rhob`.
   - m = 1 components (when present): the same names with `_c` / `_s`, the
     cos / sin amplitudes in f = f₀ + f_c cos θ + f_s sin θ.
@@ -1225,9 +1226,12 @@ frequent small dumps and rare full dumps can be combined (§6):
   the slice files and the particle dumps are first written per rank
   (`*.partN`) and merged into the usual files by rank 0 at the end of the run;
   if a run is killed, the `.partN` files hold the data.
-- **`beam_<name>_NNNNNN.bin`**: int32 n, then n × (x, y, p_x, p_y, p_z, ξ, w), or n × (…, w, s_x, s_y, s_z)
-  for a beam with `<beam>.spin` (readers infer 7 or 10 doubles from the file size). Code units: x, y, ξ in
-  c/ω_p, p in m_s c of the species, w in n₀(c/ω_p)³. Particles removed from the beam (w = 0) are not written.
+- **`beam_<name>_NNNNNN.bin`**: a 24-byte header, char magic[8] = `QUARZDMP`, int32 version = 1, int32 columns
+  (7, or 10 for a beam with `<beam>.spin`), int64 n; then n × (x, y, p_x, p_y, p_z, ξ, w), or
+  n × (…, w, s_x, s_y, s_z). Code units: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the species, w in
+  n₀(c/ω_p)³. Dumps of QUARZ v1.0.0 have no header (int32 n, then the records; ξ = t − z): the beam import
+  refuses them, `tools/convert_deck.py --beam-file OLD NEW` converts them, and `tools/quarz_read.py`
+  reads them converted, with a warning. Particles removed from the beam (w = 0) are not written.
   A dump can be read back as a beam (`<beam>.profile = file`, `<beam>.file = beam_<name>_NNNNNN.bin`). The
   momenta of a dump are half a time step behind the positions (leapfrog), so a run started from a dump is not
   an exact continuation (use checkpoints for that); with `particle_stride` > 1 the dump holds a subset
@@ -1241,7 +1245,9 @@ frequent small dumps and rare full dumps can be combined (§6):
     (geometryParameters `m=2;imag=+`), the convention of openPMD-viewer, FBPIC and WarpX.
   - **Longitudinal axis:** co-moving, as in other quasi-static codes: the mesh axis `z` is ξ = z_lab − ct (the
     same values and order as the native files; `gridGlobalOffset` = ξ_min). The lab position is z_lab = ξ + ct
-    with the iteration time t (series attribute `quarz_coordinates`). Until this version: lab z = t + ξ.
+    with the iteration time t (series attribute `quarz_coordinates`). QUARZ v1.0.0 files are in the lab frame
+    (z = t − ξ_v1 = ξ + t, `quarz_coordinates` = "z = t - xi (lab frame); …"); the beam import
+    (`<beam>.profile = openpmd`) recognises them and converts the positions exactly with the iteration time.
   - **Radial grid:** openPMD requires uniform spacing, so by default the fields are
     interpolated (piecewise linearly, consistent with the hat functions) onto a
     uniform radial grid. The default spacing is h_min, which can make the files much
@@ -1592,6 +1598,8 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | test | result |
 |---|---|
 | v1.0.0 deck (parsed beams with functions of ξ, `xi_range`, chirp, slices) converted by `tools/convert_deck.py` vs `examples/parsed_profiles.in` | bit-identical (fields, axis, beam log, particles, slices). All 34 validation and example decks, run with QUARZ v1.0.0 and converted with this version: bit-identical (checked once, single thread, not part of the suite) |
+| the v1.0.0 deck unconverted; `xi.convention = t-z` | refused at startup (`xi.convention is missing`; `only z-t is supported`) |
+| v1.0.0 output files, written by `v1_files_check.py` from this run's files: field file version 2; beam dump without header | version 2 read by `quarz_read.py` and the GUI identical to version 3 (with a warning); the dump is refused by the beam import, `convert_deck.py --beam-file` turns it into the v2 dump byte for byte, `quarz_read.py` reads it identically (with a warning). Checked once with real files of QUARZ v1.0.0 (GPU build): field file 5·10⁻¹³ (GPU vs CPU round-off), dump bit-identical |
 | γ = 3 beam drifting in vacuum, deck ξ0 = −2 | field file from `xi.min` to `xi.max` in increasing ξ; beam charge and particles centred at ξ = −1.9962 (sampling); every particle slips backwards by ∫(v_z − 1) dt to 7·10⁻⁷ |
 
 **Beam import from native dumps** (section 28):
@@ -1616,6 +1624,7 @@ the wake is stationary and H = γ − p_z − ψ(r, ξ) = 1 − ψ_birth is an e
 | deck mass 1 for the antiproton file | used, with a warning; γβ identical to the file's (velocity kept) |
 | `particle_stride = 4` | charge 0.25 of the beam with a warning; 1.0000 with `openpmd_scale_stride = 1` |
 | muons with spin | spins, positions, weights identical; momenta 2·10⁻¹⁶ (mass factor) |
+| QUARZ v1.0.0 openPMD file (lab frame z = t − ξ_v1, SI, t = 12.5), written by `v1_files_check.py` from a dump, imported | 1.2·10⁻¹⁵ (round-off of adding and removing t), with a note in the log. Checked once with real v1.0.0 files (t = 10): SI 8.5·10⁻¹⁶, normalised 3·10⁻¹⁶ |
 | 2 ranks vs serial | particles bit-identical; fields round-off at the rank boundary (2·10⁻¹⁸ of max) |
 
 **Two-stage runs** (section 19, `boundary.in`, `bnd_check.py`; driver in −5…0, witness at ξ = −7,

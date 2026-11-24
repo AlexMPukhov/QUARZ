@@ -698,6 +698,16 @@ sec27() {
     $QS ../examples/parsed_profiles.in xi.convention=t-z $O=out_conv_tz > out_conv_tz.log 2>&1 || r2=$?
     echo " the v1.0 deck unconverted, and xi.convention = t-z (expected: refused at startup):"
     echo "  $(refused $r1 'xi.convention is missing' out_conv_v1.log);  $(refused $r2 'only z-t is supported' out_conv_tz.log)"
+    echo " output files of QUARZ v1.0.0 (written here in the v1 formats from this run's files; v1_files_check.py):"
+    python3 v1_files_check.py fields out_conv_a/fields_000001.bin out_conv_v2fields.bin
+    python3 v1_files_check.py cmpfields out_conv_a/fields_000001.bin out_conv_v2fields.bin
+    python3 v1_files_check.py dump out_conv_a/beam_driver_000001.bin out_conv_v1dump.bin
+    local r3=0
+    $QS ../examples/parsed_profiles.in $O=out_conv_d1 driver.profile=file driver.file=out_conv_v1dump.bin > out_conv_d1.log 2>&1 || r3=$?
+    python3 ../tools/convert_deck.py --beam-file out_conv_v1dump.bin out_conv_v2dump.bin
+    cmp -s out_conv_v2dump.bin out_conv_a/beam_driver_000001.bin && r=identical || r=DIFFERENT
+    echo "  beam dump without header: $(refused $r3 'no QUARZDMP header' out_conv_d1.log);  convert_deck.py --beam-file: $r"
+    echo "   to the v2 dump;  quarz_read: $(python3 v1_files_check.py cmpdump out_conv_a/beam_driver_000001.bin out_conv_v1dump.bin)"
     echo " gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):"
     $QS betatron.in time.steps=2 output.every=2 output.beam_every=2 witness.gamma=3 "plasma.density(x,y,z)=0" output.dir=out_conv_c > /dev/null
     python3 convention_check.py out_conv_c -4 0 -2 2
@@ -716,8 +726,10 @@ sec28() {
     cmp -s out_imp_re/beam_witness_000000.bin out_imp_blk/beam_witness_000000.bin && r=identical || r=DIFFERENT
     echo " read in blocks of 777 particles vs the default block (expected identical): $r"
     python3 -c "
+import sys; sys.path.insert(0, '../tools')
 import numpy as np
-a = np.fromfile('out_imp_src/beam_witness_000002.bin', np.float64, offset=4).reshape(-1, 7)
+from quarz_read import read_dump
+a = read_dump('out_imp_src/beam_witness_000002.bin')[0]
 np.savetxt('out_imp_src/witness.txt', a, fmt='%.17g')"
     $QS $B time.steps=2 output.every=1 output.beam_every=1 $F=out_imp_src/beam_witness_000002.bin output.dir=out_imp_bin > /dev/null
     $QS $B time.steps=2 output.every=1 output.beam_every=1 $F=out_imp_src/witness.txt output.dir=out_imp_txt > /dev/null
@@ -732,9 +744,11 @@ np.savetxt('out_imp_src/witness.txt', a, fmt='%.17g')"
     $QS $S time.steps=0 output.beam_every=1 muons.spin= muons.profile=file muons.file=out_imp_ssrc/beam_muons_000002.bin \
         output.dir=out_imp_sno > /dev/null 2>&1
     python3 -c "
+import sys; sys.path.insert(0, '../tools')
 import numpy as np
-a = np.fromfile('out_imp_ssrc/beam_muons_000002.bin', np.float64, offset=4).reshape(-1, 10)[:, :7]
-b = np.fromfile('out_imp_sno/beam_muons_000000.bin', np.float64, offset=4).reshape(-1, 7)
+from quarz_read import read_dump
+a = read_dump('out_imp_ssrc/beam_muons_000002.bin')[0][:, :7]
+b = read_dump('out_imp_sno/beam_muons_000000.bin')[0]
 print(' the same dump into a beam without spin: %d particles, x y p xi w %s' % (len(b), 'identical' if np.array_equal(a, b) else 'DIFFERENT'))"
     head -c 1000 out_imp_src/beam_witness_000002.bin > out_imp_cut.bin
     $QS $B time.steps=0 $F=out_imp_cut.bin output.dir=out_imp_cut > out_imp_cut.log 2>&1 && r="no error (WRONG)" || r="$(grep -o 'is not a native beam dump' out_imp_cut.log | head -1)"
@@ -765,10 +779,12 @@ sec29() {
     done
     echo " QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:"
     python3 -c "
+import sys; sys.path.insert(0, '../tools')
 import numpy as np
+from quarz_read import read_dump
 for U in ('si', 'normalised'):
-    a = np.fromfile(f'out_op_{U}/beam_witness_000002.bin', np.float64, offset=4).reshape(-1, 7)
-    b = np.fromfile(f'out_op_{U}_re/beam_witness_000000.bin', np.float64, offset=4).reshape(-1, 7)
+    a = read_dump(f'out_op_{U}/beam_witness_000002.bin')[0]
+    b = read_dump(f'out_op_{U}_re/beam_witness_000000.bin')[0]
     d = max(np.abs(a[:, c] - b[:, c]).max() / np.abs(a[:, c]).max() for c in range(7)) if a.shape == b.shape else 1.0
     print('  %-10s %d particles, max rel. difference %.1e  (expected: SI round-off, normalised 0)' % (U, len(b), d))"
     python3 openpmd_import_check.py write out_op_syn
@@ -787,8 +803,10 @@ for U in ('si', 'normalised'):
     echo " charge and mass taken from the file when the deck has none: $(grep -o 'from the openPMD species:.*' out_op_fn.log)"
     $QS $G $N pbar.mass=1 output.dir=out_op_m1 > out_op_m1.log
     python3 -c "
+import sys; sys.path.insert(0, '../tools')
 import numpy as np
-a = np.fromfile('out_op_m1/beam_pbar_000000.bin', np.float64, offset=4).reshape(-1, 7)
+from quarz_read import read_dump
+a = read_dump('out_op_m1/beam_pbar_000000.bin')[0]
 e = np.load('out_op_syn/expected_norm.npy'); q = a[:, 2:5] / e[:, 2:5]
 print(' deck mass 1 instead of the file\'s: warning given: %d; gamma beta / the file\'s = %.10f ... %.10f (expected 1: velocity kept)'
       % (open('out_op_m1.log').read().count('differs from pbar.mass'), q.min(), q.max()))"
@@ -804,12 +822,20 @@ charge out_op_st1/beam_witness_000000.bin out_op_si/beam_witness_000000.bin); wa
     $QS $S output.format=both output.dir=out_op_sp > /dev/null
     $QS $S time.steps=0 output.beam_every=1 muons.profile=openpmd muons.file=out_op_sp/openpmd/data_000002.h5 output.dir=out_op_spre > /dev/null
     python3 -c "
+import sys; sys.path.insert(0, '../tools')
 import numpy as np
-a = np.fromfile('out_op_sp/beam_muons_000002.bin', np.float64, offset=4).reshape(-1, 10)
-b = np.fromfile('out_op_spre/beam_muons_000000.bin', np.float64, offset=4).reshape(-1, 10)
+from quarz_read import read_dump
+a = read_dump('out_op_sp/beam_muons_000002.bin')[0]
+b = read_dump('out_op_spre/beam_muons_000000.bin')[0]
 r = lambda c: max(np.abs(a[:, c] - b[:, c]).max() / np.abs(a[:, c]).max() for c in c)
 print(' muons with spin (normalised units) imported and written again vs the native dump: %d particles; spins %.1e,'
       ' x y xi w %.1e, momenta %.1e (expected: 0, 0, round-off of the mass factor 206.77)' % (len(b), r([7, 8, 9]), r([0, 1, 5, 6]), r([2, 3, 4])))"
+    # QUARZ v1.0.0 file (lab frame z = t - xi_v1), written by v1_files_check.py from the dump of step 2, t = 12.5
+    mkdir -p out_op_v1
+    python3 v1_files_check.py opmd out_op_si/beam_witness_000002.bin 12.5 1e17 out_op_v1/data_%06T.h5
+    $QS $B units.n0_cm3=1e17 $R witness.file=out_op_v1/data_000005.h5 output.dir=out_op_v1re > out_op_v1re.log
+    echo " QUARZ v1.0.0 openPMD file (lab frame, SI, t = 12.5) imported vs the dump it was written from (expected round-off):"
+    echo "  $(python3 v1_files_check.py cmpbeam out_op_si/beam_witness_000002.bin out_op_v1re/beam_witness_000000.bin);  note in the log: $(grep -c 'a QUARZ v1 file (lab frame' out_op_v1re.log)"
     if [ -n "$MPIRUN" ]; then
         local M="$B units.n0_cm3=1e17 time.steps=2 output.every=1 output.beam_every=1 beams.xi_shape=ngp witness.profile=openpmd witness.file=out_op_si/openpmd/data_000002.h5"
         OMP_NUM_THREADS=1 $QS $M output.dir=out_op_s > /dev/null

@@ -59,10 +59,11 @@ print("#   ne      " + " ".join(f"{d[m, 3].max():8.2f}" for m in sel))
 
 
 def read_ez(fn):
-    """E_z map of a fields_NNNNNN.bin (version 2, see output_reference.md): r, xi, ez[xi, r] or None."""
+    """E_z map of a fields_NNNNNN.bin (version 3, see output_reference.md; version 2 of QUARZ v1 with xi = t - z
+    converted): r, xi, ez[xi, r] or None."""
     with open(fn, "rb") as fh:
         ver, M, K, _ = np.fromfile(fh, dtype=np.int32, count=4)
-        if ver != 2:
+        if ver not in (2, 3):
             return None
         np.fromfile(fh, dtype=np.float64, count=1)
         r = np.fromfile(fh, dtype=np.float64, count=M)
@@ -71,7 +72,7 @@ def read_ez(fn):
             name = fh.read(16).split(b"\0")[0].decode()
             data = np.fromfile(fh, dtype=np.float64, count=M * K)
             if name == "ez":
-                return r, xi, data.reshape(K, M)
+                return (r, -xi[::-1], data.reshape(K, M)[::-1]) if ver == 2 else (r, xi, data.reshape(K, M))
     return None
 
 

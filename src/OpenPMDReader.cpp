@@ -198,6 +198,16 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req, const OpenPMDBl
         if (!mom.contains(c)) throw std::runtime_error(std::string("openPMD import: momentum has no component ") + c);
     }
     const bool offset = sp.contains("positionOffset");
+    // QUARZ v1.0.0 files are in the lab frame, position z = t - xi_v1 (series attribute quarz_coordinates
+    // "z = t - xi (lab frame); ..."): converted exactly to the co-moving xi = z - t with the iteration time
+    // (in the file's length unit: c t in m for SI files, t in 1/omega_p for normalised ones)
+    double ct = 0;
+    const bool v1 = S.containsAttribute("quarz_coordinates") &&
+                    S.getAttribute("quarz_coordinates").get<std::string>().rfind("z = t - xi", 0) == 0;
+    if (v1) {
+        const double tt = it.time<double>();
+        ct = si ? c_SI * tt * it.timeUnitSI() : tt;
+    }
     const bool macro = attr_or(mom, "macroWeighted", 0) != 0;   // momenta per macro-particle
     const double pw = attr_or(mom, "weightingPower", 1.0);
 
@@ -245,7 +255,7 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req, const OpenPMDBl
             double* q = &rows[nc * i];
             q[0] = col[0][i] * fL; q[1] = col[1][i] * fL;
             q[2] = col[6][i] * fP; q[3] = col[7][i] * fP; q[4] = col[8][i] * fP;
-            q[5] = col[2][i] * fL + req.xi_shift;
+            q[5] = (col[2][i] - ct) * fL + req.xi_shift;
             q[6] = col[9][i] * fW * fS;
             if (spin) { q[7] = col[10][i]; q[8] = col[11][i]; q[9] = col[12][i]; }
         }
@@ -255,6 +265,9 @@ OpenPMDBeamData read_openpmd_beam(const OpenPMDBeamRequest& req, const OpenPMDBl
     std::ostringstream s;
     s << n << " particles of species '" << req.species << "', iteration " << n_it << " of " << req.file << " (" << u.str()
       << (spin ? ", with spins" : "") << (fS > 1 ? ", weights x " + std::to_string(out.stride) : std::string()) << ")";
+    if (v1)
+        s << "; a QUARZ v1 file (lab frame, z = t - xi): converted to the co-moving xi = z - t with the iteration time "
+          << (si ? it.time<double>() * it.timeUnitSI() : it.time<double>()) << (si ? " s" : " / omega_p");
     out.summary = s.str();
     S.close();
     return out;
