@@ -359,15 +359,15 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2, 4], max rel diff 0.00e+00
  Landau-Lifshitz orbits; quantum variance = Sokolov-Ternov integrated along them, damped (linearized motion):
   gamma0 = 2e+05, T = 10000: chi max 8.13e-03, mean 1.99e-03; photons per particle 4.58
   classical : mean loss  1065.04  (LL orbits  1061.34, ratio 1.0035); particles that gained energy: 0.0000
-  stochastic: mean loss  1065.31  (LL orbits  1061.34, ratio 1.0037, statistical error 0.0033); particles that gained energy: 0.0000  OK [verdict]
-  gaussian  : mean loss  1062.25  (LL orbits  1061.34, ratio 1.0009, statistical error 0.0033); particles that gained energy: 0.1667  OK [verdict]
-  stochastic: Var(gamma - gamma_classical) = 1.219e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.208e+06; ratio to the damped 1.0088 +- 0.0106)  OK [verdict]
-  gaussian  : Var(gamma - gamma_classical) = 1.227e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.208e+06; ratio to the damped 1.0157 +- 0.0072)  OK [verdict]
+  stochastic: mean loss  1064.58  (LL orbits  1061.34, ratio 1.0031, statistical error 0.0033); particles that gained energy: 0.0000  OK [verdict]
+  gaussian  : mean loss  1063.23  (LL orbits  1061.34, ratio 1.0018, statistical error 0.0033); particles that gained energy: 0.1649  OK [verdict]
+  stochastic: Var(gamma - gamma_classical) = 1.208e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.208e+06; ratio to the damped 0.9995 +- 0.0103)  OK [verdict]
+  gaussian  : Var(gamma - gamma_classical) = 1.224e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.208e+06; ratio to the damped 1.0131 +- 0.0073)  OK [verdict]
  restart (expected: bit-identical; on a GPU round-off, tolerance 1e-12):
   7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK [verdict]
  2 ranks vs serial (expected: particles bit-identical; fields at round-off):
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
-  beamlog  max rel diff 5.24e-22  (beams.txt col 7)
+  beamlog  max rel diff 5.19e-22  (beams.txt col 7)
   dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
   fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
 == 27. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output ==
