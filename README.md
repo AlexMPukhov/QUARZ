@@ -11,26 +11,38 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2610.16910-b31b1b.svg)](https://arxiv.org/abs/2610.16910)
 
 *Quasi-static PIC code in (r, θ, ξ) with azimuthal modes m = 0, 1 and a flexible non-uniform radial grid.*
-(Formerly QSRZ; renamed in October 2026. Input keys and output file formats are unchanged.)
+(Formerly QSRZ; renamed in October 2026.)
 Nickname: **Q**, after the Q ring of its logo.
 
-> **⚠ Longitudinal convention of this version: ξ = z − t (beams move left to right).**
-> All inputs and outputs use the co-moving coordinate ξ = z − t: the beams move towards +ξ and
-> the head of the box is at its *largest* ξ (`xi.max`), as in the openPMD output and in HiPACE++.
-> QUARZ v1.0.0 and earlier used ξ = t − z, with the head at the smallest ξ.
-> **Input decks written for v1.0.0 and earlier do not work correctly with this version:** they run
-> without an error message, but the beams, the laser and the box are mirrored (a driver at
-> `xi0 = 2` in a box `xi.min = 0`, `xi.max = 10` ends up at the tail). Convert old decks with
-> `tools/convert_deck.py old.in > new.in` (beam files of `profile = file`:
-> `tools/convert_deck.py --beam-file old.txt new.txt`); the converted deck gives the same results
-> (bit-identical for all decks of the validation suite). Native output files written by v1.0.0 have
-> ξ = t − z, with the head first.
+## Important changes from v1
+
+QUARZ v2.0.0 changes the longitudinal coordinate. Decks and output files of v1.0.0 are not compatible,
+and the code refuses or converts them rather than misreading them:
+
+- **ξ = z − t (beams move towards +ξ).** All inputs and outputs use the co-moving coordinate ξ = z − t:
+  the head of the box is at its *largest* ξ (`xi.max`), as in the openPMD output, HiPACE++ and other
+  quasi-static codes. v1.0.0 used ξ = t − z, with the head at the smallest ξ. **The paper
+  ([arXiv:2610.16910](https://arxiv.org/abs/2610.16910)) keeps the v1 convention.**
+- **Every deck states `xi.convention = z-t`.** A deck without it (every v1.0.0 deck) is refused at the
+  start, so that a mirrored box cannot run unnoticed. Convert a v1.0.0 deck with
+  `tools/convert_deck.py old.in > new.in`, which adds the key; the converted deck gives the same results
+  (bit-identical for all decks of the validation suite). Beam files of `profile = file`:
+  `tools/convert_deck.py --beam-file old new` (text files and native dumps).
+- **Output files.** Field files `fields_*.bin` are format version 3 (ξ increasing, the head last);
+  `tools/quarz_read.py` and the GUI also read the version 2 files of v1.0.0, converted. Native beam
+  dumps start with a `QUARZDMP` header (format version, columns per particle, count); header-less v1.0.0
+  dumps are refused by the beam import and converted by `convert_deck.py --beam-file`. openPMD output is
+  in the co-moving frame (v1.0.0: lab frame z = t − ξ); the beam import converts v1.0.0 openPMD files
+  with the iteration time. The text outputs (`axis_*.txt`, `beams.txt`, `slices_*.txt`) give ξ = z − t.
+- **New since v1.0.0:** beams from native dumps and from openPMD files of QUARZ and other codes
+  (`<beam>.profile = file | openpmd`), openPMD fields on the native radial nodes
+  (`output.openpmd_grid = native`), stochastic radiation reaction (`pusher.rr_model`).
 
 **Paper:** A. Pukhov and T. C. Wilson, *QUARZ: a quasi-static particle-in-cell code with non-uniform
 radial grids for plasma wakefields*, [arXiv:2610.16910](https://arxiv.org/abs/2610.16910) (2026).
 Please cite it if you use QUARZ (BibTeX at the end of this file). **Software:** archived on Zenodo,
 DOI [10.5281/zenodo.23472094](https://doi.org/10.5281/zenodo.23472094) (all versions; v1.0.0:
-[10.5281/zenodo.23472095](https://doi.org/10.5281/zenodo.23472095)). License: BSD 3-Clause (`LICENSE`).
+[10.5281/zenodo.23472095](https://doi.org/10.5281/zenodo.23472095)). This is version 2.0.0. License: BSD 3-Clause (`LICENSE`).
 
 QUARZ is a quasi-static particle-in-cell code for plasma wakefield
 acceleration in the spirit of LCODE-2D, written in C++17 on top of
@@ -1864,10 +1876,10 @@ and runs every example they ship. Details and the trial with a fresh agent: `doc
   author    = {Pukhov, Alexander and Wilson, Thomas C.},
   title     = {{QUARZ}: Quasistatic Arbitrary-resolution {RZ} code},
   year      = {2026},
-  version   = {1.0.0},
+  version   = {2.0.0},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.23472095},
-  url       = {https://doi.org/10.5281/zenodo.23472095}
+  doi       = {10.5281/zenodo.23472094},
+  url       = {https://doi.org/10.5281/zenodo.23472094}
 }
 ```
 

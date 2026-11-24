@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(QUARZ VERSION 1.0.0 LANGUAGES C CXX)
+project(QUARZ VERSION 2.0.0 LANGUAGES C CXX)
 
 # Backward compatibility: options were called QSRZ_* before the code was renamed QUARZ.
 foreach(_opt FETCH_KOKKOS ENABLE_MPI ENABLE_OPENPMD BUILD_TESTS)
