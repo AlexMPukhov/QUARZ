@@ -415,7 +415,7 @@ sec18() {
     $QS scatter_free.in witness.nparticles=$NP scattering.Z=3 scattering.ion_charge=1 scattering.coulomb_log_electrons=7 \
         output.dir=out_scat_free3 > /dev/null
     python3 scatter_check.py free out_scat_free3 20 100 10 7 3 1 1e6
-    $QS scatter_channel.in time.steps=$(q 200 80) witness.nparticles=$NP > /dev/null
+    $QS scatter_channel.in time.steps=$(q 200 80) output.beam_every=$(q 200 80) witness.nparticles=$NP > /dev/null
     python3 scatter_check.py channel out_scat_ch 1000 10 1e5
     local M="scatter_channel.in time.steps=10 output.beam_every=5 output.every=5 beams.xi_shape=ngp witness.nparticles=20000"
     $QS $M checkpoint.every=4 checkpoint.keep=0 checkpoint.dir=out_sc_chk output.dir=out_sc_A > /dev/null
@@ -737,7 +737,7 @@ print(' the same dump into a beam without spin: %d particles, x y p xi w %s' % (
         OMP_NUM_THREADS=1 $MPIRUN 2 $QS $M output.dir=out_imp_p > /dev/null
         echo " 2 ranks vs serial, both from the dump (expected: particles bit-identical; fields round-off at the rank boundary; beam log"
         echo " round-off of the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):"
-        python3 cmp_runs.py out_imp_s out_imp_p 1e-5 --exact axis,dumps || true
+        python3 cmp_runs.py out_imp_s out_imp_p 1e-5 --exact axis,dumps --roundoff fields || true
     fi
     rm -rf out_imp_*
 }
@@ -807,7 +807,7 @@ print(' muons with spin (normalised units) imported and written again vs the nat
         OMP_NUM_THREADS=1 $QS $M output.dir=out_op_s > /dev/null
         OMP_NUM_THREADS=1 $MPIRUN 2 $QS $M output.dir=out_op_p > /dev/null
         echo " 2 ranks vs serial, both from the openPMD file (expected: particles bit-identical; fields and beam log round-off):"
-        python3 cmp_runs.py out_op_s out_op_p 1e-5 --exact axis,dumps || true
+        python3 cmp_runs.py out_op_s out_op_p 1e-5 --exact axis,dumps --roundoff fields || true
     fi
     rm -rf out_op_*
 }

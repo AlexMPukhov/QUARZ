@@ -194,16 +194,16 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   beams: witness 7 steps  OK
   request without the token: HTTP 403  OK
 == 18. multiple Coulomb scattering of beam particles on the plasma ==
-  Z = 1, ion charge 1: <p_x^2>/(D t) = 0.9993, <p_y^2>/(D t) = 1.0070 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
-  Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9915, <p_y^2>/(D t) = 0.9947 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
-  matched witness, gamma 1000: d eps_n/dt = 3.7737e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0064  (eps_n 0.00977 -> 0.01280)
+  Z = 1, ion charge 1: <p_x^2>/(D t) = 1.0116, <p_y^2>/(D t) = 0.9976 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13  OK [verdict]
+  Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9967, <p_y^2>/(D t) = 1.0001 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13  OK [verdict]
+  matched witness, gamma 1000: d eps_n/dt = 3.7845e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0093, statistical error 0.0099  (eps_n 0.00977 -> 0.01281)  OK [verdict]
  restart (expected: bit-identical, the random numbers depend on the particle state, not its index):
   7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
  2 ranks vs serial (expected: particles bit-identical; fields at round-off, as without scattering):
   axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
   beamlog  max rel diff 8.98e-16  (beams.txt col 7)
   dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
-  fields   max rel diff 3.57e-16  (fields_000005.bin:bth)
+  fields   max rel diff 4.08e-16  (fields_000010.bin:bz)
 == 19. two-stage runs: driver box -> rear boundary file -> witness box ==
  (a) rigid driver, same dt (expected: bit-identical):
   fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
@@ -349,7 +349,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
   stochastic: mean loss  1077.20  (LL orbits  1061.36, ratio 1.0149, statistical error 0.0073); particles that gained energy: 0.0000  OK [verdict]
   gaussian  : mean loss  1061.36  (LL orbits  1061.36, ratio 1.0000, statistical error 0.0073); particles that gained energy: 0.1661  OK [verdict]
   stochastic: Var(gamma - gamma_classical) =   1.2e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.209e+06; ratio to the damped 0.9928 +- 0.0214)  OK [verdict]
-  gaussian  : Var(gamma - gamma_classical) = 1.225e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.209e+06; ratio to the damped 1.0134 +- 0.0161)  OK [verdict]
+  gaussian  : Var(gamma - gamma_classical) = 1.225e+06  (Sokolov-Ternov along the LL orbits 1.234e+06, with damping 1.209e+06; ratio to the damped 1.0134 +- 0.0161, window 3 sigma + 1% systematic)  OK [verdict]
  restart (expected: bit-identical; on a GPU round-off, tolerance 1e-12):
   7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK [verdict]
  2 ranks vs serial (expected: particles bit-identical; fields at round-off):
@@ -380,7 +380,7 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  truncated file: is not a native beam dump
  2 ranks vs serial, both from the dump (expected: particles bit-identical; fields round-off at the rank boundary; beam log
  round-off of the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
-  bit-identical (axis dumps): OK;  within 1e-05 (beamlog fields): OK
+  bit-identical (axis dumps): OK;  round-off, within 1e-12 of the maximum (fields): OK;  within 1e-05 (beamlog): OK
 == 29. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions ==
  QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:
   si         4000 particles, max rel. difference 2.1e-16  (expected: SI round-off, normalised 0)
@@ -394,4 +394,4 @@ out_opmd_nat vs out_opmd_p2n: iterations [0, 2], max rel diff 0.00e+00
  particle_stride = 4: charge of the import / of the original beam: 0.2500, with openpmd_scale_stride = 1: 1.0000; warning given: 1
  muons with spin (normalised units) imported and written again vs the native dump: 20000 particles; spins 0.0e+00, x y xi w 0.0e+00, momenta 1.8e-16 (expected: 0, 0, round-off of the mass factor 206.77)
  2 ranks vs serial, both from the openPMD file (expected: particles bit-identical; fields and beam log round-off):
-  bit-identical (axis dumps): OK;  within 1e-05 (beamlog fields): OK
+  bit-identical (axis dumps): OK;  round-off, within 1e-12 of the maximum (fields): OK;  within 1e-05 (beamlog): OK

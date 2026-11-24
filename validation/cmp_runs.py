@@ -5,10 +5,12 @@ Differences are relative to the field scale (a field and its cos/sin mode parts 
 one scale) and, for text columns, to max(|column|, 1e-9): components that vanish by
 symmetry contain only round-off and are not compared relative to themselves.
 Particle dumps are compared column by column after sorting (independent of the order).
-usage: python3 cmp_runs.py dirA dirB [tol] [--exact kinds]
+usage: python3 cmp_runs.py dirA dirB [tol] [--exact kinds] [--roundoff kinds]
 --exact axis,dumps,fields: print one line instead of the values: those kinds must be bit-identical (0), the others
     within tol (OK/FAIL). For checks whose round-off level depends on the platform (e.g. the beam-log moments of
-    MPI vs serial: the sums over the ranks are added in another order), so that the reference text does not."""
+    MPI vs serial: the sums over the ranks are added in another order), so that the reference text does not.
+--roundoff fields: (with --exact) those kinds must agree to round-off, within 1e-12 of their scale (for fields the
+    maximum of the field), e.g. the fields in the rank-boundary slice of MPI vs serial."""
 import glob
 import os
 import sys
@@ -28,6 +30,12 @@ if "--exact" in args:
     i = args.index("--exact")
     exact = [k for k in args[i + 1].split(",") if k]
     del args[i:i + 2]
+roundoff = []
+if "--roundoff" in args:
+    i = args.index("--roundoff")
+    roundoff = [k for k in args[i + 1].split(",") if k]
+    del args[i:i + 2]
+ROUNDOFF = 1e-12
 a_dir, b_dir = args[0], args[1]
 tol = float(args[2]) if len(args) > 2 else 1e-10
 
@@ -92,15 +100,22 @@ for fa in sorted(glob.glob(os.path.join(a_dir, "*"))):
             note(kind, np.inf, name + " (text columns differ)")
 
 if exact is not None:
+    def group(kinds, lim):
+        bad = [f"{k} {worst[k][0]:.1e} ({worst[k][1]})" for k in kinds if worst[k][0] > lim]
+        return "OK" if not bad else "FAIL " + ", ".join(bad), bool(bad)
     ex = [k for k in sorted(worst) if k in exact]
-    rest = [k for k in sorted(worst) if k not in exact]
-    bad_ex = [f"{k} {worst[k][0]:.1e} ({worst[k][1]})" for k in ex if worst[k][0] != 0]
-    bad_rest = [f"{k} {worst[k][0]:.1e} ({worst[k][1]})" for k in rest if worst[k][0] > tol]
-    missing = [k for k in exact if k not in worst]
-    print("  bit-identical (%s): %s;  within %g (%s): %s" % (
-        " ".join(ex), "OK" if not bad_ex and not missing else "FAIL " + ", ".join(bad_ex + ["no " + m for m in missing]),
-        tol, " ".join(rest) or "-", "OK" if not bad_rest else "FAIL " + ", ".join(bad_rest)))
-    sys.exit(1 if (bad_ex or bad_rest or missing) else 0)
+    ro = [k for k in sorted(worst) if k in roundoff]
+    rest = [k for k in sorted(worst) if k not in exact and k not in roundoff]
+    missing = [k for k in exact + roundoff if k not in worst]
+    t_ex, b_ex = group(ex, 0.0)
+    if missing:
+        t_ex, b_ex = ("FAIL " if t_ex == "OK" else t_ex + ", ") + ", ".join("no " + m for m in missing), True
+    t_ro, b_ro = group(ro, ROUNDOFF)
+    t_rest, b_rest = group(rest, tol)
+    print("  bit-identical (%s): %s;  " % (" ".join(ex), t_ex)
+          + ("round-off, within %g of the maximum (%s): %s;  " % (ROUNDOFF, " ".join(ro), t_ro) if ro else "")
+          + "within %g (%s): %s" % (tol, " ".join(rest) or "-", t_rest))
+    sys.exit(1 if (b_ex or b_ro or b_rest) else 0)
 
 bad = False
 for k, (v, what) in sorted(worst.items()):

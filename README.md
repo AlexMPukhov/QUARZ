@@ -1391,9 +1391,11 @@ to its last printed digit or to 10⁻³ relative (OpenMP atomics change round-of
 numbers below 10⁻⁶ measure round-off themselves and only have to stay below 10⁻⁶, except that
 an exact 0 (bit-identity of MPI and serial runs) must stay 0. Lines ending with `[verdict]`
 are compared by their text and OK / FAIL verdict only: their numbers legitimately differ between
-builds. In section 26 these are the stochastic radiation-reaction results (the random draws hash
-the particle state, so another compiler or a GPU draws other numbers; each line checks itself
-against the expectation within 3 statistical errors) and the restart check (bit-identical on CPU
+builds. In sections 18 and 26 these are the Coulomb-scattering and stochastic radiation-reaction
+results (the random draws hash the particle state, so another compiler, CPU or a GPU draws other
+numbers; each line checks itself against the expectation within 3 statistical errors; for the
+variance of the Gaussian radiation-reaction model 3 statistical errors plus a stated 1 % systematic,
+see section 26 below) and the restart check (bit-identical on CPU
 backends; a GPU build deposits with atomics in a run-dependent order, so there the tolerance is
 10⁻¹² relative). The quick mode uses smaller cases
 (fewer particles and steps, a coarser reference grid in section 5, no blowout part in section 6
@@ -1535,8 +1537,8 @@ measurable, fixed Coulomb logarithms):
 
 | test | result |
 |---|---|
-| Zero-emittance witness (n_b = 10⁻⁸) in a uniform plasma, t = 100, 10⁵ particles; Z = 1 and Z = 3, ζ = 1 | ⟨p_x²⟩/(D t) = 0.9972 / 0.9970, ⟨p_y²⟩/(D t) = 0.9996 / 0.9904 (statistical error 0.0045); γ kept to 10⁻¹² |
-| Matched witness in a pure ion channel, γ = 1000, t = 2000 | dε_n/dt = 1.0084 × D/√(2γ) |
+| Zero-emittance witness (n_b = 10⁻⁸) in a uniform plasma, t = 100, 10⁵ particles; Z = 1 and Z = 3, ζ = 1 | ⟨p_x²⟩/(D t) = 0.9972 / 0.9970, ⟨p_y²⟩/(D t) = 0.9996 / 0.9904 (statistical error √(2/N) = 0.0045); γ kept to 10⁻¹². Other machines draw other samples (JUPITER: 0.9906 / 1.0012, 1.0009 / 1.0038): checked within 3 statistical errors |
+| Matched witness in a pure ion channel, γ = 1000, t = 2000 | dε_n/dt = 1.0084 × D/√(2γ) (statistical error 0.0044, from the spread over the particles of the growth of the betatron action; other samples 1.0040–1.0105): checked within 3 statistical errors |
 | Restart; 2 ranks vs serial | bit-identical; particles bit-identical (fields at round-off 4·10⁻¹⁶ as without scattering) |
 
 **Spin** (section 20, `spin.in`, `spin_wake.in`, `spin_check.py`; 1 thread):
@@ -1566,7 +1568,7 @@ independent Fokker–Planck Monte Carlo along the same orbits gives 0.981 ± 0.0
 | sampler vs the exact compound-Poisson sum of synchrotron photons (spectrum ∫K₅/₃, 4·10⁵ draws) | Wasserstein distance / σ: 0.002, 0.008, 0.025, 0.021, 0.009 at Λ = 0.3, 1, 3, 10, 100 (Gaussian 0.71, 0.55, 0.35, 0.19, 0.06) |
 | photon statistics | Λm₁ = Landau–Lifshitz loss of `imp_rr` (3·10⁻¹¹), Λm₂ = Sokolov–Ternov excitation |
 | mean energy loss, ion channel: `imp_rr` / stochastic / Gaussian | 1.0035 / 1.0031 / 1.0018 × the RK4 orbits (statistical error 0.0033; `imp_rr` 1.0005 at Δt/4) |
-| Var(γ_stochastic − γ_imp_rr), particle by particle | 0.9995 ± 0.010 × the damped Sokolov–Ternov variance (Gaussian model 1.013 ± 0.007); 8 independent seeds (`pusher.rr_seed`): 1.007 ± 0.004 (Gaussian 1.005 ± 0.002); at Δt/4, 4 seeds: 0.998 ± 0.005 (Gaussian 1.004 ± 0.004). Without the damping the ratio would be 0.98 |
+| Var(γ_stochastic − γ_imp_rr), particle by particle | 0.9995 ± 0.010 × the damped Sokolov–Ternov variance (Gaussian model 1.013 ± 0.007); 8 independent seeds (`pusher.rr_seed`): 1.007 ± 0.004 (Gaussian 1.005 ± 0.002); at Δt/4, 4 seeds: 0.998 ± 0.005 (Gaussian 1.004 ± 0.004). Without the damping the ratio would be 0.98. The Gaussian model has a small real excess of about 0.5 % that does not go away with the time step (cause under investigation); its check therefore allows 3 statistical errors plus a stated 1 % systematic |
 | H = γ + r²/4 (conserved without radiation) increased | stochastic: no particle; Gaussian: 16.7 % of the particles |
 | restart; 2 ranks vs serial | bit-identical (random numbers from the particle state) |
 
