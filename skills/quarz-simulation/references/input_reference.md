@@ -126,6 +126,8 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.file_z` | 0 | distance from the pulse centre at t = 0 to the file's plane (1/k_p; > 0: the pulse still travels to it) |
 | `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
 | `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
+| `laser.ionization_losses` | 1 | laser-driven field ionization takes the ionization energy, the birth quiver energy ⟨a²⟩/2 and the drift energy from the laser (section 1, "Ionization losses of the laser"); 0 = none (results before 2026-11-25) |
+| `laser.ionization_potential_loss` | 1 | 0: as above but without the ionization energy (the convention of FBPIC / WarpX, for comparisons) |
 | `laser.file_iteration` | last | iteration in the file |
 | `laser.comb_a` | — | comb of lines (instead of `laser.a0`, `L0`, `focus`, `file`): amplitude a_q of each line on the axis (list) |
 | `laser.comb_dw` | — | frequency offsets ω_q − ω₀ in units of ω_p (list; or `laser.comb_lambda_um`) |

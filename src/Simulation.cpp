@@ -742,7 +742,8 @@ void Simulation::step_fields(const std::vector<double>& msg, size_t& off) {
         }
         for (size_t s = 0; s < ion_sp_.size(); ++s) {   // ionization with the fields of this slice
             PlasmaSpecies& ion = *species_[ion_sp_[s]];
-            const IonizeResult r = ion.ionize(fld_, imp_, kl, dxi, k, step_, *species_[ion_prod_[s]], eimp_, eit_);
+            const IonizeResult r = ion.ionize(fld_, imp_, kl, dxi, k, step_, *species_[ion_prod_[s]], eimp_, eit_,
+                                              laser_ && laser_->losses() ? laser_->loss() : View1D());
             ion_acc_[s][0] += r.born_w;
             ion_acc_[s][1] += r.born_wp2;
             ion.deposit_charge_state(diag, kl, diag_base_ + static_cast<int>(s));

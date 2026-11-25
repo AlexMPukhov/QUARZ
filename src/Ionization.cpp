@@ -212,9 +212,11 @@ IonSpeciesInfo make_ion_species(const Config& cfg, const std::string& name, doub
         P.pw[l] = 2 * ns - 1;
         P.kap[l] = 2.0 * e32 / 3.0;
         P.lnA[l] = std::log(Ip * C2) + P.pw[l] * std::log(2 * e32) - std::log(T_AU * wp);
+        P.ue[l] = ip[l] / EI_ME_EV;                               // m c^2 (laser.ionization_losses)
         I.ip_eV.push_back(ip[l]);
     }
     P.field = cfg.get_bool(name + ".ionization.field", true);
+    P.loss_ip = cfg.get_bool("laser.ionization_potential_loss", true);
     // impact ionization by the beams (first ionization only)
     M2 = cfg.get_double(name + ".impact.M2", M2);
     C = cfg.get_double(name + ".impact.C", C);

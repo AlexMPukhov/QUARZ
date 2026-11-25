@@ -93,6 +93,8 @@ struct IonParams {
     int et0 = 0;                          //   index of level z0 in the electron-impact target table
     bool laser = false, circular = false; // laser envelope present, its polarisation
     Real k0 = 0;                          // omega0 / omega_p
+    Real ue[ION_MAX_LEVELS] = {};         // ionization energy of the transition z -> z+1, m c^2
+    bool loss_ip = true;                  // laser.ionization_potential_loss: the laser also pays Ip (0: as FBPIC/WarpX)
 };
 
 // ---------------------------------------------------------------------------- device helpers

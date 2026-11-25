@@ -488,6 +488,27 @@ an initially empty species). Three channels:
     phase is sampled exactly from W(E(φ)) by rejection; Massimo et al., PRE 102, 033204
     (2020) use its Gaussian approximation. Its Δ = γ − p_z equals the parent's (Δ = 1
     for an atom at rest), so the cycle-averaged p_z follows from the envelope γ.
+  - **Ionization losses of the laser** (`laser.ionization_losses`, on by default since 2026-11-25). Every
+    laser-driven ionization z → z+1 takes from the laser
+    - U_z f_L, the ionization energy times the laser's share of the rate, f_L = 1 − W(E_slow)/W (the wake and
+      beam fields pay the rest); `laser.ionization_potential_loss = 0` drops this term, as in FBPIC and WarpX,
+      which create the electrons at rest but do not take U_z from the field;
+    - ⟨a²⟩/2, the quiver energy. Without it the cycle-averaged envelope *gains* this energy whenever the
+      susceptibility χ grows behind an ionization front: the photon number is conserved and the frequency
+      rises, while a tunnel electron is really born at rest and takes its quiver energy from the field;
+    - p_d²/2, the drift energy of the residual momentum p_d = −a(φ_birth) given to the new electron.
+
+    The sum (times γ/Δ of the parent, 1 for atoms at rest) is deposited on the radial nodes during the
+    ionization of slice k. The envelope advance of slice k+1, where the new electrons first enter χ, removes it
+    with an absorbing susceptibility χ → χ − iP/(k₀⟨a²⟩), which takes d(k₀²⟨a²⟩)/dt = −P from the
+    cycle-averaged laser energy density (the same form as HyPsi's ionization current, J ∝ 2P E/|E|²). In MPI
+    runs the losses of a rank's last slice travel with the laser guard. Test: `ctest -R ionization_losses`
+    (validation section 12) compares the change of the laser energy W = Σ|i k₀â + ∂_ξâ|²/2 dV over 20 steps
+    with the sum over the electrons the code wrote at birth (hydrogen, a₀ = 0.012, 3334 births):
+    losses on −1.9686·10⁻³ W vs predicted −dt Σ w(U + p_d²/2) = −1.9689·10⁻³ (1.8·10⁻⁴); losses off
+    +1.4240·10⁻³ vs +dt Σ w⟨a²⟩/2 = +1.4254·10⁻³ (10⁻³, photon number conserved to 9·10⁻⁸): the spurious gain
+    is real and of the expected size; without Ip: 4·10⁻⁴ of the full loss; a pre-ionized plasma conserves W to
+    1.4·10⁻⁷.
 - **Impact ionization by the beams** (neutral → 1+):
   - Bethe cross-section in the form of Rieke & Prepejchal, PRA 6, 1507 (1972):
     σ = 1.874·10⁻²⁰ cm² z_b² β⁻² [M²(ln β²γ² − β²) + C],
@@ -997,6 +1018,8 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.file_z` | 0 | distance from the pulse centre at t = 0 to the file's plane (1/k_p; > 0: the pulse still travels to it) |
 | `laser.file_t_center_fs` | centroid | file time (fs) placed at `laser.xi0` |
 | `laser.file_a0` | — | rescale the peak \|â\| at the file plane |
+| `laser.ionization_losses` | 1 | laser-driven field ionization takes the ionization energy, the birth quiver energy ⟨a²⟩/2 and the drift energy from the laser (section 1, "Ionization losses of the laser"); 0 = none (results before 2026-11-25) |
+| `laser.ionization_potential_loss` | 1 | 0: as above but without the ionization energy (the convention of FBPIC / WarpX, for comparisons) |
 | `laser.file_iteration` | last | iteration in the file |
 | `laser.comb_a` | — | comb of lines (instead of `laser.a0`, `L0`, `focus`, `file`): amplitude a_q of each line on the axis (list) |
 | `laser.comb_dw` | — | frequency offsets ω_q − ω₀ in units of ω_p (list; or `laser.comb_lambda_um`) |
@@ -1498,6 +1521,7 @@ and analytic beam densities.
 | Quiet ionization (section 12) | Bethe impact of Ar (ppc 32, nsplit 2000): total ionized charge −8.9·10⁻⁴ vs analytic (random draws +8.7·10⁻³); ADK of H and He (whole particles, several levels): He +0.20 σ (three seeds +0.20, −0.23, 0.00 σ), H +0.01 σ. |
 | 0D electron cascade in Xe (section 24): dense Xe (10¹⁹ cm⁻³), dilute primaries, ionization + excitation, discrete collisions | mean energy per ion pair W = E₀ N_primaries/N_ions vs an independent event-by-event Monte Carlo with the same cross-sections (`cascade_mc.py`): 1 keV: 22.53 ± 0.09 vs 22.48 ± 0.04 eV (measured 22.0 eV); 100 eV: 25.0 vs 24.4 eV, without excitation 17.2, 17.0, 16.8, 16.9 eV (four seeds / steps) vs 16.8 eV (seed-to-seed scatter ~1 %). Continuous slowing down instead: 24.4 eV at 1 keV (+8 %). |
 | MPI 2, 3 ranks vs serial, with laser ionization of N (LWFA example + 1 % N, `nsplit = 4`) and with impact ionization (proton bunch in Ar) | all outputs incl. `ionization.txt` bit-identical |
+| Ionization losses of the laser (`validation/ion_loss.in`, `ion_loss_check.py`, ctest `ionization_losses`): hydrogen, a₀ = 0.012, k₀ = 20, 20 steps; laser energy from the field files vs the sum over the born electrons | on: 1.8·10⁻⁴; off: the quiver gain +dt Σ w⟨a²⟩/2 to 10⁻³ (photon number 9·10⁻⁸); without Ip: 4·10⁻⁴ of the full loss; pre-ionized plasma: W conserved to 1.4·10⁻⁷ |
 | MPI 2, 3 ranks vs serial, `modes = 1`, field ionization of H/He (8 particles per ring) by an offset driver | bit-identical |
 | All earlier validation sections | unchanged |
 
@@ -1778,8 +1802,8 @@ comparison, the blowout on the stretched grid, and the SMI run.
 - Ionization:
   - trapped electrons (e.g. ionization injection) are removed, not followed. Converting
     them into beam particles would be the natural next step;
-  - the laser loses no energy to ionization: there is no ionization current in the
-    envelope equation;
+  - the ionization losses of the laser (`laser.ionization_losses`) are taken from the cycle-averaged energy
+    density; the spectral shape of the absorption follows from the envelope only;
   - only tunnelling (ADK) is modelled: no barrier-suppression correction, no
     multiphoton regime (Keldysh γ > 1);
   - no collisional ionization by plasma electrons (no cascades) and no recombination;

@@ -1,0 +1,35 @@
+# Ionization losses of the laser (laser.ionization_losses, README section 12): a weak, wide 0.8 um pulse (a0 = 0.012,
+# just above the tunnelling threshold of hydrogen, so the quiver energy <a^2>/2 = 18 eV is comparable to Ip = 13.6 eV)
+# ionizes immobile hydrogen (n_H = 0.3 n0) over 40 steps (80 c/omega_p); the wake energy (~ a0^4) is negligible.
+# ion_loss_check.py compares the change of the laser energy with the sum over the born electrons (born_dump):
+#   losses on:  dW = -dt sum w (Ip + p_d^2/2)        (the quiver part cancels the gain of the cycle-averaged envelope)
+#   losses off: dW = +dt sum w <a^2>/2               (the photon number is conserved, the frequency rises)
+# and checks that a pre-ionized plasma (electrons.density = 0.3) conserves W and the photon number.
+xi.convention = z-t
+units.n0_cm3 = 4.355e18
+grid.type = uniform
+grid.rmax = 14
+grid.dr = 0.05
+xi.min = -16
+xi.max = 0
+xi.step = 0.02
+time.dt = 2
+time.steps = 40
+plasma.species = electrons gas
+electrons.ppc = 0
+gas.element = H
+gas.density = 0.3
+gas.ppc = 8
+gas.mobile = 0
+gas.ionization.quiet = 1
+gas.ionization.born_dump = 1
+laser.k0 = 20                   # 0.8 um at n0 = 4.355e18 cm^-3
+laser.a0 = 0.012
+laser.w0 = 4
+laser.L0 = 3
+laser.xi0 = -8
+laser.xi_scheme = trapezoid
+output.every = 1
+output.fields = a
+output.axis = 0
+output.dir = out_ion_loss
