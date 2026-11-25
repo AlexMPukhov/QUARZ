@@ -88,8 +88,11 @@ horse.
 
 Plain `key = value` lines, `#` starts a comment. Everything is in plasma units of the reference density n0:
 lengths in c/omega_p, times in 1/omega_p, densities in n0, momenta in m c, fields in E0 = m c omega_p / e. The
-co-moving coordinate is **xi = ct - z: the head of the box is at `xi.min`, xi grows towards the tail**, and the
-plasma is swept from small to large xi. A beam's head is at small xi.
+co-moving coordinate is **xi = z - ct: the beams move towards +xi, the head of the box is at `xi.max` (often 0)
+and the box extends to negative xi**; the plasma is swept from the head (large xi) to the tail. A beam's head is at
+its largest xi, and a witness behind a driver is at smaller xi. (QUARZ v1.0.0 used xi = ct - z, head at small xi:
+convert old inputs with `tools/convert_deck.py` of the repository. Every input states `xi.convention = z-t`;
+inputs without it are refused.)
 
 ```quarz
 grid.type      = regions                # radial grid: fine near the axis, coarser outside
@@ -97,8 +100,9 @@ grid.rmax      = 8.0                    # conducting wall
 grid.regions   = 1.0:0.01  8.0:0.05     # spacing 0.01 for r < 1, growing to 0.05 for r < 8
 grid.max_ratio = 1.05
 
-xi.min  = 0                             # head of the box
-xi.max  = 12
+xi.convention = z-t                     # required (since v2.0.0): states the convention xi = z - t
+xi.min  = -12                           # tail of the box
+xi.max  = 0                             # head of the box
 xi.step = 0.01
 
 time.dt    = 20                         # beam time step; a step moves the box by dt c/omega_p
@@ -111,7 +115,7 @@ beams = driver
 driver.n0         = 2.0                 # peak density / n0
 driver.sigma_r    = 0.3
 driver.sigma_xi   = 1.0
-driver.xi0        = 4.0                 # centre; keep the bunch (cut = 3 sigma) inside the box
+driver.xi0        = -4.0                # centre; keep the bunch (cut = 3 sigma) inside the box
 driver.gamma      = 20000
 driver.emit_n     = 0.1
 driver.nparticles = 200000
@@ -141,7 +145,7 @@ front: `<beam>.xi_cut_head`. Plasma profile along z: `plasma.z_table` (z:n pairs
    in an ion channel of density n0: `time.dt` <= period/20 (`scripts/quarz_numbers.py` prints it). Mobile ions or a
    laser need less (laser: Rayleigh length / 8). Beams whose energy changes much: `time.adaptive = 1`.
 5. **The box must hold what matters:** the whole driver (or its part behind the cut) plus the region of interest
-   behind it. The plasma ahead of `xi.min` is unperturbed, so the box may start just ahead of a cut, but a laser
+   behind it. The plasma ahead of `xi.max` is unperturbed, so the box may start just ahead of a cut, but a laser
    must stay about 3 `laser.L0` behind the head.
 6. **The density of the whole box is the density at its head** (`plasma.z_table`, `plasma.density(x,y,z)` are
    evaluated there). That is the quasi-static model, not an error of the code: a ramp is seen by the beam with

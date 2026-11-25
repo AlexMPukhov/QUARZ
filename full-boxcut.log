@@ -1,0 +1,512 @@
+== 1. linear wake vs Green's function (n_b = 0.001) ==
+uniform dr=0.01         : max|Ez|=3.5004e-04  rel.err Ez(r=0)=1.261e-03  psi(0)=6.393e-04  (Er-Bth)(r=0.5)=2.108e-03
+stretched 0.002 -> 0.05 : max|Ez|=3.5004e-04  rel.err Ez(r=0)=1.179e-03  psi(0)=3.740e-04  (Er-Bth)(r=0.5)=1.595e-03
+== 2. blowout: resolution study ==
+uniform_dr0.01_dxi0.01             Ez(-5)=+0.1844 Ez(-7)=-0.4468 Ez(-8)=-0.8923 Ezmin=-16.145 @xi=-8.850  Wr/r(r=.5,xi=-6)=0.5000
+uniform_dr0.005_dxi0.005           Ez(-5)=+0.1844 Ez(-7)=-0.4467 Ez(-8)=-0.8923 Ezmin=-8.081 @xi=-8.840  Wr/r(r=.5,xi=-6)=0.5000
+uniform_dr0.0025_dxi0.0025         Ez(-5)=+0.1844 Ez(-7)=-0.4467 Ez(-8)=-0.8922 Ezmin=-9.919 @xi=-8.838  Wr/r(r=.5,xi=-6)=0.5000
+stretched_dxi0.005                 Ez(-5)=+0.1843 Ez(-7)=-0.4471 Ez(-8)=-0.8930 Ezmin=-8.589 @xi=-8.845  Wr/r(r=.5,xi=-6)=0.5000
+stretched_dxi0.005_PCR             Ez(-5)=+0.1843 Ez(-7)=-0.4471 Ez(-8)=-0.8930 Ezmin=-8.589 @xi=-8.845  Wr/r(r=.5,xi=-6)=0.5000
+== 3. betatron oscillation in an ion channel ==
+max |r_rms - r0 |cos(w_b t)|| / r0 = 2.62e-03
+== 4. witness energy gain in a rigid-driver blowout ==
+d<gamma>/dt = 0.4477   (-Ez at xi=7 from the blowout run: 0.4471)
+== 5. pinched witness + ion motion: grid comparison (reference takes ~1 min) ==
+reference uniform dr=0.00025 (N=32000): max n_i(r=0) in witness = 2.3, max (Er-Bth)/r at r=0.01: 0.878 (unperturbed ion column: 0.5)
+grid             N  err n_i(0)  err Wr(.01)  err Wr(.03)  err Ez(0)
+u001           800     25.501%       7.108%       1.621%     1.709%
+u0005         1600     12.101%       2.455%       0.582%     0.471%
+stretched      512      5.255%       0.330%       0.057%     0.098%
+== 6. azimuthal mode 1: displaced driver vs translated axisymmetric solution ==
+ linear regime (d = 0.01):
+  L2 rel. errors: psi_c 7.9e-04, ez_c 4.2e-03, ne_c 1.4e-01, er_c 3.2e-03, eth_s 1.6e-03, bth_c 1.9e-03, br_s 1.3e-03   | max of sin parts that must vanish: 5.5e-14
+ blowout, inside the first bucket (d = 0.002):
+  L2 rel. errors: psi_c 5.9e-04, ez_c 1.4e-01, ne_c 1.8e+00, er_c 1.1e-02, eth_s 6.2e-03, bth_c 9.7e-03, br_s 5.2e-03   | max of sin parts that must vanish: 1.5e-14
+== 7. azimuthal mode 1: centroid betatron oscillation of an offset beam ==
+max |x_c - x0 cos(w_b t)|/x0 = 2.61e-03,  max |y_c|/x0 = 3.4e-06
+== 8. function parser: parsed profiles vs built-in ones (must agree to round-off) ==
+uniform: built-in vs parsed "1"              psi 1.7e-15  ez 7.2e-15  er 9.5e-15  bth 6.2e-15  ne 3.2e-14  rhob 0.0e+00
+channel: built-in vs parsed                  psi 7.1e-13  ez 1.6e-11  er 4.9e-11  bth 5.0e-11  ne 5.6e-11  rhob 0.0e+00
+analytic driver: built-in vs parsed          psi 3.7e-15  ez 1.7e-14  er 1.0e-13  bth 4.1e-14  ne 2.4e-12  rhob 8.9e-16
+numbers as my_constants/expressions (exp. 0) psi 0.0e+00  ez 0.0e+00  er 0.0e+00  bth 0.0e+00  ne 0.0e+00  rhob 0.0e+00
+== 9. MPI (decomposition along xi) vs serial with beams.xi_shape = ngp ==
+ witness gain, 2 ranks (expected: bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+  missing  max rel diff inf  (axis_000002.txt)   <-- above tolerance
+  slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
+ slipping beam + mobile ions + m = 1, 3 ranks (expected: round-off from particle order):
+  axis     max rel diff 1.84e-09  (axis_000024.txt col 3)
+  beamlog  max rel diff 1.28e-10  (beams.txt col 9)
+  dumps    max rel diff 3.14e-09  (beam_slow_000024.bin:x)
+  fields   max rel diff 4.21e-09  (fields_000024.bin:ne_c)
+  slices   max rel diff 1.94e-08  (slices_driver_000024.txt col 7)
+== 10. openPMD output (needs openPMD-api in the build and the openpmd-api Python module) ==
+ native-node openPMD vs native files (expected 0):
+max relative difference openPMD vs native: 0.00e+00
+ native-node openPMD with 10001 radial nodes vs native files (expected 0):
+max relative difference openPMD vs native: 0.00e+00
+ uniform openPMD grid vs interpolated native data (expected round-off):
+max relative difference openPMD vs native: 4.27e-16
+ SECTION 10 ABORTED (exit code 2); last messages:
+== 11. laser envelope solver ==
+ diffraction in vacuum (k0 = 20, w0 = 2, through the focus; BDF2 in xi):
+  spot size 7.1e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 1.9e-06; centroid slip 0.0502 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ linear wake (a0 = 0.05) vs (d^2/dxi^2 + 1) psi = <a^2>/2 (difference = O(a0^2) nonlinearity):
+  r=0.0: psi 1.4e-03, Ez 1.2e-03;  r=1.5: psi 1.3e-03, Ez 9.9e-04;  r=3.0: psi 5.8e-04, Ez 3.7e-04
+ matched parabolic channel (stretched grid):
+  spot size within 2.0e-04 of w0 over 6.7 Rayleigh lengths; slip 2.1654 (theory 2.1667)
+ LG_01 vortex (laser.l = 1) through the focus vs the Laguerre-Gaussian beam:
+  l = 1: spot size w_rms/(w sqrt(l+1)) 5.7e-04, peak amplitude 1.5e-03, int |a|^2 conserved to 3.8e-06; profile at t = 80: rel. error 4.2e-03, phase -2.0e-03 (Gouy phase (l+1) atan s included); centroid slip 0.1002 (group velocity: (l+1) t/(k0 w0)^2 = 0.1000)
+ the same pulse from a LASY file (laser.file, exact vacuum propagation to the box):
+  spot size 8.7e-04, peak amplitude 1.1e-03, int |a|^2 conserved to 1.9e-06; centroid slip 0.0503 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):
+  spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ relativistic self-focusing, P/Pc = 0 (vacuum: 1 .97 .894 .8 .707), 0.5, 2:
+  out_laser_sf0: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 0.970 0.895 0.800 0.707
+  out_laser_sf05: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 1.003 1.008 1.010 1.002
+  out_laser_sf2: a(r=0, pulse centre)/a0 at t = 0, Z_R/4, Z_R/2, 3Z_R/4, Z_R: 1.000 1.030 1.129 1.310 1.576
+== 12. ionization ==
+ field (ADK) ionization of H and He by a beam field: code vs independent ADK (Markov chain of the per-slice probabilities):
+  gas (He): total ionized charge  code 2.04341e-03   expected 2.03606e-03 (+- 1.7e-05 stat.)   continuous rate eq. 2.03606e-03   -> +0.45 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.8182/0.8234+-0.0051  [0.50,1.00) 1.0577/1.0448+-0.0075  [1.00,1.50) 1.0080/1.0070+-0.0028  [1.50,2.00) 1.0000/0.9998+-0.0006  [2.00,2.50) 0.7968/0.7982+-0.0132  [2.50,3.00) 0.2201/0.2130+-0.0138
+  hyd (H): total ionized charge  code 5.02471e-03   expected 5.02479e-03 (+- 7.6e-08 stat.)   continuous rate eq. 5.02479e-03   -> -1.03 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.9761/0.9776+-0.0010  [0.50,1.00) 1.0000/1.0000+-0.0000  [1.00,1.50) 1.0000/1.0000+-0.0000  [1.50,2.00) 1.0000/1.0000+-0.0000  [2.00,2.50) 1.0000/1.0000+-0.0000  [2.50,3.00) 1.0000/1.0000+-0.0000
+ laser ionization of N (up to N5+), a0 = 0.1, 0.8 um at 1e17 cm^-3, wide spot: code vs cycle-resolved ADK and test particles:
+  <z> on axis vs xi: max |code - exact cycle-resolved| = 0.033 at xi - xi0 = +3.52  (final 5.0000 vs 5.0000)
+    xi - xi0 = +6.00:  code 0.000   exact 0.000
+    xi - xi0 = +4.50:  code 0.340   exact 0.349
+    xi - xi0 = +3.00:  code 2.251   exact 2.252
+    xi - xi0 = +1.50:  code 3.812   exact 3.814
+    xi - xi0 = +0.00:  code 4.997   exact 4.997
+    xi - xi0 = -1.50:  code 5.000   exact 5.000
+  mean p_perp^2 of the born electrons: code 1.8390e-04   test particles (p = -a(t_birth)) 1.8754e-04   (ratio 0.981; for comparison <a^2> at the pulse peak 5.0e-03)
+ impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):
+  sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
+  total ionized charge at the end of the box: code 6.34743e-02   analytic 6.29239e-02   (rel. diff +8.7e-03)
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.5019e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.2031e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.0288e-04 / 5.0993e-04  r/sr in [2.0,3.0): 7.9255e-05 / 8.1433e-05
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.6165e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.8248e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.6242e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.5770e-04 / 2.5598e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.7814e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.3581e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.7223e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.3681e-04 / 4.2995e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.1672e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.5021e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.2282e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.2788e-04 / 5.1029e-04
+ built-in Bethe data for Rb vapour (M^2 = 5.89, C = 65.8: Kim et al. PRA 57, 246 (1998), high-energy limit;
+ sigma = 2.46e-18 cm^2 at gamma = 427):
+  sigma = 2.4600e-18 cm^2,  dP/dxi = 4.1339e-05 n_b
+  total ionized charge at the end of the box: code 9.78407e-02   analytic 9.72456e-02   (rel. diff +6.1e-03)
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 2.3633e-03 / 2.3330e-03  r/sr in [0.5,1.0): 1.8346e-03 / 1.8357e-03  r/sr in [1.0,2.0): 7.9061e-04 / 7.8902e-04  r/sr in [2.0,3.0): 1.2938e-04 / 1.2602e-04
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.1921e-03 / 7.3163e-03  r/sr in [0.5,1.0): 5.8123e-03 / 5.7598e-03  r/sr in [1.0,2.0): 2.4780e-03 / 2.4781e-03  r/sr in [2.0,3.0): 4.0346e-04 / 3.9611e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.2148e-02 / 1.2259e-02  r/sr in [0.5,1.0): 9.7553e-03 / 9.6564e-03  r/sr in [1.0,2.0): 4.1993e-03 / 4.1587e-03  r/sr in [2.0,3.0): 6.7514e-04 / 6.6526e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4389e-02 / 1.4534e-02  r/sr in [0.5,1.0): 1.1526e-02 / 1.1451e-02  r/sr in [1.0,2.0): 4.9654e-03 / 4.9338e-03  r/sr in [2.0,3.0): 8.1013e-04 / 7.8955e-04
+ the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):
+  sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
+  total ionized charge at the end of the box: code 6.28677e-02   analytic 6.29239e-02   (rel. diff -8.9e-04)
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4998e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.1805e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.0720e-04 / 5.0993e-04  r/sr in [2.0,3.0): 8.0607e-05 / 8.1433e-05
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.7218e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.7168e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.5980e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.5587e-04 / 2.5598e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.9269e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.2429e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.6869e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.2923e-04 / 4.2995e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.4117e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.4074e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.1892e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.0961e-04 / 5.1029e-04
+ ADK of H and He with ionization.quiet = 1 (whole particles: exponential thresholds of the optical depth):
+  gas (He): total ionized charge  code 2.03939e-03   expected 2.03605e-03 (+- 1.7e-05 stat.)   continuous rate eq. 2.03605e-03   -> +0.20 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.8221/0.8234+-0.0051  [0.50,1.00) 1.0542/1.0448+-0.0075  [1.00,1.50) 1.0087/1.0070+-0.0028  [1.50,2.00) 1.0000/0.9998+-0.0006  [2.00,2.50) 0.8046/0.7982+-0.0132  [2.50,3.00) 0.2147/0.2130+-0.0138
+  hyd (H): total ionized charge  code 5.02479e-03   expected 5.02479e-03 (+- 7.6e-08 stat.)   continuous rate eq. 5.02479e-03   -> +0.01 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.9771/0.9776+-0.0010  [0.50,1.00) 1.0000/1.0000+-0.0000  [1.00,1.50) 1.0000/1.0000+-0.0000  [1.50,2.00) 1.0000/1.0000+-0.0000  [2.00,2.50) 1.0000/1.0000+-0.0000  [2.50,3.00) 1.0000/1.0000+-0.0000
+ built-in Bethe data (Rieke & Prepejchal): impact ionization of dilute He, Ne, Ar, Kr, Xe by a rigid beam at
+ gamma = 3.39 (minimum) vs the measured minimum cross-sections (Blum, Riegler & Rolandi, Table 1.2, +-4 %):
+  he : sigma code 1.8731e-19 cm^2  measured 1.860e-19  (rel. diff +7.1e-03);  primary ion pairs/cm at NTP:   4.7  (measured ~5.0)
+  ne : sigma code 4.3324e-19 cm^2  measured 4.330e-19  (rel. diff +5.6e-04);  primary ion pairs/cm at NTP:  10.8  (measured ~12.4)
+  ar : sigma code 9.0297e-19 cm^2  measured 9.030e-19  (rel. diff -2.8e-05);  primary ion pairs/cm at NTP:  22.6  (measured ~25-28)
+  kr : sigma code 1.2578e-18 cm^2  measured: not tabulated;  primary ion pairs/cm at NTP:  31.5  (measured ~-)
+  xe : sigma code 1.7212e-18 cm^2  measured 1.720e-18  (rel. diff +6.9e-04);  primary ion pairs/cm at NTP:  43.1  (measured ~41-44)
+  largest |rel. diff| of sigma: 7.1e-03
+== 13. adaptive sub-slicing of the plasma push (pusher.max_cells_per_step) ==
+ dxi = 0.01 without / with sub-slicing vs reference dxi = 0.000625 (relative r.m.s. errors on the axis):
+  reference out_ss_ref: integral of Ez over the closure spike (xi -9.2..-8.9) = -0.341
+  out_ss_plain   extra sub-slices     0 | behind the spike: Ez 2.3e-02 psi 2.0e-02 | witness: Ez 4.5e-05 psi 5.4e-06 | spike integral -0.377
+  out_ss_sub     extra sub-slices  1642 | behind the spike: Ez 1.7e-03 psi 5.0e-04 | witness: Ez 4.1e-05 psi 2.2e-06 | spike integral -0.516
+ with sub-slicing, 2 MPI ranks vs serial (expected: bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+== 14. regularization of the bubble back: radial smoothing of the plasma sources ==
+ cold plasma, xi step vs reference dxi = 0.000625:
+  reference cold_ref                                              (closure: min Ez  -77.5, max ne(0)   892195)
+  cold_dxi0.00125        behind: Ez 1.9e-03 psi 1.3e-03 | witness: Ez 5.0e-06 psi 7.2e-08  (closure: min Ez  -20.4, max ne(0)  1400636)
+  cold_dxi0.0025         behind: Ez 3.6e-03 psi 2.1e-03 | witness: Ez 7.6e-06 psi 3.2e-07  (closure: min Ez  -12.8, max ne(0)   550732)
+  cold_dxi0.005          behind: Ez 4.2e-03 psi 3.0e-03 | witness: Ez 1.1e-05 psi 1.7e-06  (closure: min Ez  -14.8, max ne(0)    75345)
+ a = 0.005, xi step and axis cell h0 vs reference dxi = 0.000625, h0 = 5e-4:
+  reference a5e-3_ref                                             (closure: min Ez   -8.8, max ne(0)    17857)
+  a5e-3_dxi0.00125       behind: Ez 5.3e-04 psi 7.7e-05 | witness: Ez 3.3e-06 psi 2.5e-08  (closure: min Ez   -8.8, max ne(0)    17389)
+  a5e-3_dxi0.0025        behind: Ez 7.7e-04 psi 1.2e-04 | witness: Ez 5.9e-06 psi 4.2e-08  (closure: min Ez   -8.3, max ne(0)    17513)
+  a5e-3_dxi0.005         behind: Ez 1.8e-03 psi 1.0e-03 | witness: Ez 1.1e-05 psi 1.3e-06  (closure: min Ez   -8.4, max ne(0)     6843)
+  a5e-3_h0=0.00025       behind: Ez 3.7e-03 psi 4.8e-03 | witness: Ez 7.9e-05 psi 3.2e-06  (closure: min Ez   -8.4, max ne(0)    15110)
+  a5e-3_h0=0.001         behind: Ez 8.6e-04 psi 3.8e-04 | witness: Ez 2.4e-04 psi 1.7e-05  (closure: min Ez   -8.2, max ne(0)    14473)
+ model difference a = 0.005 vs cold (both references; O(a)):
+  reference cold_ref                                              (closure: min Ez  -77.5, max ne(0)   892195)
+  a5e-3_ref              behind: Ez 4.3e-03 psi 6.4e-03 | witness: Ez 2.1e-04 psi 7.7e-05  (closure: min Ez   -8.8, max ne(0)    17857)
+ with smoothing, 2 MPI ranks vs serial (expected: bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+== 15. checkpoints / restart and diagnostic groups ==
+ particle witness, mobile ions, serial restart (expected: bit-identical):
+  21 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ laser envelope + witness, serial restart (expected: bit-identical):
+  14 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks, restart with 2 ranks (expected: bit-identical):
+  21 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks, restart with 3 ranks (particles redistributed; expected: <= round-off):
+  21 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ laser, 2 ranks, restart with 3 ranks (envelope slices redistributed; expected: <= round-off):
+  14 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ same-directory restart: beams.txt identical to the uninterrupted run  OK
+ checkpoint.keep = 2, every step: kept chk_000006 chk_000007 (expected: the two newest)
+ diagnostic group (ez psi ne, r <= 1, every 3rd slice, witness every 7th particle), serial:
+  group 'light': 2 field files, 2 beam files = exact subsets of the main output; size 5.9 % of the corresponding main files  OK
+ diagnostic group (ez bth, r <= 0.5, every 4th slice), 3 ranks:
+  group 'light': 2 field files, 0 beam files = exact subsets of the main output; size 1.8 % of the corresponding main files  OK
+ openPMD group (E_z, psi, witness every 5th particle, every 2nd slice):
+  openPMD group: meshes ['E.z', 'psi'], species ['witness'], 901 slices, 40000 particles  OK
+== 16. adaptive time step ==
+ ion channel, density 1 -> 4, gamma 1000, 128 steps per betatron period:
+  2304 steps, dt 0.711 ... 2.195: max |dt/dt_formula - 1| = 5.6e-10 (all but the last 2, which land on t_end)
+  r_rms/r0 vs |f(t)| of the ODE: max deviation 1.02e-02;  run ends at t = 3000.000000 (t_end 3000)
+ decelerating witness (gamma 50 -> 6), 32 steps per period, gamma known 1 and 6 steps late:
+  lag 1: 77 steps, gamma_eff 5.71 ... 49.56: max dt / dt(true gamma at t_n+1) = 1.0045, after the first 1 steps 0.9999
+  lag 6: 77 steps, gamma_eff 5.70 ... 49.56: max dt / dt(true gamma at t_n+1) = 1.0526, after the first 6 steps 1.0003
+  gamma_mean max rel. diff 4.19e-04, r_rms 1.92e-02  (78 vs 78 steps)
+ serial restart (expected: bit-identical):
+  14 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks (lag 3) vs serial with lag 3 (expected: fields and particles bit-identical, beam log sums round-off; same time steps):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 4.19e-13  (beams.txt col 7)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+  timestep.txt identical  OK
+ 2 ranks, restart (expected: bit-identical):
+  14 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+== 17. GUI server (tools/quarz_gui.py, no browser) ==
+  run finished (exit 0), frames [0, 2, 4, 6], fields ['psi', 'ez', 'ne']  OK
+  on-axis cut vs the field file: max difference 0.0e+00, r_max of the frame 1.016, 101 of the box slices  OK
+  2D map: 50 x 50 values, finite: True  OK
+  beams: witness 7 steps  OK
+  request without the token: HTTP 403  OK
+== 18. multiple Coulomb scattering of beam particles on the plasma ==
+  Z = 1, ion charge 1: <p_x^2>/(D t) = 0.9972, <p_y^2>/(D t) = 0.9995 (100000 particles, statistical error 0.0045); gamma conserved to 9e-13
+  Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9951, <p_y^2>/(D t) = 0.9998 (100000 particles, statistical error 0.0045); gamma conserved to 9e-13
+  matched witness, gamma 1000: d eps_n/dt = 3.7891e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0105  (eps_n 0.00977 -> 0.01735)
+ restart (expected: bit-identical, the random numbers depend on the particle state, not its index):
+  7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: particles bit-identical; fields at round-off, as without scattering):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 8.98e-16  (beams.txt col 7)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 4.08e-16  (fields_000010.bin:bz)
+== 19. two-stage runs: driver box -> rear boundary file -> witness box ==
+ (a) rigid driver, same dt (expected: bit-identical):
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+ (b) stage 2 with dt/4 between the stage-1 steps, rigid driver (expected: bit-identical):
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+ (c) evolving driver: single run dt = 2.5 (reference) vs two-stage (driver dt = 10, witness dt = 2.5) vs single dt = 10:
+  out_bnd_two t = 60: witness <gamma> 58.1275 (rel. diff 2.1e-05), r_rms 1.1e-05, eps_n 8.4e-07
+  out_bnd_coarse t = 60: witness <gamma> 56.3183 (rel. diff 3.1e-02), r_rms 1.7e-01, eps_n 2.6e-03
+ (a) with 2 ranks in each stage (expected: bit-identical to the single serial run):
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+== 20. beam spin (Thomas-BMT) ==
+ (a) ion channel, analytic s_r = sin(kappa theta), kappa = gamma beta^2 (a + 1/(gamma+1)):
+ electrons kappa   1.2269  max|s_r| 4.756e-03  rel. error of s_r = sin(kappa theta) 1.02e-06  s_z 2.3e-11  max|s_theta| 5.0e-17  max||s|-1| 2.0e-15
+ muons     kappa   0.9733  max|s_r| 3.213e-03  rel. error of s_r = sin(kappa theta) 2.71e-07  s_z 2.8e-12  max|s_theta| 1.9e-15  max||s|-1| 2.0e-15
+ pbar      kappa  90.5865  max|s_r| 4.609e-02  rel. error of s_r = sin(kappa theta) 1.23e-07  s_z 2.6e-10  max|s_theta| 2.3e-16  max||s|-1| 1.8e-15
+ spin.txt: final polarization P = |<s>|: electrons 0.999998  muons 0.999999  pbar 0.999775
+ (b) wake, vs an RK4 integration of Lorentz + T-BMT in the stored fields (error ~ dt^2):
+ wake, a = 2, gamma 3.00 -> 6.15: rms spin turn 0.487 rad,  max |s - s_ref| 1.7e-02  (rms 1.3e-03),  max |u - u_ref|/gamma 1.6e-03
+ (c) scattering only (expected slopes 1 - O((kappa theta)^2)):
+ scattering, a = 0.00115965: kappa 2.1587  slope s_x/(kappa theta_x) 0.999999  s_y/(kappa theta_y) 0.999999  residual rms 1.8e-06  rms theta 5.8e-04  max||s|-1| 1.4e-15
+ (d) restart (expected: bit-identical):
+  12 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: particles and spins bit-identical; fields, beams.txt moments at round-off):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 4.44e-10  (beams.txt col 11)
+  dumps    max rel diff 0.00e+00  (beam_electrons_000000.bin:x)
+  fields   max rel diff 5.31e-16  (fields_000010.bin:bz)
+== 21. trapped plasma electrons -> beam particles (Trojan-horse ionization injection) ==
+ (a) H = gamma - p_z - psi = 1 - psi(birth), conserved through the conversion and the beam push:
+ 748 electrons converted per step; at the conversion gamma 4.01, H = gamma - p_z - psi in [0.15782, 0.22959]; 1 - max psi = 0.15783 (difference 9.2e-06)
+ step 30: these electrons have gamma 9.29; H changed by rms 3.9e-04, max 8.4e-04; all 23179 trapped: H in [0.15804, 0.25871]
+ (b) trapped charge per unit time, dt = 0.2 vs 0.1 (expected: equal within the injection noise):
+ dt = 0.2: 23179 macro-particles, Q/(T + dt) = -6.883138e-04
+ dt = 0.1: 45640 macro-particles, Q/(T + dt) = -6.892451e-04
+ relative difference 1.4e-03
+ (c) conversion threshold gamma/Delta = 35, 20, 70 (expected: the same trapped charge):
+ out_trap: Q = -4.2675453820e-03  (23179 macro-particles)
+ out_trap_20: Q = -4.2675453820e-03  (23179 macro-particles)
+ out_trap_70: Q = -4.2675453820e-03  (23179 macro-particles)
+ (d) with beam loading: restart (expected: bit-identical):
+  11 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 22. delta electrons of beam impact ionization (<species>.impact.secondary_energy) ==
+ (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV + free-electron tail of the n = 1-3 subshells)
+     and binary-collision angle vs the model:
+  66075 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 3.06e-03, p-value 0.566;  max W / W_max = 0.1212;  median W 8.69 eV (model 8.75 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0039; fraction with W > 1 keV: 0.00737, model 0.00735 +- 0.00033
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.5e-13  (W > 0.5 eV, 63588 electrons)
+ (a2) artificial subshells (100 eV, 1 keV; 50 electrons each) to resolve the mixture:
+  66075 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 4.52e-03, p-value 0.134;  max W / W_max = 0.1922;  median W 9.78 eV (model 9.89 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0892; fraction with W > 1 keV: 0.01630, model 0.01647 +- 0.00050
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.5e-13  (W > 0.5 eV, 63769 electrons)
+ (b) electrons at gamma = 20 (W_max = (gamma - 1)/2, Moller kinematics), J = 2 MeV to resolve the cut-off:
+  84733 impact-born electrons; W_max = 4.854 MeV, kappa = 1.051315, J = 2e+06 eV
+  energy: KS distance 2.33e-03, p-value 0.745;  max W / W_max = 1.0000;  median W 1328669.41 eV (model 1334077.15 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0029; fraction with W > 1 keV: 0.99804, model 0.99801 +- 0.00015
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 3.0e-14  (W > 0.5 eV, 84733 electrons)
+ (c) isotropic emission:
+  66075 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 3.06e-03, p-value 0.566;  max W / W_max = 0.1212;  median W 8.69 eV (model 8.75 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0039; fraction with W > 1 keV: 0.00737, model 0.00735 +- 0.00033
+  angle: isotropic, KS distance of cos(theta) 4.61e-03, p-value 0.134; <cos(theta)> = +0.0025
+ (d) 400 GeV protons, J = 5.11 MeV: fast delta electrons (gamma/Delta > 35) -> beam particles of electrons_trapped:
+  121554 electrons born, 22138 beyond gamma/Delta = 35 at birth; trapped beam particles at the end: 22137
+  (expected: equal up to the 54 born within 0.1 % of the threshold: the conversion tests the state after the first push) OK
+ (e) the ionization itself does not change:
+  ion charge density with / without delta electrons: max |difference| = 0.0e+00  (expected: 0)
+ (f) with fast deltas ionizing as beam electrons: restart (expected: bit-identical):
+  14 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_b_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 23. electron-impact ionization by plasma electrons (<species>.ionization.electron_impact) ==
+ (a) dilute gas in mono-energetic electrons (u_z = +-u): ionized fraction vs 1 - exp(-n sigma v xi), Lotz formula
+     implemented independently in Python:
+  E = 30.00 eV, sigma(Xe -> +1) = 4.9397e-16 cm^2;  electron density (lab) code 9.99881e+12, expected 1.00012e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 7.1330e-05 / 7.1397e-05   xi = -500: 1.4326e-04 / 1.4250e-04   xi = -1000: 2.8469e-04 / 2.8470e-04   (max rel. diff 5.3e-03)
+  E = 100.16 eV, sigma(Xe -> +1) = 4.8809e-16 cm^2;  electron density (lab) code 9.99454e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 1.2830e-04 / 1.2892e-04   xi = -500: 2.5833e-04 / 2.5731e-04   xi = -1000: 5.1536e-04 / 5.1405e-04   (max rel. diff 4.8e-03)
+  E = 999.94 eV, sigma(Xe -> +1) = 1.1628e-16 cm^2;  electron density (lab) code 9.94270e+12, expected 1.00392e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 9.7039e-05 / 9.7260e-05   xi = -500: 1.9407e-04 / 1.9412e-04   xi = -1000: 3.8728e-04 / 3.8782e-04   (max rel. diff 2.3e-03)
+ (b) Xe+ -> Xe2+ (high-charge Lotz form, 5p^5):
+  E = 100.16 eV, sigma(Xe+ -> +1) = 1.6745e-16 cm^2;  electron density (lab) code 9.99437e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 4.4103e-05 / 4.4230e-05   xi = -500: 8.8753e-05 / 8.8282e-05   xi = -1000: 1.7628e-04 / 1.7638e-04   (max rel. diff 5.3e-03)
+ (c) cross-section table (eimpact_table.txt):
+  E = 100.16 eV, sigma(Xe -> +1) = 4.9988e-16 cm^2 (table);  electron density (lab) code 9.99455e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 1.3162e-04 / 1.3204e-04   xi = -500: 2.6477e-04 / 2.6353e-04   xi = -1000: 5.2825e-04 / 5.2646e-04   (max rel. diff 4.7e-03)
+ (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons, continuous loss with excitation: energy vs RK4 of
+     dE/dxi = -n [sigma (Ip + <W>) + sum_j sigma_j W_j] |u|/Delta:
+  ea (u_z = +0.0198): energy 100.16 eV -> code 86.3086 +- 0.0000 eV, RK4 86.3090 eV  (loss: code 13.8476, RK4 13.8472, rel. diff +2.6e-05)
+  eb (u_z = -0.0198): energy 100.16 eV -> code 86.8150 +- 0.0000 eV, RK4 86.8151 eV  (loss: code 13.3412, RK4 13.3411, rel. diff +1.1e-05)
+ (d2) discrete collisions (default), no excitation: mean energy vs RK4 (straggling: second order), energy lost by
+     all electrons vs sum of (Ip + W) over the electron-impact births:
+  ea (u_z = +0.0198): energy 100.16 eV -> code 88.5612 +- 0.1670 eV, RK4 88.6400 eV  (loss: code 11.5950, RK4 11.5162, rel. diff +6.8e-03)
+  eb (u_z = -0.0198): energy 100.16 eV -> code 88.8705 +- 0.1633 eV, RK4 89.0641 eV  (loss: code 11.2857, RK4 11.0921, rel. diff +1.7e-02)
+  energy balance: lost by the electrons 2.92311e-03, given to ionization (Ip + W) 2.87615e-03  (ratio 1.0163; 66228 births; Monte Carlo error ~3.3e-02)
+ (e) restart (expected: bit-identical):
+  6 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 0)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+ (f) with xe.ionization.quiet = 1: restart (expected: bit-identical):
+  6 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 0)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 24. 0D electron cascade in Xe: ionization + excitation (W-value) vs an independent event-by-event Monte Carlo ==
+ (a) 100 eV primaries (cascade_mc.py: same cross-sections, discrete collisions; measured W of Xe: 22.0 eV at high energy):
+  E0 = 100.16 eV: W code 25.02 +- 0.26 eV (10336 births, 5120 primaries; energy left above threshold 1.4e-03), independent MC 24.38 +- 0.15 eV  (rel. diff +2.6e-02)
+  E0 = 100.16 eV, no excitation: W code 17.19 +- 0.14 eV (14981 births, 5120 primaries; energy left above threshold 1.8e-02), independent MC 16.80 +- 0.04 eV  (rel. diff +2.3e-02)
+ (b) 1 keV primaries:
+  E0 = 999.94 eV: W code 22.65 +- 0.11 eV (112954 births, 320 primaries; energy left above threshold 2.1e-04), independent MC 22.48 +- 0.04 eV  (rel. diff +7.4e-03)
+== 25. beam shot noise: noise power of the macro-particle beam vs the real protons (Poisson), before and after 1 m of drift ==
+ quiet lattice (default loader): 1248000 macro-particles, 2.78e+05 protons each (mean); noise power / Poisson, <R> over k = 2pi/(1-10 mm), statistical error +-0.14:
+   K=1 (current)      z = 0:  2.28e-08   z = 1 m:  3.99e-06
+   K=exp(-r^2/2sr^2)  z = 0:  1.71e-08   z = 1 m:   7.1e+03
+   K=[r<sr/2]         z = 0:  2.63e-09   z = 1 m:  9.32e+04
+   K=[sr<r<1.5sr]     z = 0:  6.37e-09   z = 1 m:  1.78e+05
+   free drift over 1 m: r_rms growth 0.00825 (analytic 0.00825), emittance 0.07119 -> 0.07119
+ rods + shot noise (rods 8, dr 0.5, shot_noise 1): 1996363 macro-particles, 1.74e+05 protons each (mean); noise power / Poisson, <R> over k = 2pi/(1-10 mm), statistical error +-0.14:
+   K=1 (current)      z = 0:         1   z = 1 m:         1
+   K=exp(-r^2/2sr^2)  z = 0:     0.907   z = 1 m:     0.919
+   K=[r<sr/2]         z = 0:      0.81   z = 1 m:      1.12
+   K=[sr<r<1.5sr]     z = 0:      1.03   z = 1 m:     0.956
+   free drift over 1 m: r_rms growth 0.00827 (analytic 0.00825), emittance 0.07119 -> 0.07119
+ 2 ranks vs serial (expected: bit-identical):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 26. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output ==
+ v1.0 deck converted by tools/convert_deck.py vs examples/parsed_profiles.in (expected bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+  slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
+ gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):
+  field file: xi = -4 ... 0, increasing: OK;  beam charge centred at -1.9962, particles at -1.9962 (deck xi0 = -2)
+  slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07
+== 27. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) ==
+ imported dump written again at step 0 vs the file (expected identical): identical
+ read in blocks of 777 particles vs the default block (expected identical): identical
+ 2 steps from the dump vs from the same particles as a text file (expected bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+ beam with spin (10 doubles per particle), written again (expected identical): identical
+ the same dump into a beam without spin: 20000 particles, x y p xi w identical
+ truncated file: is not a native beam dump
+ 2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of
+ the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 9.10e-07  (beams.txt col 11)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 4.88e-17  (fields_000002.bin:bz)
+== 28. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions ==
+ QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:
+  si         20000 particles, max rel. difference 2.0e-16  (expected: SI round-off, normalised 0)
+  normalised 20000 particles, max rel. difference 0.0e+00  (expected: SI round-off, normalised 0)
+ synthetic files of other codes vs the expected beam (computed independently in Python; expected round-off):
+  si: 3000 of 3000 particles; max rel. difference: x 1.4e-16, y 1.5e-16, px 2.8e-16, py 1.6e-16, pz 2.8e-16, xi 1.9e-15, w 2.6e-16
+  si, read in blocks of 777 particles vs the default block (expected identical): identical
+  norm: 3000 of 3000 particles; max rel. difference: x 0.0e+00, y 0.0e+00, px 1.3e-16, py 1.1e-16, pz 2.1e-16, xi 0.0e+00, w 2.1e-16
+ charge and mass taken from the file when the deck has none: from the openPMD species: charge -1.000000 e mass 1836.152673 m_e
+ deck mass 1 instead of the file's: warning given: 1; gamma beta / the file's = 1.0000000000 ... 1.0000000000 (expected 1: velocity kept)
+ particle_stride = 4: charge of the import / of the original beam: 0.2500, with openpmd_scale_stride = 1: 1.0000; warning given: 1
+ muons with spin (normalised units) imported and written again vs the native dump: 20000 particles; spins 0.0e+00, x y xi w 0.0e+00, momenta 1.8e-16 (expected: 0, 0, round-off of the mass factor 206.77)
+ 2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 1.58e-08  (beams.txt col 11)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 29. regular-xi beam loader (<beam>.longitudinal_sampling = regular): equal particles per sub-slice ==
+ quasi, 64 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 64: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 1.1e-02 sigma_y 1.3e-02 sigma_px 8.2e-03 <gamma> 3.0e-04 sigma_gamma 1.3e-02 | <x>/sigma_r 8.1e-03 <px>/sigma_px 2.5e-02
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 1.1e-02 sigma_y 1.2e-02 sigma_px 1.7e-02 <gamma> 3.0e-04 sigma_gamma 1.6e-02 | <x>/sigma_r 7.9e-03 <px>/sigma_px 2.9e-02
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ quasi, 256 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 256: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 4.4e-03 sigma_y 4.7e-03 sigma_px 3.2e-03 <gamma> 8.0e-05 sigma_gamma 2.3e-03 | <x>/sigma_r 9.5e-04 <px>/sigma_px 7.5e-03
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 4.8e-03 sigma_y 4.2e-03 sigma_px 4.4e-03 <gamma> 7.6e-05 sigma_gamma 3.8e-03 | <x>/sigma_r 9.1e-04 <px>/sigma_px 8.5e-03
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ quasi, 1024 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 1024: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 7.4e-04 sigma_y 7.4e-04 sigma_px 1.3e-03 <gamma> 2.0e-05 sigma_gamma 5.8e-04 | <x>/sigma_r 7.5e-05 <px>/sigma_px 2.4e-03
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 6.7e-04 sigma_y 6.9e-04 sigma_px 1.4e-03 <gamma> 2.2e-05 sigma_gamma 8.9e-04 | <x>/sigma_r 7.9e-05 <px>/sigma_px 2.4e-03
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ random, 64 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 64: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 9.0e-02 sigma_y 7.6e-02 sigma_px 9.5e-02 <gamma> 1.3e-03 sigma_gamma 7.7e-02 | <x>/sigma_r 1.0e-01 <px>/sigma_px 1.2e-01
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 9.2e-02 sigma_y 9.1e-02 sigma_px 8.7e-02 <gamma> 1.3e-03 sigma_gamma 1.0e-01 | <x>/sigma_r 1.2e-01 <px>/sigma_px 1.2e-01
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ random, 256 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 256: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 3.9e-02 sigma_y 4.1e-02 sigma_px 4.8e-02 <gamma> 6.4e-04 sigma_gamma 4.4e-02 | <x>/sigma_r 6.7e-02 <px>/sigma_px 6.7e-02
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 4.9e-02 sigma_y 4.5e-02 sigma_px 3.9e-02 <gamma> 5.3e-04 sigma_gamma 4.8e-02 | <x>/sigma_r 6.0e-02 <px>/sigma_px 6.5e-02
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ random, 1024 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 1024: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 2.3e-02 sigma_y 2.0e-02 sigma_px 2.3e-02 <gamma> 3.3e-04 sigma_gamma 2.1e-02 | <x>/sigma_r 3.2e-02 <px>/sigma_px 3.4e-02
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 2.3e-02 sigma_y 2.0e-02 sigma_px 1.8e-02 <gamma> 3.2e-04 sigma_gamma 2.2e-02 | <x>/sigma_r 2.7e-02 <px>/sigma_px 3.3e-02
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ vs the random loader with the same number of particles (46080):
+  regular: 46080 particles; per sigma_xi/4 bin: core 2048, fringe 1792 ... 2048; fringe slice centroid r.m.s. 3.0e-05
+  random : 46080 particles; per sigma_xi/4 bin: core 4621, fringe 58 ... 147; fringe slice centroid r.m.s. 6.6e-03
+ profile = parsed_xi with the Gaussian line density vs profile = gaussian (expected round-off):
+  46080 particles each, max relative difference 1.1e-16
+  slice mean p_z vs uz_mean(xi) = 1000 + 50 (xi - -2): max rel. difference 8.9e-16 (p_z 955.3 ... 1044.8)
+ shot noise, witness.n0 = 0.02:
+  46080 particles (6004 with weight 0, not in the dump), N = 0.27 ... 23 real particles per macro-particle: variance / Poisson 1.002 (expected 1), mean deviation -1.63 standard errors
+ shot noise, witness.n0 = 10:
+  46080 particles (0 with weight 0, not in the dump), N = 1.3e+02 ... 1.15e+04 real particles per macro-particle: variance / Poisson 1.006 (expected 1), mean deviation +0.17 standard errors
+ 2 ranks vs serial (expected: beam generated identically; particles and fields bit-identical, beam log round-off):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+ 3 ranks vs serial (expected: beam generated identically; particles and fields bit-identical, beam log round-off):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+== 30. beam particles outside the box: skipped on import (default) or kept (<beam>.keep_outside_box = 1) ==
+ generated beam: kept particles vs an independent selection from the keep-all beam (|xi - box| <= 1.5 dxi, r <= R):
+  20000 particles, outside: 4236 in xi, 4934 more in r > R; kept by the code identical to the independent selection; counts and charge in the log agree
+ the keep-all beam re-imported as a native dump / as a text file vs the generated cut beam (expected identical):
+  10830 vs 10830 particles: identical
+  10830 vs 10830 particles: identical
+ 4 steps, cut vs kept (the first push removes the particles outside; expected bit-identical from step 1 on):
+  fields: 5 of 5 outputs bit-identical; particles: 4 of 4 dumps (steps >= 1) identical; beams.txt (steps >= 1): max. rel. difference 0
+ 2 ranks vs serial, with the cut (expected: particles and beam log bit-identical; rho_b round-off once a particle
+ has moved to the other rank, as without the cut):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 6.43e-16  (fields_000004.bin:bth)
+-- timing (full mode, 4 parallel, 2 threads each): 1:13s 2:63s 3:2s 4:17s 5:125s 6:65s 7:11s 8:57s 9:116s 10:86s 11:77s 12:242s 13:19s 14:58s 15:155s 16:109s 17:1s 18:13s 19:48s 20:24s 21:62s 22:145s 23:216s 24:524s 25:48s 26:6s 27:5s 28:6s 29:6s 30:4s total 878 s
+section  1: PASS
+section  2: PASS
+section  3: PASS
+section  4: PASS
+section  5: PASS
+section  6: PASS
+section  7: PASS
+section  8: PASS
+section  9: FAIL
+    14 lines instead of 13
+    line 7: text differs
+      ref: slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
+      new: missing  max rel diff inf  (axis_000002.txt)   <-- above tolerance
+    line 8: text differs
+      ref: slipping beam + mobile ions + m = 1, 3 ranks (expected: round-off from particle order):
+      new: slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
+    line 9: text differs
+      ref: axis     max rel diff 7.46e-09  (axis_000024.txt col 5)
+      new: slipping beam + mobile ions + m = 1, 3 ranks (expected: round-off from particle order):
+    line 10: text differs
+      ref: beamlog  max rel diff 1.27e-10  (beams.txt col 9)
+      new: axis     max rel diff 1.84e-09  (axis_000024.txt col 3)
+section 10: FAIL
+    8 lines instead of 19
+    line 6: text differs
+      ref: ParaView openPMD reader with rectilinear meshes (tools/paraview, vtk module; expected PASS):
+      new: uniform openPMD grid vs interpolated native data (expected round-off):
+    line 7: text differs
+      ref: StructuredGrid, 368 radial nodes (h 8.38e-08..6.7e-07), 601 z nodes; max rel. error: r 0.0e+00, z 1.7e-16, psi 1.4e-16  PASS
+      new: max relative difference openPMD vs native: 4.27e-16
+    line 8: text differs
+      ref: RectilinearGrid, labels ['x', 'y', 'z'], dims [7, 5, 9]; max rel. error: coordinates 2.0e-16, rho 0.0e+00  PASS
+      new: SECTION 10 ABORTED (exit code 2); last messages:
+section 11: PASS
+section 12: PASS
+section 13: PASS
+section 14: PASS
+section 15: PASS
+section 16: PASS
+section 17: PASS
+section 18: FAIL
+    line 3: 0.9970 -> 0.9951
+      ref: Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9970, <p_y^2>/(D t) = 0.9904 (100000 particles, statistical error 0.0045); gamma conserved to 9e-13
+      new: Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9951, <p_y^2>/(D t) = 0.9998 (100000 particles, statistical error 0.0045); gamma conserved to 9e-13
+    line 4: 3.7811e-06 -> 3.7891e-06
+      ref: matched witness, gamma 1000: d eps_n/dt = 3.7811e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0084  (eps_n 0.00977 -> 0.01732)
+      new: matched witness, gamma 1000: d eps_n/dt = 3.7891e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0105  (eps_n 0.00977 -> 0.01735)
+section 19: PASS
+section 20: PASS
+section 21: PASS
+section 22: PASS
+section 23: PASS
+section 24: PASS
+section 25: PASS
+section 26: PASS
+section 27: PASS
+section 28: PASS
+section 29: PASS
+section 30: NO REFERENCE
+validation: FAIL (4 of 30 sections failed)

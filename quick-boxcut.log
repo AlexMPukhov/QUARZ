@@ -1,0 +1,636 @@
+== 1. linear wake vs Green's function (n_b = 0.001) ==
+uniform dr=0.01         : max|Ez|=3.5004e-04  rel.err Ez(r=0)=1.261e-03  psi(0)=6.393e-04  (Er-Bth)(r=0.5)=2.108e-03
+stretched 0.002 -> 0.05 : max|Ez|=3.5004e-04  rel.err Ez(r=0)=1.179e-03  psi(0)=3.740e-04  (Er-Bth)(r=0.5)=1.595e-03
+== 2. blowout: resolution study ==
+uniform_dr0.01_dxi0.01             Ez(-5)=+0.1844 Ez(-7)=-0.4468 Ez(-8)=-0.8923 Ezmin=-16.145 @xi=-8.850  Wr/r(r=.5,xi=-6)=0.5000
+stretched_dxi0.005                 Ez(-5)=+0.1843 Ez(-7)=-0.4471 Ez(-8)=-0.8930 Ezmin=-8.589 @xi=-8.845  Wr/r(r=.5,xi=-6)=0.5000
+stretched_dxi0.005_PCR             Ez(-5)=+0.1843 Ez(-7)=-0.4471 Ez(-8)=-0.8930 Ezmin=-8.589 @xi=-8.845  Wr/r(r=.5,xi=-6)=0.5000
+== 3. betatron oscillation in an ion channel ==
+max |r_rms - r0 |cos(w_b t)|| / r0 = 2.62e-03
+== 4. witness energy gain in a rigid-driver blowout ==
+d<gamma>/dt = 0.4383   (-Ez at xi=7 from the blowout run: 0.4471)
+== 5. pinched witness + ion motion: grid comparison (reference takes ~1 min) ==
+reference qref (N=1877): max n_i(r=0) in witness = 2.6, max (Er-Bth)/r at r=0.01: 0.878 (unperturbed ion column: 0.5)
+grid             N  err n_i(0)  err Wr(.01)  err Wr(.03)  err Ez(0)
+u001           800     32.586%       7.254%       1.631%     1.719%
+stretched      512     14.266%       0.477%       0.094%     0.088%
+== 6. azimuthal mode 1: displaced driver vs translated axisymmetric solution ==
+ linear regime (d = 0.01):
+  L2 rel. errors: psi_c 7.9e-04, ez_c 4.2e-03, ne_c 1.4e-01, er_c 3.2e-03, eth_s 1.6e-03, bth_c 1.9e-03, br_s 1.3e-03   | max of sin parts that must vanish: 5.6e-14
+== 7. azimuthal mode 1: centroid betatron oscillation of an offset beam ==
+max |x_c - x0 cos(w_b t)|/x0 = 2.61e-03,  max |y_c|/x0 = 3.4e-06
+== 8. function parser: parsed profiles vs built-in ones (must agree to round-off) ==
+uniform: built-in vs parsed "1"              psi 3.9e-15  ez 2.0e-14  er 7.0e-14  bth 3.2e-14  ne 1.6e-12  rhob 0.0e+00
+channel: built-in vs parsed                  psi 4.5e-13  ez 1.2e-11  er 2.5e-11  bth 2.5e-11  ne 2.2e-11  rhob 0.0e+00
+analytic driver: built-in vs parsed          psi 4.8e-15  ez 1.4e-14  er 6.3e-14  bth 3.1e-14  ne 1.4e-12  rhob 8.9e-16
+numbers as my_constants/expressions (exp. 0) psi 0.0e+00  ez 0.0e+00  er 0.0e+00  bth 0.0e+00  ne 0.0e+00  rhob 0.0e+00
+== 9. MPI (decomposition along xi) vs serial with beams.xi_shape = ngp ==
+ SECTION 9 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 10. openPMD output (needs openPMD-api in the build and the openpmd-api Python module) ==
+ native-node openPMD vs native files (expected 0):
+max relative difference openPMD vs native: 0.00e+00
+ native-node openPMD with 10001 radial nodes vs native files (expected 0):
+max relative difference openPMD vs native: 0.00e+00
+ uniform openPMD grid vs interpolated native data (expected round-off):
+max relative difference openPMD vs native: 4.27e-16
+ SECTION 10 ABORTED (exit code 255); last messages:
+== 11. laser envelope solver ==
+ diffraction in vacuum (k0 = 20, w0 = 2, through the focus; BDF2 in xi):
+  spot size 7.1e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 1.9e-06; centroid slip 0.0502 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ linear wake (a0 = 0.05) vs (d^2/dxi^2 + 1) psi = <a^2>/2 (difference = O(a0^2) nonlinearity):
+  r=0.0: psi 1.4e-03, Ez 1.2e-03;  r=1.5: psi 1.3e-03, Ez 9.9e-04;  r=3.0: psi 5.8e-04, Ez 3.7e-04
+ matched parabolic channel (stretched grid):
+  spot size within 2.0e-04 of w0 over 6.7 Rayleigh lengths; slip 2.1133 (theory 2.1667)
+ LG_01 vortex (laser.l = 1) through the focus vs the Laguerre-Gaussian beam:
+  l = 1: spot size w_rms/(w sqrt(l+1)) 5.7e-04, peak amplitude 1.5e-03, int |a|^2 conserved to 3.8e-06; profile at t = 80: rel. error 4.2e-03, phase -2.0e-03 (Gouy phase (l+1) atan s included); centroid slip 0.1002 (group velocity: (l+1) t/(k0 w0)^2 = 0.1000)
+ the same pulse from a LASY file (laser.file, exact vacuum propagation to the box):
+  spot size 8.7e-04, peak amplitude 1.1e-03, int |a|^2 conserved to 1.9e-06; centroid slip 0.0503 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+ vacuum diffraction with the trapezoid in xi (laser.xi_scheme = trapezoid, neutral):
+  spot size 7.0e-04, peak amplitude 7.0e-04, int |a|^2 conserved to 0.0e+00; centroid slip 0.0501 (group velocity 1 - 1/(k0 w0)^2: 0.0500)
+== 12. ionization ==
+ field (ADK) ionization of H and He by a beam field: code vs independent ADK (Markov chain of the per-slice probabilities):
+  gas (He): total ionized charge  code 2.04341e-03   expected 2.03606e-03 (+- 1.7e-05 stat.)   continuous rate eq. 2.03606e-03   -> +0.45 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.8182/0.8234+-0.0051  [0.50,1.00) 1.0577/1.0448+-0.0075  [1.00,1.50) 1.0080/1.0070+-0.0028  [1.50,2.00) 1.0000/0.9998+-0.0006  [2.00,2.50) 0.7968/0.7982+-0.0132  [2.50,3.00) 0.2201/0.2130+-0.0138
+  hyd (H): total ionized charge  code 5.02471e-03   expected 5.02479e-03 (+- 7.6e-08 stat.)   continuous rate eq. 5.02479e-03   -> -1.03 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.9761/0.9776+-0.0010  [0.50,1.00) 1.0000/1.0000+-0.0000  [1.00,1.50) 1.0000/1.0000+-0.0000  [1.50,2.00) 1.0000/1.0000+-0.0000  [2.00,2.50) 1.0000/1.0000+-0.0000  [2.50,3.00) 1.0000/1.0000+-0.0000
+ laser ionization of N (up to N5+), a0 = 0.1, 0.8 um at 1e17 cm^-3, wide spot: code vs cycle-resolved ADK and test particles:
+  <z> on axis vs xi: max |code - exact cycle-resolved| = 0.042 at xi - xi0 = +2.86  (final 5.0000 vs 5.0000)
+    xi - xi0 = +6.00:  code 0.000   exact 0.000
+    xi - xi0 = +4.50:  code 0.321   exact 0.349
+    xi - xi0 = +3.00:  code 2.262   exact 2.252
+    xi - xi0 = +1.50:  code 3.808   exact 3.814
+    xi - xi0 = +0.00:  code 4.997   exact 4.997
+    xi - xi0 = -1.50:  code 5.000   exact 5.000
+  mean p_perp^2 of the born electrons: code 1.8717e-04   test particles (p = -a(t_birth)) 1.8754e-04   (ratio 0.998; for comparison <a^2> at the pulse peak 5.0e-03)
+ impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):
+  sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
+  total ionized charge at the end of the box: code 6.14654e-02   analytic 6.29239e-02   (rel. diff -2.3e-02)
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.5897e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.0896e-03 / 1.1866e-03  r/sr in [1.0,2.0): 4.9243e-04 / 5.0993e-04  r/sr in [2.0,3.0): 1.4834e-04 / 8.1433e-05
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 5.0465e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.4456e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.8155e-03 / 1.6021e-03  r/sr in [2.0,3.0): 3.1224e-04 / 2.5598e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 8.0185e-03 / 7.9391e-03  r/sr in [0.5,1.0): 5.4797e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.6843e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.6321e-04 / 4.2995e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.3460e-03 / 9.4161e-03  r/sr in [0.5,1.0): 6.7290e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.1222e-03 / 3.1914e-03  r/sr in [2.0,3.0): 5.7840e-04 / 5.1029e-04
+ built-in Bethe data for Rb vapour (M^2 = 5.89, C = 65.8: Kim et al. PRA 57, 246 (1998), high-energy limit;
+ sigma = 2.46e-18 cm^2 at gamma = 427):
+  sigma = 2.4600e-18 cm^2,  dP/dxi = 4.1339e-05 n_b
+  total ionized charge at the end of the box: code 9.62577e-02   analytic 9.72456e-02   (rel. diff -1.0e-02)
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 2.2128e-03 / 2.3330e-03  r/sr in [0.5,1.0): 1.7654e-03 / 1.8357e-03  r/sr in [1.0,2.0): 8.7119e-04 / 7.8902e-04  r/sr in [2.0,3.0): 2.3533e-04 / 1.2602e-04
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.4686e-03 / 7.3163e-03  r/sr in [0.5,1.0): 5.5102e-03 / 5.7598e-03  r/sr in [1.0,2.0): 2.6395e-03 / 2.4781e-03  r/sr in [2.0,3.0): 5.2680e-04 / 3.9611e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.2063e-02 / 1.2259e-02  r/sr in [0.5,1.0): 8.8484e-03 / 9.6564e-03  r/sr in [1.0,2.0): 4.1734e-03 / 4.1587e-03  r/sr in [2.0,3.0): 7.7856e-04 / 6.6526e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4200e-02 / 1.4534e-02  r/sr in [0.5,1.0): 1.0690e-02 / 1.1451e-02  r/sr in [1.0,2.0): 4.7687e-03 / 4.9338e-03  r/sr in [2.0,3.0): 9.6357e-04 / 7.8955e-04
+ the same with gas.ionization.quiet = 1 (quanta emitted by an accumulator, interleaved phases):
+  sigma = 1.5896e-18 cm^2,  dP/dxi = 2.6712e-05 n_b
+  total ionized charge at the end of the box: code 6.28088e-02   analytic 6.29239e-02   (rel. diff -1.8e-03)
+    xi - xi0 =  +15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 1.4949e-03 / 1.5081e-03  r/sr in [0.5,1.0): 1.1611e-03 / 1.1866e-03  r/sr in [1.0,2.0): 5.1554e-04 / 5.0993e-04  r/sr in [2.0,3.0): 6.6880e-05 / 8.1433e-05
+    xi - xi0 =   +0.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 4.7348e-03 / 4.7337e-03  r/sr in [0.5,1.0): 3.7081e-03 / 3.7257e-03  r/sr in [1.0,2.0): 1.6007e-03 / 1.6021e-03  r/sr in [2.0,3.0): 2.6932e-04 / 2.5598e-04
+    xi - xi0 =  -15.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 7.9335e-03 / 7.9391e-03  r/sr in [0.5,1.0): 6.2406e-03 / 6.2505e-03  r/sr in [1.0,2.0): 2.7114e-03 / 2.6896e-03  r/sr in [2.0,3.0): 4.3288e-04 / 4.2995e-04
+    xi - xi0 =  -50.0: ionized fraction code / analytic  r/sr in [0.0,0.5): 9.4049e-03 / 9.4161e-03  r/sr in [0.5,1.0): 7.4225e-03 / 7.4146e-03  r/sr in [1.0,2.0): 3.2184e-03 / 3.1914e-03  r/sr in [2.0,3.0): 4.8513e-04 / 5.1029e-04
+ ADK of H and He with ionization.quiet = 1 (whole particles: exponential thresholds of the optical depth):
+  gas (He): total ionized charge  code 2.03939e-03   expected 2.03605e-03 (+- 1.7e-05 stat.)   continuous rate eq. 2.03605e-03   -> +0.20 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.8221/0.8234+-0.0051  [0.50,1.00) 1.0542/1.0448+-0.0075  [1.00,1.50) 1.0087/1.0070+-0.0028  [1.50,2.00) 1.0000/0.9998+-0.0006  [2.00,2.50) 0.8046/0.7982+-0.0132  [2.50,3.00) 0.2147/0.2130+-0.0138
+  hyd (H): total ionized charge  code 5.02479e-03   expected 5.02479e-03 (+- 7.6e-08 stat.)   continuous rate eq. 5.02479e-03   -> +0.01 sigma
+    <z> in r-bands, code/expected: [0.00,0.50) 0.9771/0.9776+-0.0010  [0.50,1.00) 1.0000/1.0000+-0.0000  [1.00,1.50) 1.0000/1.0000+-0.0000  [1.50,2.00) 1.0000/1.0000+-0.0000  [2.00,2.50) 1.0000/1.0000+-0.0000  [2.50,3.00) 1.0000/1.0000+-0.0000
+ built-in Bethe data (Rieke & Prepejchal): impact ionization of dilute He, Ne, Ar, Kr, Xe by a rigid beam at
+ gamma = 3.39 (minimum) vs the measured minimum cross-sections (Blum, Riegler & Rolandi, Table 1.2, +-4 %):
+  he : sigma code 1.8732e-19 cm^2  measured 1.860e-19  (rel. diff +7.1e-03);  primary ion pairs/cm at NTP:   4.7  (measured ~5.0)
+  ne : sigma code 4.3011e-19 cm^2  measured 4.330e-19  (rel. diff -6.7e-03);  primary ion pairs/cm at NTP:  10.8  (measured ~12.4)
+  ar : sigma code 9.0404e-19 cm^2  measured 9.030e-19  (rel. diff +1.2e-03);  primary ion pairs/cm at NTP:  22.6  (measured ~25-28)
+  kr : sigma code 1.2644e-18 cm^2  measured: not tabulated;  primary ion pairs/cm at NTP:  31.7  (measured ~-)
+  xe : sigma code 1.7309e-18 cm^2  measured 1.720e-18  (rel. diff +6.3e-03);  primary ion pairs/cm at NTP:  43.3  (measured ~41-44)
+  largest |rel. diff| of sigma: 7.1e-03
+== 13. adaptive sub-slicing of the plasma push (pusher.max_cells_per_step) ==
+ dxi = 0.01 without / with sub-slicing vs reference dxi = 0.0025 (relative r.m.s. errors on the axis):
+  reference out_ss_ref: integral of Ez over the closure spike (xi -9.2..-8.9) = -0.291
+  out_ss_plain   extra sub-slices     0 | behind the spike: Ez 2.1e-02 psi 2.1e-02 | witness: Ez 4.5e-05 psi 5.1e-06 | spike integral -0.377
+  out_ss_sub     extra sub-slices  1642 | behind the spike: Ez 3.6e-03 psi 1.8e-03 | witness: Ez 4.2e-05 psi 2.3e-06 | spike integral -0.516
+ SECTION 13 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 14. regularization of the bubble back: radial smoothing of the plasma sources ==
+ cold plasma, xi step vs reference dxi = 0.00125:
+  reference cold_ref                                              (closure: min Ez  -20.4, max ne(0)  1400636)
+  cold_dxi0.0025         behind: Ez 3.9e-03 psi 3.0e-03 | witness: Ez 6.4e-06 psi 2.4e-07  (closure: min Ez  -12.8, max ne(0)   550732)
+  cold_dxi0.005          behind: Ez 4.9e-03 psi 3.4e-03 | witness: Ez 1.0e-05 psi 1.8e-06  (closure: min Ez  -14.8, max ne(0)    75345)
+ a = 0.005, xi step and axis cell h0 vs reference dxi = 0.00125, h0 = 5e-4:
+  reference a5e-3_ref                                             (closure: min Ez   -8.8, max ne(0)    17389)
+  a5e-3_dxi0.0025        behind: Ez 6.3e-04 psi 9.3e-05 | witness: Ez 5.5e-06 psi 6.6e-08  (closure: min Ez   -8.3, max ne(0)    17513)
+  a5e-3_dxi0.005         behind: Ez 1.9e-03 psi 9.7e-04 | witness: Ez 1.0e-05 psi 1.3e-06  (closure: min Ez   -8.4, max ne(0)     6843)
+  a5e-3_h0=0.00025       behind: Ez 1.7e-03 psi 3.6e-03 | witness: Ez 8.1e-05 psi 4.1e-06  (closure: min Ez   -8.4, max ne(0)     6390)
+  a5e-3_h0=0.001         behind: Ez 1.7e-03 psi 7.1e-04 | witness: Ez 2.5e-04 psi 1.9e-05  (closure: min Ez   -8.3, max ne(0)     7038)
+ model difference a = 0.005 vs cold (both references; O(a)):
+  reference cold_ref                                              (closure: min Ez  -20.4, max ne(0)  1400636)
+  a5e-3_ref              behind: Ez 3.4e-03 psi 5.2e-03 | witness: Ez 2.1e-04 psi 7.7e-05  (closure: min Ez   -8.8, max ne(0)    17389)
+ SECTION 14 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 15. checkpoints / restart and diagnostic groups ==
+ particle witness, mobile ions, serial restart (expected: bit-identical):
+  13 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ laser envelope + witness, serial restart (expected: bit-identical):
+  8 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ SECTION 15 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 16. adaptive time step ==
+ ion channel, density 1 -> 4, gamma 1000, 128 steps per betatron period:
+  680 steps, dt 0.833 ... 2.195: max |dt/dt_formula - 1| = 5.6e-10 (all but the last 2, which land on t_end)
+  r_rms/r0 vs |f(t)| of the ODE: max deviation 2.99e-03;  run ends at t = 1200.000000 (t_end 1200)
+ decelerating witness (gamma 50 -> 6), 32 steps per period, gamma known 1 and 6 steps late:
+  lag 1: 37 steps, gamma_eff 23.27 ... 49.56: max dt / dt(true gamma at t_n+1) = 1.0045, after the first 1 steps 0.9999
+  lag 6: 37 steps, gamma_eff 23.25 ... 49.56: max dt / dt(true gamma at t_n+1) = 1.0526, after the first 6 steps 1.0003
+  gamma_mean max rel. diff 5.41e-04, r_rms 1.78e-02  (38 vs 38 steps)
+ serial restart (expected: bit-identical):
+  14 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ SECTION 16 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 17. GUI server (tools/quarz_gui.py, no browser) ==
+  run finished (exit 0), frames [0, 2, 4, 6], fields ['psi', 'ez', 'ne']  OK
+  on-axis cut vs the field file: max difference 0.0e+00, r_max of the frame 1.016, 101 of the box slices  OK
+  2D map: 50 x 50 values, finite: True  OK
+  beams: witness 7 steps  OK
+  request without the token: HTTP 403  OK
+== 18. multiple Coulomb scattering of beam particles on the plasma ==
+  Z = 1, ion charge 1: <p_x^2>/(D t) = 1.0116, <p_y^2>/(D t) = 0.9976 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
+  Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9967, <p_y^2>/(D t) = 1.0001 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
+  matched witness, gamma 1000: d eps_n/dt = 3.7845e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0093  (eps_n 0.00977 -> 0.01281)
+ restart (expected: bit-identical, the random numbers depend on the particle state, not its index):
+  7 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ SECTION 18 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 19. two-stage runs: driver box -> rear boundary file -> witness box ==
+ (a) rigid driver, same dt (expected: bit-identical):
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+ (b) stage 2 with dt/4 between the stage-1 steps, rigid driver (expected: bit-identical):
+  fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+ (c) evolving driver: single run dt = 2.5 (reference) vs two-stage (driver dt = 10, witness dt = 2.5) vs single dt = 10:
+  out_bnd_two t = 60: witness <gamma> 58.2333 (rel. diff 1.5e-05), r_rms 7.1e-06, eps_n 1.8e-07
+  out_bnd_coarse t = 60: witness <gamma> 56.4171 (rel. diff 3.1e-02), r_rms 1.7e-01, eps_n 2.6e-03
+ SECTION 19 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 20. beam spin (Thomas-BMT) ==
+ (a) ion channel, analytic s_r = sin(kappa theta), kappa = gamma beta^2 (a + 1/(gamma+1)):
+ electrons kappa   1.2269  max|s_r| 3.536e-03  rel. error of s_r = sin(kappa theta) 3.88e-07  s_z 4.8e-12  max|s_theta| 3.4e-17  max||s|-1| 1.2e-15
+ muons     kappa   0.9733  max|s_r| 2.333e-03  rel. error of s_r = sin(kappa theta) 1.44e-07  s_z 7.9e-13  max|s_theta| 7.4e-18  max||s|-1| 1.3e-15
+ pbar      kappa  90.5865  max|s_r| 5.815e-02  rel. error of s_r = sin(kappa theta) 1.69e-07  s_z 5.7e-10  max|s_theta| 1.0e-16  max||s|-1| 1.3e-15
+ spin.txt: final polarization P = |<s>|: electrons 0.999999  muons 0.999999  pbar 0.999642
+ (b) wake, vs an RK4 integration of Lorentz + T-BMT in the stored fields (error ~ dt^2):
+ wake, a = 2, gamma 3.00 -> 6.13: rms spin turn 0.484 rad,  max |s - s_ref| 5.4e-02  (rms 4.4e-03),  max |u - u_ref|/gamma 5.0e-03
+ (c) scattering only (expected slopes 1 - O((kappa theta)^2)):
+ scattering, a = 0.00115965: kappa 2.1587  slope s_x/(kappa theta_x) 0.999999  s_y/(kappa theta_y) 0.999999  residual rms 1.8e-06  rms theta 5.8e-04  max||s|-1| 1.7e-15
+ (d) restart (expected: bit-identical):
+  12 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ SECTION 20 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 21. trapped plasma electrons -> beam particles (Trojan-horse ionization injection) ==
+ (a) H = gamma - p_z - psi = 1 - psi(birth), conserved through the conversion and the beam push:
+ 748 electrons converted per step; at the conversion gamma 4.01, H = gamma - p_z - psi in [0.15782, 0.22959]; 1 - max psi = 0.15783 (difference 9.2e-06)
+ step 10: these electrons have gamma 5.64; H changed by rms 1.0e-03, max 1.3e-03; all 8181 trapped: H in [0.15912, 0.25045]
+ (b) trapped charge per unit time, dt = 0.2 vs 0.1 (expected: equal within the injection noise):
+ dt = 0.2: 8181 macro-particles, Q/(T + dt) = -6.805303e-04
+ dt = 0.1: 15593 macro-particles, Q/(T + dt) = -6.784290e-04
+ relative difference 3.1e-03
+ (c) conversion threshold gamma/Delta = 35, 20, 70 (expected: the same trapped charge):
+ out_trap: Q = -1.4971667670e-03  (8181 macro-particles)
+ out_trap_20: Q = -1.4971667670e-03  (8181 macro-particles)
+ out_trap_70: Q = -1.4971667670e-03  (8181 macro-particles)
+ (d) with beam loading: restart (expected: bit-identical):
+  11 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ SECTION 21 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 22. delta electrons of beam impact ionization (<species>.impact.secondary_energy) ==
+ (a) dilute Xe, protons at gamma = 3.39: energy spectrum (J = 8.7 eV + free-electron tail of the n = 1-3 subshells)
+     and binary-collision angle vs the model:
+  13109 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 5.01e-03, p-value 0.897;  max W / W_max = 0.0109;  median W 8.73 eV (model 8.75 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0039; fraction with W > 1 keV: 0.00648, model 0.00735 +- 0.00075
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.4e-13  (W > 0.5 eV, 12651 electrons)
+ (a2) artificial subshells (100 eV, 1 keV; 50 electrons each) to resolve the mixture:
+  13109 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 5.98e-03, p-value 0.736;  max W / W_max = 0.1922;  median W 9.85 eV (model 9.89 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0892; fraction with W > 1 keV: 0.01755, model 0.01647 +- 0.00111
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.4e-13  (W > 0.5 eV, 12689 electrons)
+ (b) electrons at gamma = 20 (W_max = (gamma - 1)/2, Moller kinematics), J = 2 MeV to resolve the cut-off:
+  16778 impact-born electrons; W_max = 4.854 MeV, kappa = 1.051315, J = 2e+06 eV
+  energy: KS distance 4.25e-03, p-value 0.922;  max W / W_max = 0.9998;  median W 1338483.72 eV (model 1334077.15 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0029; fraction with W > 1 keV: 0.99791, model 0.99801 +- 0.00034
+  angle: max |cos(theta) - kappa sqrt(W/(W+2))| = 2.2e-14  (W > 0.5 eV, 16778 electrons)
+ (c) isotropic emission:
+  13109 impact-born electrons; W_max = 10.68 MeV, kappa = 1.046739, J = 8.7 eV
+  energy: KS distance 5.01e-03, p-value 0.897;  max W / W_max = 0.0109;  median W 8.73 eV (model 8.75 eV)
+  inner subshells: p = sigma_inner/sigma = 0.0039; fraction with W > 1 keV: 0.00648, model 0.00735 +- 0.00075
+  angle: isotropic, KS distance of cos(theta) 1.07e-02, p-value 0.109; <cos(theta)> = -0.0074
+ (d) 400 GeV protons, J = 5.11 MeV: fast delta electrons (gamma/Delta > 35) -> beam particles of electrons_trapped:
+  24217 electrons born, 4381 beyond gamma/Delta = 35 at birth; trapped beam particles at the end: 4380
+  (expected: equal up to the 7 born within 0.1 % of the threshold: the conversion tests the state after the first push) OK
+ (e) the ionization itself does not change:
+  ion charge density with / without delta electrons: max |difference| = 0.0e+00  (expected: 0)
+ (f) with fast deltas ionizing as beam electrons: restart (expected: bit-identical):
+  10 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ SECTION 22 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 23. electron-impact ionization by plasma electrons (<species>.ionization.electron_impact) ==
+ (a) dilute gas in mono-energetic electrons (u_z = +-u): ionized fraction vs 1 - exp(-n sigma v xi), Lotz formula
+     implemented independently in Python:
+  E = 30.00 eV, sigma(Xe -> +1) = 4.9397e-16 cm^2;  electron density (lab) code 9.99881e+12, expected 1.00012e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 6.9819e-05 / 7.1397e-05   xi = -500: 1.4070e-04 / 1.4250e-04   xi = -1000: 2.8350e-04 / 2.8470e-04   (max rel. diff 2.2e-02)
+  E = 100.16 eV, sigma(Xe -> +1) = 4.8809e-16 cm^2;  electron density (lab) code 9.99454e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 1.2604e-04 / 1.2892e-04   xi = -500: 2.5444e-04 / 2.5731e-04   xi = -1000: 5.1165e-04 / 5.1405e-04   (max rel. diff 2.2e-02)
+  E = 999.94 eV, sigma(Xe -> +1) = 1.1628e-16 cm^2;  electron density (lab) code 9.94270e+12, expected 1.00392e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 9.5408e-05 / 9.7260e-05   xi = -500: 1.9112e-04 / 1.9412e-04   xi = -1000: 3.8507e-04 / 3.8782e-04   (max rel. diff 1.9e-02)
+ (b) Xe+ -> Xe2+ (high-charge Lotz form, 5p^5):
+  E = 100.16 eV, sigma(Xe+ -> +1) = 1.6745e-16 cm^2;  electron density (lab) code 9.99437e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 4.3235e-05 / 4.4230e-05   xi = -500: 8.6897e-05 / 8.8282e-05   xi = -1000: 1.7494e-04 / 1.7638e-04   (max rel. diff 2.2e-02)
+ (c) cross-section table (eimpact_table.txt):
+  E = 100.16 eV, sigma(Xe -> +1) = 4.9988e-16 cm^2 (table);  electron density (lab) code 9.99454e+12, expected 1.00039e+13 cm^-3
+  ionized fraction code / expected:  xi = -250: 1.2952e-04 / 1.3204e-04   xi = -500: 2.6146e-04 / 2.6353e-04   xi = -1000: 5.2528e-04 / 5.2646e-04   (max rel. diff 1.9e-02)
+ (d) dense Xe (1e16 cm^-3), dilute 100 eV electrons, continuous loss with excitation: energy vs RK4 of
+     dE/dxi = -n [sigma (Ip + <W>) + sum_j sigma_j W_j] |u|/Delta:
+  ea (u_z = +0.0198): energy 100.16 eV -> code 86.3091 +- 0.0000 eV, RK4 86.3090 eV  (loss: code 13.8471, RK4 13.8472, rel. diff -1.2e-05)
+  eb (u_z = -0.0198): energy 100.16 eV -> code 86.8145 +- 0.0000 eV, RK4 86.8151 eV  (loss: code 13.3417, RK4 13.3411, rel. diff +4.4e-05)
+ (d2) discrete collisions (default), no excitation: mean energy vs RK4 (straggling: second order), energy lost by
+     all electrons vs sum of (Ip + W) over the electron-impact births:
+  ea (u_z = +0.0198): energy 100.16 eV -> code 88.8853 +- 0.3334 eV, RK4 88.6400 eV  (loss: code 11.2709, RK4 11.5162, rel. diff -2.1e-02)
+  eb (u_z = -0.0198): energy 100.16 eV -> code 89.1439 +- 0.3239 eV, RK4 89.0641 eV  (loss: code 11.0123, RK4 11.0921, rel. diff -7.2e-03)
+  energy balance: lost by the electrons 2.84568e-03, given to ionization (Ip + W) 2.88040e-03  (ratio 0.9879; 66263 births; Monte Carlo error ~6.8e-02)
+ (e) restart (expected: bit-identical):
+  6 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+ SECTION 23 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 24. 0D electron cascade in Xe: ionization + excitation (W-value) vs an independent event-by-event Monte Carlo ==
+ (a) 100 eV primaries (cascade_mc.py: same cross-sections, discrete collisions; measured W of Xe: 22.0 eV at high energy):
+  E0 = 100.16 eV: W code 25.02 +- 0.26 eV (10336 births, 5120 primaries; energy left above threshold 1.4e-03), independent MC 24.38 +- 0.15 eV  (rel. diff +2.6e-02)
+  E0 = 100.16 eV, no excitation: W code 17.19 +- 0.14 eV (14981 births, 5120 primaries; energy left above threshold 1.8e-02), independent MC 16.80 +- 0.04 eV  (rel. diff +2.3e-02)
+== 25. beam shot noise: noise power of the macro-particle beam vs the real protons (Poisson), before and after 1 m of drift ==
+ quiet lattice (default loader): 1248000 macro-particles, 2.78e+05 protons each (mean); noise power / Poisson, <R> over k = 2pi/(1-10 mm), statistical error +-0.14:
+   K=1 (current)      z = 0:  2.28e-08   z = 1 m:  3.99e-06
+   K=exp(-r^2/2sr^2)  z = 0:  1.71e-08   z = 1 m:   7.1e+03
+   K=[r<sr/2]         z = 0:  2.63e-09   z = 1 m:  9.32e+04
+   K=[sr<r<1.5sr]     z = 0:  6.37e-09   z = 1 m:  1.78e+05
+   free drift over 1 m: r_rms growth 0.00825 (analytic 0.00825), emittance 0.07119 -> 0.07119
+ rods + shot noise (rods 8, dr 0.5, shot_noise 1): 1996363 macro-particles, 1.74e+05 protons each (mean); noise power / Poisson, <R> over k = 2pi/(1-10 mm), statistical error +-0.14:
+   K=1 (current)      z = 0:         1   z = 1 m:         1
+   K=exp(-r^2/2sr^2)  z = 0:     0.907   z = 1 m:     0.919
+   K=[r<sr/2]         z = 0:      0.81   z = 1 m:      1.12
+   K=[sr<r<1.5sr]     z = 0:      1.03   z = 1 m:     0.956
+   free drift over 1 m: r_rms growth 0.00827 (analytic 0.00825), emittance 0.07119 -> 0.07119
+ SECTION 25 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 26. longitudinal convention xi = z - t (beams move towards +xi): v1.0 decks, positions in the output ==
+ v1.0 deck converted by tools/convert_deck.py vs examples/parsed_profiles.in (expected bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+  slices   max rel diff 0.00e+00  (slices_driver_000000.txt col 0)
+ gamma = 3 beam drifting in vacuum (betatron.in without plasma, xi0 = -2):
+  field file: xi = -4 ... 0, increasing: OK;  beam charge centred at -1.9962, particles at -1.9962 (deck xi0 = -2)
+  slip over t = 10: mean -0.57191 (int (v_z - 1) dt: -0.57191), max |slip - ref| / |ref| = 7.0e-07
+== 27. beam import from native particle dumps (<beam>.profile = file, <beam>.file = beam_<name>_NNNNNN.bin) ==
+ imported dump written again at step 0 vs the file (expected identical): identical
+ read in blocks of 777 particles vs the default block (expected identical): identical
+ 2 steps from the dump vs from the same particles as a text file (expected bit-identical, 0):
+  axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+  beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+  dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+  fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+ beam with spin (10 doubles per particle), written again (expected identical): identical
+ the same dump into a beam without spin: 20000 particles, x y p xi w identical
+ truncated file: is not a native beam dump
+ SECTION 27 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 28. beam import from openPMD (<beam>.profile = openpmd): QUARZ files and other codes' conventions ==
+ QUARZ openPMD output of step 2 imported and written again at step 0 vs the native dump of step 2:
+  si         4000 particles, max rel. difference 2.1e-16  (expected: SI round-off, normalised 0)
+  normalised 4000 particles, max rel. difference 0.0e+00  (expected: SI round-off, normalised 0)
+ synthetic files of other codes vs the expected beam (computed independently in Python; expected round-off):
+  si: 3000 of 3000 particles; max rel. difference: x 1.4e-16, y 1.5e-16, px 2.8e-16, py 1.6e-16, pz 2.8e-16, xi 1.9e-15, w 2.6e-16
+  si, read in blocks of 777 particles vs the default block (expected identical): identical
+  norm: 3000 of 3000 particles; max rel. difference: x 0.0e+00, y 0.0e+00, px 1.3e-16, py 1.1e-16, pz 2.1e-16, xi 0.0e+00, w 2.1e-16
+ charge and mass taken from the file when the deck has none: from the openPMD species: charge -1.000000 e mass 1836.152673 m_e
+ deck mass 1 instead of the file's: warning given: 1; gamma beta / the file's = 1.0000000000 ... 1.0000000000 (expected 1: velocity kept)
+ particle_stride = 4: charge of the import / of the original beam: 0.2500, with openpmd_scale_stride = 1: 1.0000; warning given: 1
+ muons with spin (normalised units) imported and written again vs the native dump: 20000 particles; spins 0.0e+00, x y xi w 0.0e+00, momenta 1.8e-16 (expected: 0, 0, round-off of the mass factor 206.77)
+ SECTION 28 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+== 29. regular-xi beam loader (<beam>.longitudinal_sampling = regular): equal particles per sub-slice ==
+ quasi, 64 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 64: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 1.1e-02 sigma_y 1.3e-02 sigma_px 8.2e-03 <gamma> 3.0e-04 sigma_gamma 1.3e-02 | <x>/sigma_r 8.1e-03 <px>/sigma_px 2.5e-02
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 1.1e-02 sigma_y 1.2e-02 sigma_px 1.7e-02 <gamma> 3.0e-04 sigma_gamma 1.6e-02 | <x>/sigma_r 7.9e-03 <px>/sigma_px 2.9e-02
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ quasi, 1024 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 1024: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 7.4e-04 sigma_y 7.4e-04 sigma_px 1.3e-03 <gamma> 2.0e-05 sigma_gamma 5.8e-04 | <x>/sigma_r 7.5e-05 <px>/sigma_px 2.4e-03
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 6.7e-04 sigma_y 6.9e-04 sigma_px 1.4e-03 <gamma> 2.2e-05 sigma_gamma 8.9e-04 | <x>/sigma_r 7.9e-05 <px>/sigma_px 2.4e-03
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ random, 64 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 64: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 9.0e-02 sigma_y 7.6e-02 sigma_px 9.5e-02 <gamma> 1.3e-03 sigma_gamma 7.7e-02 | <x>/sigma_r 1.0e-01 <px>/sigma_px 1.2e-01
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 9.2e-02 sigma_y 9.1e-02 sigma_px 8.7e-02 <gamma> 1.3e-03 sigma_gamma 1.0e-01 | <x>/sigma_r 1.2e-01 <px>/sigma_px 1.2e-01
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ random, 1024 particles per sub-slice (core: |xi - xi0| < sigma_xi, fringe: > 2 sigma_xi):
+  180 sub-slices x 1024: equal counts OK, max relative spread of the weights within a sub-slice 0.0e+00
+  core   (60 slices) r.m.s. rel. errors: sigma_x 2.3e-02 sigma_y 2.0e-02 sigma_px 2.3e-02 <gamma> 3.3e-04 sigma_gamma 2.1e-02 | <x>/sigma_r 3.2e-02 <px>/sigma_px 3.4e-02
+  fringe (60 slices) r.m.s. rel. errors: sigma_x 2.3e-02 sigma_y 2.0e-02 sigma_px 1.8e-02 <gamma> 3.2e-04 sigma_gamma 2.2e-02 | <x>/sigma_r 2.7e-02 <px>/sigma_px 3.3e-02
+  total weight / analytic 1.000001 (midpoint rule over 180 sub-slices); slice weights vs the line density: max rel. difference 2.2e-14
+ vs the random loader with the same number of particles (46080):
+  regular: 46080 particles; per sigma_xi/4 bin: core 2048, fringe 1792 ... 2048; fringe slice centroid r.m.s. 3.0e-05
+  random : 46080 particles; per sigma_xi/4 bin: core 4621, fringe 58 ... 147; fringe slice centroid r.m.s. 6.6e-03
+ profile = parsed_xi with the Gaussian line density vs profile = gaussian (expected round-off):
+  46080 particles each, max relative difference 1.1e-16
+  slice mean p_z vs uz_mean(xi) = 1000 + 50 (xi - -2): max rel. difference 8.9e-16 (p_z 955.3 ... 1044.8)
+ shot noise, witness.n0 = 0.02:
+  46080 particles (6004 with weight 0, not in the dump), N = 0.27 ... 23 real particles per macro-particle: variance / Poisson 1.002 (expected 1), mean deviation -1.63 standard errors
+ shot noise, witness.n0 = 10:
+  46080 particles (0 with weight 0, not in the dump), N = 1.3e+02 ... 1.15e+04 real particles per macro-particle: variance / Poisson 1.006 (expected 1), mean deviation +0.17 standard errors
+ SECTION 29 ABORTED (exit code 255); last messages:
+   | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+   | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+   | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+   | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+   | [mpiexec@cuda.tp1.hhu.de] main (mpiexec/mpiexec.c:49): error parsing parameters
+-- timing (quick mode, 2 parallel, 4 threads each): 1:8s 2:7s 3:1s 4:6s 5:10s 6:10s 7:5s 8:11s 9:7s 10:24s 11:15s 12:43s 13:6s 14:17s 15:20s 16:33s 17:0s 18:3s 19:23s 20:11s 21:22s 22:16s 23:58s 24:38s 25:33s 26:5s 27:1s 28:3s 29:2s total 222 s
+section  1: PASS
+section  2: PASS
+section  3: PASS
+section  4: PASS
+section  5: PASS
+section  6: PASS
+section  7: PASS
+section  8: PASS
+section  9: FAIL
+    7 lines instead of 13
+    line 2: text differs
+      ref: witness gain, 2 ranks (expected: bit-identical, 0):
+      new: SECTION 9 ABORTED (exit code 255); last messages:
+    line 3: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 4: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 5: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 10: FAIL
+    8 lines instead of 19
+    line 6: text differs
+      ref: ParaView openPMD reader with rectilinear meshes (tools/paraview, vtk module; expected PASS):
+      new: uniform openPMD grid vs interpolated native data (expected round-off):
+    line 7: text differs
+      ref: StructuredGrid, 368 radial nodes (h 8.38e-08..6.7e-07), 401 z nodes; max rel. error: r 0.0e+00, z 2.0e-16, psi 1.6e-16  PASS
+      new: max relative difference openPMD vs native: 4.27e-16
+    line 8: text differs
+      ref: RectilinearGrid, labels ['x', 'y', 'z'], dims [7, 5, 9]; max rel. error: coordinates 2.0e-16, rho 0.0e+00  PASS
+      new: SECTION 10 ABORTED (exit code 255); last messages:
+section 11: PASS
+section 12: PASS
+section 13: FAIL
+    11 lines instead of 9
+    line 6: text differs
+      ref: with sub-slicing, 2 MPI ranks vs serial (expected: bit-identical, 0):
+      new: SECTION 13 ABORTED (exit code 255); last messages:
+    line 7: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 8: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 9: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 14: FAIL
+    20 lines instead of 18
+    line 15: text differs
+      ref: with smoothing, 2 MPI ranks vs serial (expected: bit-identical, 0):
+      new: SECTION 14 ABORTED (exit code 255); last messages:
+    line 16: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 17: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 18: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 15: FAIL
+    11 lines instead of 19
+    line 6: text differs
+      ref: 2 ranks, restart with 2 ranks (expected: bit-identical):
+      new: SECTION 15 ABORTED (exit code 255); last messages:
+    line 7: text differs
+      ref: 13 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 8: text differs
+      ref: 2 ranks, restart with 3 ranks (particles redistributed; expected: <= round-off):
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 9: text differs
+      ref: 13 output files of the restarted run vs the uninterrupted run: max rel. difference 0.00e+00  OK
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 16: FAIL
+    16 lines instead of 18
+    line 11: text differs
+      ref: 2 ranks (lag 3) vs serial with lag 3 (expected: fields and particles bit-identical, beam log sums round-off; same time steps):
+      new: SECTION 16 ABORTED (exit code 255); last messages:
+    line 12: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 13: text differs
+      ref: beamlog  max rel diff 4.19e-13  (beams.txt col 7)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 14: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 17: PASS
+section 18: FAIL
+    12 lines instead of 11
+    line 2: 0.9993 -> 1.0116
+      ref: Z = 1, ion charge 1: <p_x^2>/(D t) = 0.9993, <p_y^2>/(D t) = 1.0070 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
+      new: Z = 1, ion charge 1: <p_x^2>/(D t) = 1.0116, <p_y^2>/(D t) = 0.9976 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
+    line 3: 0.9915 -> 0.9967
+      ref: Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9915, <p_y^2>/(D t) = 0.9947 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
+      new: Z = 3, ion charge 1: <p_x^2>/(D t) = 0.9967, <p_y^2>/(D t) = 1.0001 (40000 particles, statistical error 0.0071); gamma conserved to 9e-13
+    line 4: 3.7737e-06 -> 3.7845e-06
+      ref: matched witness, gamma 1000: d eps_n/dt = 3.7737e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0064  (eps_n 0.00977 -> 0.01280)
+      new: matched witness, gamma 1000: d eps_n/dt = 3.7845e-06, theory D/sqrt(2 gamma) = 3.7496e-06, ratio 1.0093  (eps_n 0.00977 -> 0.01281)
+    line 7: text differs
+      ref: 2 ranks vs serial (expected: particles bit-identical; fields at round-off, as without scattering):
+      new: SECTION 18 ABORTED (exit code 255); last messages:
+section 19: FAIL
+    14 lines instead of 10
+    line 9: text differs
+      ref: (a) with 2 ranks in each stage (expected: bit-identical to the single serial run):
+      new: SECTION 19 ABORTED (exit code 255); last messages:
+    line 10: text differs
+      ref: fields of the stage-2 box (xi <= -5.01) vs the single run, t = 60: max rel. difference 0.0e+00
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+section 20: FAIL
+    18 lines instead of 17
+    line 13: text differs
+      ref: 2 ranks vs serial (expected: particles and spins bit-identical; fields, beams.txt moments at round-off):
+      new: SECTION 20 ABORTED (exit code 255); last messages:
+    line 14: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 15: text differs
+      ref: beamlog  max rel diff 9.04e-10  (beams.txt col 11)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 16: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_electrons_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 21: FAIL
+    20 lines instead of 19
+    line 15: text differs
+      ref: 2 ranks vs serial (expected: bit-identical):
+      new: SECTION 21 ABORTED (exit code 255); last messages:
+    line 16: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 17: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 18: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_driver_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 22: FAIL
+    35 lines instead of 34
+    line 30: text differs
+      ref: 2 ranks vs serial (expected: bit-identical):
+      new: SECTION 22 ABORTED (exit code 255); last messages:
+    line 31: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 32: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 33: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_b_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 23: FAIL
+    32 lines instead of 36
+    line 27: text differs
+      ref: 2 ranks vs serial (expected: bit-identical):
+      new: SECTION 23 ABORTED (exit code 255); last messages:
+    line 28: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 29: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 30: text differs
+      ref: fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 24: PASS
+section 25: FAIL
+    19 lines instead of 17
+    line 14: text differs
+      ref: 2 ranks vs serial (expected: bit-identical):
+      new: SECTION 25 ABORTED (exit code 255); last messages:
+    line 15: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 16: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 17: text differs
+      ref: fields   max rel diff 0.00e+00  (fields_000000.bin:psi)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 26: PASS
+section 27: FAIL
+    line 12: text differs
+      ref: 2 ranks vs serial, both from the dump (expected: particles and fields bit-identical; beam log round-off of
+      new: SECTION 27 ABORTED (exit code 255); last messages:
+    line 13: text differs
+      ref: the sums over the ranks, relative to the near-zero centroid <x> ~ 2e-6):
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 14: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 15: text differs
+      ref: beamlog  max rel diff 7.80e-07  (beams.txt col 11)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+    line 16: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYD_uii_mpx_get_parameters (mpiexec/get_parameters.c:47): unable to parse user arguments
+section 28: FAIL
+    18 lines instead of 17
+    line 13: text differs
+      ref: 2 ranks vs serial, both from the openPMD file (expected: particles and fields bit-identical; beam log round-off):
+      new: SECTION 28 ABORTED (exit code 255); last messages:
+    line 14: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 15: text differs
+      ref: beamlog  max rel diff 1.21e-08  (beams.txt col 11)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 16: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+section 29: FAIL
+    37 lines instead of 41
+    line 32: text differs
+      ref: 2 ranks vs serial (expected: beam generated identically; particles and fields bit-identical, beam log round-off):
+      new: SECTION 29 ABORTED (exit code 255); last messages:
+    line 33: text differs
+      ref: axis     max rel diff 0.00e+00  (axis_000000.txt col 0)
+      new: | [mpiexec@cuda.tp1.hhu.de] match_arg (lib/utils/args.c:166): unrecognized argument oversubscribe
+    line 34: text differs
+      ref: beamlog  max rel diff 0.00e+00  (beams.txt col 1)
+      new: | [mpiexec@cuda.tp1.hhu.de] HYDU_parse_array (lib/utils/args.c:181): argument matching returned error
+    line 35: text differs
+      ref: dumps    max rel diff 0.00e+00  (beam_witness_000000.bin:x)
+      new: | [mpiexec@cuda.tp1.hhu.de] parse_args (mpiexec/get_parameters.c:315): error parsing input array
+validation: FAIL (16 of 29 sections failed)

@@ -4,7 +4,7 @@
 
 ```
 Radial grid: N = 308 cells, R = 10, h_min = 0.0100298 (at axis h_0 = 0.0100298), h_max = 0.100298, ...
-Box: xi in [-2, 1000], dxi = 0.05, 20041 slices;  beam shape in xi: linear
+Box: xi in [-1000, 2] (head at 2), dxi = 0.05, 20041 slices;  beam shape in xi: linear
 Plasma species 'electrons': q = -1, m = 1, mobile, up to 1232 macro-particles per slice ...
 Beam 'protons': 4000000 macro-particles
 Output: fields ez er bth ne rhob every 25, beams protons every 250, r <= 3.01525 (237 nodes), every 5. slice, native
@@ -23,7 +23,7 @@ step      0  t =          0   sweep 5.066 s
 |---|---|
 | `grid.txt` | the radial grid: j, r_j, h_j, V_j |
 | `beams.txt` | one line per beam per step: name, step, t, alive, npart, charge, gamma_mean, gamma_rms, xi_mean, xi_rms, r_rms, emit_nx, x_mean, y_mean, emit_ny, sigma_x, sigma_y |
-| `axis_NNNNNN.txt` | on the axis, one line per slice: xi, E_z, psi, n_e, rho_beam, focusing slope (E_r - B_theta)/r at the first node |
+| `axis_NNNNNN.txt` | on the axis, one line per slice (increasing xi: the head of the box last): xi, E_z, psi, n_e, rho_beam, focusing slope (E_r - B_theta)/r at the first node |
 | `fields_NNNNNN.bin` | 2D maps (xi, r) of psi, ez, er, eth, br, bth, bz, ne, ni, rhob (binary; `tools/quarz_read.py` of the repository reads it, `tools/plot_fields.py` plots it) |
 | `beam_<name>_NNNNNN.bin` | beam particles: x, y, p_x, p_y, p_z, xi, w |
 | `slices_<beam>_NNNNNN.txt` | per-slice beam moments (`output.beam_slices`), for hosing and micro-bunch studies |

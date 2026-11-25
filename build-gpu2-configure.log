@@ -1,0 +1,36 @@
+-- The C compiler identification is GNU 8.5.0
+-- The CXX compiler identification is GNU 14.1.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/tcwilson/work/src/qsrz/QUARZ/gpu-deps/kokkos-5.2.2-src/bin/nvcc_wrapper - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Failed
+-- Looking for pthread_create in pthreads
+-- Looking for pthread_create in pthreads - not found
+-- Looking for pthread_create in pthread
+-- Looking for pthread_create in pthread - found
+-- Found Threads: TRUE
+CMake Warning at gpu-deps/kokkos-5.2.2-cuda-BLACKWELL120/lib64/cmake/Kokkos/KokkosConfigCommon.cmake:69 (message):
+  The installed Kokkos configuration does not support CXX extensions.
+  Forcing -DCMAKE_CXX_EXTENSIONS=Off
+Call Stack (most recent call first):
+  gpu-deps/kokkos-5.2.2-cuda-BLACKWELL120/lib64/cmake/Kokkos/KokkosConfig.cmake:46 (include)
+  CMakeLists.txt:32 (find_package)
+
+
+-- Found HDF5: /home/tcwilson/work/src/hdf5-1.14.5/hdf5_cuda/lib/libhdf5.so;/usr/lib64/libz.so;/usr/lib64/libdl.so;/usr/lib64/libm.so (found version "1.14.5") found components: C
+-- QUARZ: LASY laser files enabled (HDF5 1.14.5)
+-- QUARZ: openPMD output enabled (openPMD-api 0.18.0, MPI: FALSE)
+-- Performing Test QUARZ_OPENPMD_HAS_GRID_COORDINATES
+-- Performing Test QUARZ_OPENPMD_HAS_GRID_COORDINATES - Success
+-- QUARZ: openPMD-api writes coordinate data sets: native grid in the openPMD 2.0 form
+-- Configuring done (7.3s)
+-- Generating done (1.8s)
+-- Build files have been written to: /home/tcwilson/work/src/qsrz/QUARZ/build-gpu2

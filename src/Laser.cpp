@@ -85,7 +85,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
         in.path = cfg.get_string("laser.file");
         in.iteration = cfg.get_int("laser.file_iteration", -1);
         in.n0_cm3 = cfg.get_double("units.n0_cm3", 0.0);
-        in.xi0 = cfg.get_double("laser.xi0");
+        in.xi0 = xi_from_user(cfg.get_double("laser.xi0"));   // internal xi, like the slices xs below (Types.hpp)
         in.file_z = cfg.get_double("laser.file_z", 0.0);
         if (cfg.has("laser.file_t_center_fs"))
             in.t_center = cfg.get_double("laser.file_t_center_fs") * 1e-15 * 5.64146e4 * std::sqrt(in.n0_cm3);
@@ -145,7 +145,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
             }
         }
         const std::vector<double> pv = nums("laser.comb_p", nl, 0.0), phi = nums("laser.comb_phase", nl, 0.0);
-        const double w = cfg.get_double("laser.w0"), fwhm = cfg.get_double("laser.fwhm"), xi0 = cfg.get_double("laser.xi0");
+        const double w = cfg.get_double("laser.w0"), fwhm = cfg.get_double("laser.fwhm"), xi0 = xi_from_user(cfg.get_double("laser.xi0"));   // internal xi (Types.hpp)
         const double sg = cfg.get_double("laser.sg", 2.0), chi0 = cfg.get_double("laser.comb_chi0", 1.0);
         if (!(w > 0) || !(fwhm > 0) || !(sg >= 1)) throw std::runtime_error("laser.comb_a: needs laser.w0 > 0, laser.fwhm > 0, laser.sg >= 1");
         const double L = fwhm / (2 * std::pow(0.5 * std::log(2.0), 1 / sg));
@@ -163,7 +163,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
             comb_info_.push_back(b);
         }
         char b[200];
-        std::snprintf(b, sizeof(b), "envelope exp(-|(xi - %g)/%g|^%g) (intensity FWHM %g), spot w = %g, chi0 = %g", xi0, L, sg, fwhm, w, chi0);
+        std::snprintf(b, sizeof(b), "envelope exp(-|(xi - %g)/%g|^%g) (intensity FWHM %g), spot w = %g, chi0 = %g", xi_to_user(xi0), L, sg, fwhm, w, chi0);
         comb_info_.push_back(b);
         auto laguerre = [](int p, double x) {   // L_p(x)
             double l0 = 1, l1 = 1 - x;
@@ -195,7 +195,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
         const double a0 = cfg.get_double("laser.a0");
         const double w0 = cfg.get_double("laser.w0");
         const double L0 = cfg.get_double("laser.L0");
-        const double xi0 = cfg.get_double("laser.xi0");
+        const double xi0 = xi_from_user(cfg.get_double("laser.xi0"));   // internal xi (Types.hpp)
         const double zf = cfg.get_double("laser.focus", 0.0);
         if (w0 <= 0 || L0 <= 0) throw std::runtime_error("laser: w0 and L0 must be positive");
         const double zR = 0.5 * k0_ * w0 * w0;
@@ -231,7 +231,7 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     // the head of the box must be free of light
     if (box.k0 == 0 && head > 1e-2 * peak)
         std::fprintf(stderr, "WARNING: the laser is not negligible at the head of the box (xi = %g): |a| = %.2g of its peak there\n",
-                     box.xi_min, head / peak);
+                     xi_to_user(box.xi_min), head / peak);
 }
 
 std::string Laser::description() const {
@@ -403,7 +403,7 @@ std::array<double, 5> Laser::sums() const {
             const double m2 = h(kl, j, 0) * h(kl, j, 0) + h(kl, j, 1) * h(kl, j, 1);
             const double dv = grid_.V[j] * box_.dxi;
             S[0] += m2 * dv;
-            S[1] += m2 * xi * dv;
+            S[1] += m2 * xi_to_user(xi) * dv;   // centroid in the user xi
             S[2] += m2 * grid_.r[j] * grid_.r[j] * dv;
             S[3] = std::max(S[3], std::sqrt(m2));
             S[4] += m2 * xi * xi * dv;

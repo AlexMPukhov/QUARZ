@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -42,7 +43,8 @@ static void binned_std(const std::vector<double>& key, const std::vector<double>
 int main(int argc, char* argv[]) {
     Kokkos::ScopeGuard guard(argc, argv);
     RadialGrid g(RadialGrid::make_uniform(2.0, 0.01));
-    BeamGrid bg; bg.xi_min = 0; bg.dxi = 0.01; bg.nxi = 1001;
+    // internal box xi = t - z in [-10, 0], i.e. user xi = z - t in [0, 10] (deck keys and dumps use the user xi)
+    BeamGrid bg; bg.xi_min = -10; bg.dxi = 0.01; bg.nxi = 1001; bg.nloc = 1001;   // one rank: all slices local
 
     std::printf("Parsed beam with position-dependent momentum spread\n");
     {
@@ -62,8 +64,11 @@ int main(int argc, char* argv[]) {
         const std::string fn = "test_profiles_beam.bin";
         b.dump(fn);
         FILE* f = std::fopen(fn.c_str(), "rb");
-        int32_t n = 0;
-        if (std::fread(&n, 4, 1, f) != 1) n = 0;
+        char head[24] = {};   // magic "QUARZDMP", int32 version, int32 columns (7), int64 n
+        int64_t n64 = 0;
+        if (std::fread(head, 1, 24, f) == 24 && std::memcmp(head, "QUARZDMP", 8) == 0) std::memcpy(&n64, head + 16, 8);
+        check(n64 > 0, "the dump has the QUARZDMP header");
+        const int n = static_cast<int>(n64);
         std::vector<double> X(n), Y(n), PX(n), PY(n), PZ(n), XI(n), W(n);
         for (int i = 0; i < n; ++i) {
             double rec[7];

@@ -13,11 +13,12 @@ from quarz_read import read_beamlog, read_fields  # noqa: E402
 if sys.argv[1] == "fields":
     a = read_fields(f"{sys.argv[2]}/fields_{int(sys.argv[4]):06d}.bin")
     b = read_fields(f"{sys.argv[3]}/fields_{int(sys.argv[5]):06d}.bin")
-    k0 = int(np.argmin(np.abs(a["xi"] - b["xi"][0])))
-    assert len(a["xi"]) - k0 == len(b["xi"]) and abs(a["t"] - b["t"]) < 1e-9
-    w = max(float(np.max(np.abs(a[c][k0:] - b[c])) / max(np.max(np.abs(a[c][k0:])), 1e-300))
+    # the stage-2 box lies behind stage 1: the first rows (smallest xi) of the single run
+    k1 = int(np.argmin(np.abs(a["xi"] - b["xi"][-1]))) + 1
+    assert k1 == len(b["xi"]) and abs(a["t"] - b["t"]) < 1e-9
+    w = max(float(np.max(np.abs(a[c][:k1] - b[c])) / max(np.max(np.abs(a[c][:k1])), 1e-300))
             for c in ("psi", "ez", "er", "bth", "ne"))
-    print(f"  fields of the stage-2 box (xi >= {b['xi'][0]:g}) vs the single run, t = {b['t']:g}: max rel. difference {w:.1e}")
+    print(f"  fields of the stage-2 box (xi <= {b['xi'][-1]:g}) vs the single run, t = {b['t']:g}: max rel. difference {w:.1e}")
 else:
     R = read_beamlog(f"{sys.argv[2]}/beams.txt")["witness"]
     for o in sys.argv[3:]:

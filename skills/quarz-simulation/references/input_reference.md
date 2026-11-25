@@ -25,7 +25,8 @@ The generated grid is written to `out/grid.txt` (j, r_j, h_j, V_j).
 |---|---|---|
 | `modes` | 0 | 0 = axisymmetric (m = 0), 1 = modes m = 0 and 1 |
 | `solver.picard` | 3 (modes=1) | Picard iterations for the χ₁ mode coupling of B⊥ |
-| `xi.min`, `xi.max`, `xi.step` | 0, —, — | box and slice spacing Δξ |
+| `xi.convention` | — (required) | must be `z-t`: states that the deck uses ξ = z − t (v2.0.0 and later). Decks without it are refused, so that a v1 deck (ξ = t − z) cannot run unnoticed; `tools/convert_deck.py` converts a v1 deck and adds the key |
+| `xi.min`, `xi.max`, `xi.step` | —, 0, — | box (ξ = z − t; the head of the box is at `xi.max`) and slice spacing Δξ. The slices are xi.max, xi.max − Δξ, … |
 | `time.dt`, `time.steps`, `time.start` | 0, 0, 0 | beam time step and number of steps (0 = one quasi-static solve). With `time.adaptive`, `time.dt` (if given) is the largest step |
 | `time.t_end` | — | end the run at this time instead of after `time.steps` steps (then only an upper bound); the last step is shortened to land on it exactly, without a tiny final step |
 | `time.adaptive` | 0 | adaptive beam time step from the betatron period, see below |
@@ -68,9 +69,9 @@ my_constants.L    = 200            # user constants; may use each other, in any 
 my_constants.kp   = 2*pi/L
 plasma.density(x,y,z)   = "if(z < L, sin(0.5*pi*max(z,0)/L)^2, 1) * (1 + 0.2*(x^2+y^2)/4)"
 driver.profile           = parsed
-driver.density(x,y,xi)   = "6*exp(-(x^2+y^2)/(2*0.25^2)) * (xi > 1)*(xi < 4)"
-witness.uz_mean(x,y,xi)  = "2000 - 40*(xi - 6.3)"      # energy chirp
-witness.uz_std(x,y,xi)   = "2 + 10*abs(xi - 6.3)"       # slice energy spread varying along the bunch
+driver.density(x,y,xi)   = "6*exp(-(x^2+y^2)/(2*0.25^2)) * (xi > -4)*(xi < -1)"
+witness.uz_mean(x,y,xi)  = "2000 + 40*(xi + 6.3)"      # energy chirp (gamma grows towards the head)
+witness.uz_std(x,y,xi)   = "2 + 10*abs(xi + 6.3)"       # slice energy spread varying along the bunch
 witness.ux_std(x,y,xi)   = "0.05*(1 + (x^2+y^2)/0.05^2)" # transverse temperature growing with radius
 electrons.uth(x,y,z)     = "0.001*(1 + z/1000)"         # plasma temperature
 ```
@@ -115,7 +116,7 @@ Errors name the position, e.g. `parser: unknown symbol 'q' … at position 2 in 
 | `laser.k0` | — | ω₀/ω_p; or `laser.lambda0_um` (wavelength in µm) together with `units.n0_cm3` |
 | `laser.w0` | — | spot size at focus: â ∝ exp(−r²/w0²) |
 | `laser.L0` | — | length: â ∝ exp(−(ξ − ξ0)²/L0²) (intensity FWHM = 1.177 L0) |
-| `laser.xi0` | — | centre of the pulse in ξ (keep ≳ 3 L0 from the head of the box) |
+| `laser.xi0` | — | centre of the pulse in ξ (keep ≳ 3 L0 behind the head of the box, `xi.max`) |
 | `laser.focus` | 0 | distance from the initial position to the focal plane (> 0: the pulse is still converging) |
 | `laser.polarization` | `linear` | `linear` (⟨a²⟩ = \|â\|²/2) or `circular` (⟨a²⟩ = \|â\|²) |
 | `laser.l` | 0 | azimuthal index ℓ of a Laguerre–Gaussian vortex LG₀ℓ: â = a0 N_ℓ (√2 r/w0)^ℓ (1 + is)^{−(ℓ+1)} exp(−r²/(w0²(1 + is))) e^{iℓθ} × the ξ profile, s = −focus/Z_R; N_ℓ = (e/ℓ)^{ℓ/2}, so `laser.a0` is the peak of \|â\| (on the ring r = w0 (ℓ/2)^{1/2}). 0 = Gaussian |
@@ -201,12 +202,12 @@ separate species.
 | key | default | meaning |
 |---|---|---|
 | `<beam>.charge`, `<beam>.mass` | −1, 1 | e.g. protons: 1, 1836.15 |
-| `<beam>.profile` | `gaussian` | `gaussian` \| `flattop` \| `file` \| `parsed` |
+| `<beam>.profile` | `gaussian` | `gaussian` \| `flattop` \| `file` \| `openpmd` \| `parsed` |
 | `<beam>.n0` | — | peak density / n₀ (of the uncut bunch) |
 | `<beam>.sigma_r` | — | rms size per transverse coordinate (σ_x = σ_y) |
 | `<beam>.sigma_xi` / `<beam>.length` | — | gaussian rms length / flat-top length |
 | `<beam>.xi0` | — | centre position |
-| `<beam>.xi_cut_head` | — | drop particles with ξ < value (seeded SMI) |
+| `<beam>.xi_cut_head` | — | drop the particles ahead of it, ξ > value (seeded SMI) |
 | `<beam>.gamma` | — | mean γ |
 | `<beam>.espread` | 0 | rms relative energy spread |
 | `<beam>.emit_n` | 0 | normalised rms emittance per plane (c/ω_p) |
@@ -221,14 +222,30 @@ separate species.
 | `<beam>.xp0`, `<beam>.yp0` | 0 | centroid angle, p_x = p_z·xp0 (modes = 1) |
 | `<beam>.nsym` | 1 | quiet start: replicate every particle at nsym azimuths (nparticles must be a multiple) |
 | `<beam>.mirror_y` | 0 | quiet start: also add the mirror image y → −y (keeps an x-only offset/tilt exactly y-symmetric) |
-| `<beam>.file` | | for `profile = file`: columns x y p_x p_y p_z ξ w |
+| `<beam>.file` | | for `profile = file`: a text file with columns x y p_x p_y p_z ξ w, or a native particle dump `beam_<name>_NNNNNN.bin` of a QUARZ run (binary, about 8× faster to read; spins are kept if the beam has `<beam>.spin`). Units in both: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the beam's species, w in n₀(c/ω_p)³, i.e. exactly the columns of the native dumps (openPMD particles differ: momentum in m_e c per physical particle, weighting in physical particles). v1.0 files (ξ = t − z; dumps without the `QUARZDMP` header are refused): `tools/convert_deck.py --beam-file` |
+| `<beam>.file_format` | `auto` | `text`, `native` (dump), or `auto`: native if the name ends in `.bin` |
+| `<beam>.read_block` | 262144 | particles per read for native dumps and openPMD files. All beam files are read in blocks (text line by line): each rank keeps only its own particles, so no rank holds the whole file (results do not depend on the block size) |
+| `<beam>.file` (`profile = openpmd`) | | a file of an openPMD series, e.g. `out/openpmd/data_000200.h5` (its iteration is taken from the name), or a pattern with `%T`. QUARZ output or another code's particles in the co-moving frame (needs openPMD-api in the build; ADIOS2 `.bp` untested). Files of QUARZ v1.0.0 (lab frame) are converted to ξ = z − t with the iteration time, with a note in the log |
+| `<beam>.openpmd_iteration` | from the name, else the last | iteration to read |
+| `<beam>.openpmd_species` | the beam's name | particle species in the file |
+| `<beam>.openpmd_xi_shift` | 0 | ξ = z + `positionOffset`_z + shift (c/ω_p): for codes whose co-moving ξ = 0 lies elsewhere; QUARZ files need none |
+| `<beam>.openpmd_units` | `auto` | `auto`: QUARZ files say themselves (`quarz_units`), others are SI (the openPMD rule: value × `unitSI` is SI); `si`; `normalised` (lengths c/ω_p, momenta m_e c per physical particle, weighting in n₀(c/ω_p)³, as QUARZ writes them without `units.n0_cm3`) |
+| `<beam>.openpmd_n0_cm3` | the deck's | density a normalised file refers to, if not the deck's (lengths and weights are rescaled) |
+| `<beam>.openpmd_scale_stride` | 0 | 1: multiply the weights by the `particle_stride` recorded in a QUARZ file (`quarz_particle_stride`); otherwise a stride > 1 gives a warning (the charge is 1/stride of the original beam) |
+
+openPMD import: SI files need `units.n0_cm3`. Momenta stored per macro-particle (`macroWeighted = 1`) are divided
+by weighting^`weightingPower`; `positionOffset` is added. The beam takes the `charge` and `mass` of the species
+in the file (constant records or uniform per-particle ones) unless the deck sets `<beam>.charge` / `<beam>.mass`;
+a deck value that differs from the file's is used with a warning. With a different mass the velocities are kept:
+p/(m c) = γβ is computed with the file's mass, so the physical momenta scale with the mass. A `spin` record is read for a beam with `<beam>.spin`. Every rank reads the
+species block by block and keeps its slices. As with native dumps, the momenta of a QUARZ file are half a step behind.
 
 **Parsed beams** (`<beam>.profile = parsed`)
 
 | key | default | meaning |
 |---|---|---|
-| `<beam>.density(x,y,xi)` | — | beam density / n₀; the third variable is the co-moving ξ |
-| `<beam>.xi_range` | — | ξ interval that is sampled |
+| `<beam>.density(x,y,xi)` | — | beam density / n₀; the third variable is the co-moving ξ = z − t |
+| `<beam>.xi_range` | — | ξ interval that is sampled (`lo hi`, lo < hi) |
 | `<beam>.r_max` | — | radius that is sampled |
 | `<beam>.ppc` | `1 1` | sub-rings per radial grid cell, sub-slices per ξ cell |
 | `<beam>.ntheta` | 1 (modes=0), 8 (modes=1) | particles per ring |
@@ -261,11 +278,11 @@ density are skipped.
 | `output.fields` | `all` | field components of the main output: `all`, `none`, or a list of `psi ez er eth br bth bz ne ni rhob nz_<species> a` (`a` = laser envelope; with m = 1 a name includes its `_c`, `_s` parts) |
 | `output.beams` | `all` | beams whose particles are written: `all`, `none` or a list of names |
 | `output.rmax` | R | write the fields only for r ≤ rmax (up to the first node ≥ rmax); also limits the uniform openPMD grid |
-| `output.xi_stride` | 1 | write every n-th slice (ξ = ξ_min, ξ_min + nΔξ, …) |
+| `output.xi_stride` | 1 | write every n-th slice, counted from the head (ξ = ξ_max, ξ_max − nΔξ, …) |
 | `output.particle_stride` | 1 | write every n-th beam particle (per rank) |
 | `output.axis` | 1 | write `axis_*.txt` with the field output |
 | `output.beam_slices` | 0 | number of ξ-bins for per-slice beam diagnostics (centroid, size, γ, ε) written at field outputs |
-| `output.beam_slices_range` | box | `lo hi`: ξ-range of these bins (default: the whole box); the bins are fixed, so files at different steps line up |
+| `output.beam_slices_range` | box | `lo hi` (lo < hi): ξ-range of these bins (default: the whole box); the bins are fixed, so files at different steps line up |
 | `output.format` | `native` | `native` (QUARZ binary/text files), `openpmd`, or `both`. With `openpmd`, the native field files and particle dumps are not written; `axis_*`, `beams.txt` and `slices_*` always are. |
 | `output.openpmd_backend` | `h5` | `h5` (HDF5), `bp` (ADIOS2) or `json` |
 | `output.openpmd_file` | `openpmd/data_%06T` | file name pattern inside `output.dir` (`%T` = step: one file per output) |

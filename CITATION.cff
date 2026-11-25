@@ -6,8 +6,8 @@ authors:
     given-names: Alexander
   - family-names: Wilson
     given-names: Thomas C.
-version: "1.0.0"
-doi: "10.5281/zenodo.23472095"
+version: "2.0.0"
+doi: "10.5281/zenodo.23472094"
 identifiers:
   - type: doi
     value: "10.5281/zenodo.23472094"

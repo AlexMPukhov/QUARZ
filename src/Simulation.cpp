@@ -32,6 +32,18 @@ void ion_line(std::ostream& o, int n, double t, const std::vector<std::array<dou
 } // namespace
 
 Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
+    // v2.0.0 changed the longitudinal convention from xi = t - z (v1) to xi = z - t. A v1 deck would run without
+    // error but describe a different box and beam, so for a transition period every deck must state the convention.
+    if (!cfg.has("xi.convention"))
+        throw std::runtime_error(
+            "xi.convention is missing. Since v2.0.0 QUARZ uses xi = z - t (the beam moves towards +xi, the head of "
+            "the box is at xi.max); v1 decks used xi = t - z. Convert a v1 deck with tools/convert_deck.py, which "
+            "adds the key, or add xi.convention = z-t to a deck written for v2");
+    const std::string conv = cfg.get_string("xi.convention");
+    if (conv != "z-t")
+        throw std::runtime_error("xi.convention = " + conv + ": only z-t is supported" +
+                                 (conv == "t-z" ? " (xi = t - z was the v1 convention: convert the deck with "
+                                                  "tools/convert_deck.py)" : ""));
     const int modes = cfg.get_int("modes", 0);
     if (modes != 0 && modes != 1) throw std::runtime_error("modes must be 0 (axisymmetric) or 1 (m = 0 and 1)");
     m1_ = (modes == 1);
@@ -54,10 +66,14 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
     if (smooth_a_ < 0) throw std::runtime_error("plasma.smooth_length must be >= 0");
     if (smooth_a_ > 0) solver_->set_filter(std::vector<Real>(grid_->N, smooth_a_ * smooth_a_));
 
-    box_.xi_min = cfg.get_double("xi.min", 0.0);
-    const Real xi_max = cfg.get_double("xi.max");
+    // deck: xi.min (tail) .. xi.max (head) in the user convention xi_user = z - t; the internal
+    // box starts at the head: internal xi_min = -xi.max (see Types.hpp)
+    const Real xu_max = cfg.get_double("xi.max", 0.0);
+    const Real xu_min = cfg.get_double("xi.min");
+    box_.xi_min = xi_from_user(xu_max);
     box_.dxi = cfg.get_double("xi.step");
-    box_.nxi = static_cast<int>(std::lround((xi_max - box_.xi_min) / box_.dxi)) + 1;
+    if (!(xu_max > xu_min) || !(box_.dxi > 0)) throw std::runtime_error("xi: need xi.min < xi.max and xi.step > 0");
+    box_.nxi = static_cast<int>(std::lround((xu_max - xu_min) / box_.dxi)) + 1;
     xi_head_ = box_.xi_min;
     bwrite_path_ = cfg.get_string("boundary.write", "");
     bread_path_ = cfg.get_string("boundary.read", "");
@@ -85,8 +101,9 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
     slice_bins_ = cfg.get_int("output.beam_slices", 0);
     {
         const auto rg = cfg.get_list("output.beam_slices_range");
-        slice_lo_ = rg.size() == 2 ? std::stod(rg[0]) : box_.xi_min;
-        slice_hi_ = rg.size() == 2 ? std::stod(rg[1]) : xi_max;
+        // user convention (xi_user = z - t), like the slices_* files
+        slice_lo_ = rg.size() == 2 ? std::stod(rg[0]) : xu_min;
+        slice_hi_ = rg.size() == 2 ? std::stod(rg[1]) : xu_max;
     }
     outdir_ = cfg.get_string("output.dir", "out");
     seed_ = cfg.get_int("plasma.seed", 1);
@@ -194,7 +211,8 @@ Simulation::Simulation(const Config& cfg) : cfg_(cfg), comm_(Comm::world()) {
         if (m1_) std::cout << ",  Picard iterations for the chi_1 coupling: " << picard_;
         std::cout << "\n";
         grid_->print_summary(std::cout);
-        std::cout << "Box: xi in [" << box_.xi_min << ", " << box_.xi_min + (K - 1) * box_.dxi << "], dxi = "
+        std::cout << "Box: xi in [" << xi_to_user(box_.xi_min + (K - 1) * box_.dxi) << ", " << xi_to_user(box_.xi_min)
+                  << "] (head at " << xi_to_user(box_.xi_min) << "), dxi = "
                   << box_.dxi << ", " << K << " slices;  beam shape in xi: " << (box_.ngp ? "nearest slice" : "linear")
                   << "\n";
         for (const auto& s : species_)
@@ -851,8 +869,8 @@ std::vector<double> Simulation::make_message(int n) {
 }
 
 // ---------------------------------------------------------------------------
-// Output format (version 2):
-//   int32 version(=2), int32 M, int32 K, int32 mode1, float64 t, float64 r[M], float64 xi[K],
+// Output format (version 3; version 2 = QUARZ v1: xi = t - z, head first):
+//   int32 version(=3), int32 M, int32 K, int32 mode1, float64 t, float64 r[M], float64 xi[K],
 //   int32 ncomp, then ncomp x { char name[16], float64 data[K][M] }
 // mode 0: psi ez er eth br bth bz ne ni rhob
 // mode 1 (if present): <name>_c, <name>_s  (cos and sin amplitudes: f = f0 + f_c cos + f_s sin)
@@ -946,11 +964,12 @@ void Simulation::write_fields(const std::string& fn, const OutputGroup* g) const
     if (comm_.root()) {
         std::vector<char> h(static_cast<size_t>(hbytes));
         char* p = h.data();
-        const int32_t hdr[4] = {2, M, K, m1_ ? 1 : 0};
+        const int32_t hdr[4] = {3, M, K, m1_ ? 1 : 0};   // version 3: xi = z - t, head last
         std::memcpy(p, hdr, sizeof(hdr)); p += sizeof(hdr);
         std::memcpy(p, &t_, 8); p += 8;
         std::memcpy(p, grid_->r.data(), 8 * static_cast<size_t>(M)); p += 8 * static_cast<size_t>(M);
-        for (int k = 0; k < K; ++k) { const double x = box_.xi_min + k * s * box_.dxi; std::memcpy(p, &x, 8); p += 8; }
+        // xi axis in the user convention, increasing (the head of the box is the last row)
+        for (int k = 0; k < K; ++k) { const double x = xi_to_user(box_.xi_min + (K - 1 - k) * s * box_.dxi); std::memcpy(p, &x, 8); p += 8; }
         const int32_t nc = static_cast<int32_t>(out.size());
         std::memcpy(p, &nc, 4);
         Comm::write_at(fn, 0, h.data(), h.size(), total);
@@ -961,11 +980,14 @@ void Simulation::write_fields(const std::string& fn, const OutputGroup* g) const
             Comm::write_at(fn, hbytes + static_cast<long long>(c) * cbytes, name, 16);
         }
     }
+    // written slice k (internal order, head first) is file row K-1-k: this rank's rows form the block
+    // starting at row K-k0-KL, in reverse order
     std::vector<double> v(static_cast<size_t>(KL) * M);
+    const int row0 = K - k0 - KL;
     for (size_t c = 0; c < out.size(); ++c) {
         for (int k = 0; k < KL; ++k)
-            for (int j = 0; j < M; ++j) v[static_cast<size_t>(k) * M + j] = out[c].second(rows[k], j);
-        Comm::write_at(fn, hbytes + static_cast<long long>(c) * cbytes + 16 + 8LL * M * k0, v.data(), 8 * v.size());
+            for (int j = 0; j < M; ++j) v[static_cast<size_t>(KL - 1 - k) * M + j] = out[c].second(rows[k], j);
+        if (KL > 0) Comm::write_at(fn, hbytes + static_cast<long long>(c) * cbytes + 16 + 8LL * M * row0, v.data(), 8 * v.size());
     }
 }
 
@@ -993,8 +1015,8 @@ void Simulation::write_axis(const std::string& fn) const {
     std::string buf;
     buf.reserve(static_cast<size_t>(lw) * KL);
     char cell[32];
-    for (int k = 0; k < KL; ++k) {
-        double v[8] = {box_.xi_min + (k0 + k) * box_.dxi, F(k, 0, F_EZ0), D(k, 0, D_PSI0), D(k, 0, D_NE0),
+    for (int k = KL - 1; k >= 0; --k) {   // increasing user xi: the head of the box is the last line
+        double v[8] = {xi_to_user(box_.xi_min + (k0 + k) * box_.dxi), F(k, 0, F_EZ0), D(k, 0, D_PSI0), D(k, 0, D_NE0),
                        B(k, 0, B_RHO0), (F(k, 1, F_EP1R) - F(k, 1, F_BP1I)) / r1, 0, 0};
         if (m1_) { v[6] = F(k, 0, F_EP0R) - F(k, 0, F_BP0I); v[7] = F(k, 0, F_EP0I) + F(k, 0, F_BP0R); }
         for (int c = 0; c < ncol; ++c) {
@@ -1002,7 +1024,7 @@ void Simulation::write_axis(const std::string& fn) const {
             buf += cell;
         }
     }
-    Comm::write_at(fn, hw + static_cast<long long>(lw) * k0, buf.data(), buf.size());
+    Comm::write_at(fn, hw + static_cast<long long>(lw) * (K - k0 - KL), buf.data(), buf.size());
 }
 
 // plasma particles that reached the quasi-static limit in this sweep become beam particles:
@@ -1260,16 +1282,16 @@ void Simulation::merge_partial_outputs() {
             std::vector<double> all;
             for (int r = 0; r < P; ++r) {
                 std::ifstream in(base + ".part" + std::to_string(r), std::ios::binary);
-                int32_t n = 0;
-                in.read(reinterpret_cast<char*>(&n), 4);
+                int64_t n = 0;
+                in.seekg(16);   // header: magic[8], version, columns (as nc), n
+                in.read(reinterpret_cast<char*>(&n), 8);
                 std::vector<double> v(nc * static_cast<size_t>(n));
                 in.read(reinterpret_cast<char*>(v.data()), static_cast<std::streamsize>(8 * v.size()));
                 all.insert(all.end(), v.begin(), v.end());
                 fs::remove(base + ".part" + std::to_string(r));
             }
             std::ofstream o(base, std::ios::binary);
-            const int32_t n = static_cast<int32_t>(all.size() / nc);
-            o.write(reinterpret_cast<const char*>(&n), 4);
+            Beam::write_dump_header(o, static_cast<int>(nc), static_cast<long long>(all.size() / nc));
             o.write(reinterpret_cast<const char*>(all.data()), static_cast<std::streamsize>(8 * all.size()));
         }
     }
@@ -1336,7 +1358,7 @@ void Simulation::write_decl_diag(int n) {
           << std::setprecision(8);
         const size_t nc = 1 + 2 * static_cast<size_t>(decl_n_);
         for (size_t i = 0; i + nc <= decl_rec_.size(); i += nc) {
-            o << box_.xi_min + decl_rec_[i] * box_.dxi;
+            o << xi_to_user(box_.xi_min + decl_rec_[i] * box_.dxi);
             for (size_t c = 1; c < nc; ++c) o << " " << decl_rec_[i + c];
             o << "\n";
         }

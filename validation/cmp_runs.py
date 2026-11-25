@@ -5,7 +5,12 @@ Differences are relative to the field scale (a field and its cos/sin mode parts 
 one scale) and, for text columns, to max(|column|, 1e-9): components that vanish by
 symmetry contain only round-off and are not compared relative to themselves.
 Particle dumps are compared column by column after sorting (independent of the order).
-usage: python3 cmp_runs.py dirA dirB [tol]"""
+usage: python3 cmp_runs.py dirA dirB [tol] [--exact kinds] [--roundoff kinds]
+--exact axis,dumps,fields: print one line instead of the values: those kinds must be bit-identical (0), the others
+    within tol (OK/FAIL). For checks whose round-off level depends on the platform (e.g. the beam-log moments of
+    MPI vs serial: the sums over the ranks are added in another order), so that the reference text does not.
+--roundoff fields: (with --exact) those kinds must agree to round-off, within 1e-12 of their scale (for fields the
+    maximum of the field), e.g. the fields in the rank-boundary slice of MPI vs serial."""
 import glob
 import os
 import sys
@@ -19,8 +24,20 @@ warnings.filterwarnings("ignore", message="Input line")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
 from quarz_read import read_beam, read_fields  # noqa: E402
 
-a_dir, b_dir = sys.argv[1], sys.argv[2]
-tol = float(sys.argv[3]) if len(sys.argv) > 3 else 1e-10
+args = sys.argv[1:]
+exact = None
+if "--exact" in args:
+    i = args.index("--exact")
+    exact = [k for k in args[i + 1].split(",") if k]
+    del args[i:i + 2]
+roundoff = []
+if "--roundoff" in args:
+    i = args.index("--roundoff")
+    roundoff = [k for k in args[i + 1].split(",") if k]
+    del args[i:i + 2]
+ROUNDOFF = 1e-12
+a_dir, b_dir = args[0], args[1]
+tol = float(args[2]) if len(args) > 2 else 1e-10
 
 
 def rel(x, y, scale=None, floor=0.0):
@@ -81,6 +98,24 @@ for fa in sorted(glob.glob(os.path.join(a_dir, "*"))):
             note(kind, rel(A[:, j].astype(float), B[:, j].astype(float), scale, floor=1e-9), "%s col %d" % (name, j))
         if any((A[:, j] != B[:, j]).any() for j in range(A.shape[1]) if j not in num):
             note(kind, np.inf, name + " (text columns differ)")
+
+if exact is not None:
+    def group(kinds, lim):
+        bad = [f"{k} {worst[k][0]:.1e} ({worst[k][1]})" for k in kinds if worst[k][0] > lim]
+        return "OK" if not bad else "FAIL " + ", ".join(bad), bool(bad)
+    ex = [k for k in sorted(worst) if k in exact]
+    ro = [k for k in sorted(worst) if k in roundoff]
+    rest = [k for k in sorted(worst) if k not in exact and k not in roundoff]
+    missing = [k for k in exact + roundoff if k not in worst]
+    t_ex, b_ex = group(ex, 0.0)
+    if missing:
+        t_ex, b_ex = ("FAIL " if t_ex == "OK" else t_ex + ", ") + ", ".join("no " + m for m in missing), True
+    t_ro, b_ro = group(ro, ROUNDOFF)
+    t_rest, b_rest = group(rest, tol)
+    print("  bit-identical (%s): %s;  " % (" ".join(ex), t_ex)
+          + ("round-off, within %g of the maximum (%s): %s;  " % (ROUNDOFF, " ".join(ro), t_ro) if ro else "")
+          + "within %g (%s): %s" % (tol, " ".join(rest) or "-", t_rest))
+    sys.exit(1 if (b_ex or b_ro or b_rest) else 0)
 
 bad = False
 for k, (v, what) in sorted(worst.items()):

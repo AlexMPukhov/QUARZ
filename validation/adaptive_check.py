@@ -2,7 +2,7 @@
 ramp OUT N GAMMA XI0 XIMIN XIMAX TEND : ion channel with n(z) = 1 + 3 min(max(z-500,0)/1000, 1);
    (1) every dt equals (2 pi/N) sqrt(2 gamma / n_max), n_max over the box-head positions of the
        step (independent re-computation), (2) r_rms(t)/r_rms(0) follows |f(t)| with
-       f'' = -n(t - xi_min) f / (2 gamma), f(0) = 1, f'(0) = 0 (scipy, rtol 1e-10; in the
+       f'' = -n(t + xi_max) f / (2 gamma), f(0) = 1, f'(0) = 0 (scipy, rtol 1e-10; in the
        quasi-static model the whole box has the density at its head),
    (3) the run ends exactly at time.t_end.
 safe OUT N LAG : dt / ((2 pi/N) sqrt(2 gamma_true(t_{n+1}) / n)), gamma_true from gamma_records.txt:
@@ -32,9 +32,9 @@ mode = sys.argv[1]
 if mode == "ramp":
     out, N, gam, xi0, ximin, ximax = sys.argv[2], float(sys.argv[3]), float(sys.argv[4]), *map(float, sys.argv[5:8])
     n, t, dt = steps(out)
-    # the whole box has the density at its head, z = t - xi_min; n_max over the head positions of
+    # the whole box has the density at its head, z = t + xi_max; n_max over the head positions of
     # the step, first with dt_{n-1}, then with the dt found (monotone ramp: max at an end)
-    zh, c = t - ximin, 2 * np.pi / N
+    zh, c = t + ximax, 2 * np.pi / N
     dprev = np.concatenate([[0.0], dt[:-1]])
     n1 = np.maximum(dens(zh), dens(zh + dprev))
     d1 = c * np.sqrt(2 * gam / n1)
@@ -46,7 +46,7 @@ if mode == "ramp":
     from scipy.integrate import solve_ivp
     b = read_beamlog(out + "/beams.txt")["witness"]
     T = b["t"]
-    sol = solve_ivp(lambda s, y: [y[1], -dens(s - ximin) * y[0] / (2 * gam)], (0, T[-1]), [1.0, 0.0],
+    sol = solve_ivp(lambda s, y: [y[1], -dens(s + ximax) * y[0] / (2 * gam)], (0, T[-1]), [1.0, 0.0],
                     t_eval=T, rtol=1e-10, atol=1e-12, max_step=5.0)
     e2 = np.max(np.abs(b["r_rms"] / b["r_rms"][0] - np.abs(sol.y[0])))
     print(f"  {len(dt)} steps, dt {dt.min():.3f} ... {dt.max():.3f}: max |dt/dt_formula - 1| = {e1:.1e}"

@@ -25,9 +25,9 @@ pred = {
     "bth_c": -d * dr(ref["bth"]), "br_s": -d * over_r(ref["bth"]),
 }
 # compare inside the first bucket, away from the sheath / closure singularities
-K = (xi > 0.5) & (xi < 8.0)
+K = (xi > -8.0) & (xi < -0.5)
 Rm = (r > 0.02) & (r < 1.0)
-print(f"shifted driver, d = {d}: m=1 amplitudes vs -d * d/dr(axisymmetric solution), region xi in (0.5,8), r in (0.02,1)")
+print(f"shifted driver, d = {d}: m=1 amplitudes vs -d * d/dr(axisymmetric solution), region xi in (-8,-0.5), r in (0.02,1)")
 for name, p in pred.items():
     s = sh[name][np.ix_(K, Rm)]
     q = p[np.ix_(K, Rm)]

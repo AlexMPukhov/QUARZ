@@ -9,7 +9,7 @@ axis) and, for every beam, the first and the last line of beams.txt. With matplo
 <dir>/quicklook.png: on-axis E_z of the first and the last output step, the largest E_z against the propagation
 distance, and the beam moments against the distance.
 Units of the files: lengths c/omega_p, times 1/omega_p, fields E0 = m c omega_p / e, densities n0;
-xi = ct - z grows from the head of the box towards its tail.
+xi = z - ct: the beams move towards +xi; the head of the box is at its largest xi (the last line of axis_*.txt).
 """
 import argparse
 import glob
@@ -50,19 +50,20 @@ rows = np.array(rows)
 # ---- the wake along the box at the first output step: a jump far behind the head that is not there in the beam
 #      density is noise of clustering plasma macro-particles (long boxes), not physics
 d = np.loadtxt(files[0])
-edges = np.linspace(d[0, 0], d[-1, 0], 11)
+edges = np.linspace(d[:, 0].max(), d[:, 0].min(), 11)   # from the head (largest xi) to the tail
 print(f"# {os.path.basename(files[0])}: max |Ez|/E0 and max ne/n0 on the axis in 10 windows from the head to the tail")
 print("#   xi from " + " ".join(f"{e:8.1f}" for e in edges[:-1]))
-sel = [(d[:, 0] >= lo) & (d[:, 0] <= hi) for lo, hi in zip(edges[:-1], edges[1:])]
+sel = [(d[:, 0] <= hi) & (d[:, 0] >= lo) for hi, lo in zip(edges[:-1], edges[1:])]
 print("#   |Ez|    " + " ".join(f"{np.abs(d[m, 1]).max():8.4f}" for m in sel))
 print("#   ne      " + " ".join(f"{d[m, 3].max():8.2f}" for m in sel))
 
 
 def read_ez(fn):
-    """E_z map of a fields_NNNNNN.bin (version 2, see output_reference.md): r, xi, ez[xi, r] or None."""
+    """E_z map of a fields_NNNNNN.bin (version 3, see output_reference.md; version 2 of QUARZ v1 with xi = t - z
+    converted): r, xi, ez[xi, r] or None."""
     with open(fn, "rb") as fh:
         ver, M, K, _ = np.fromfile(fh, dtype=np.int32, count=4)
-        if ver != 2:
+        if ver not in (2, 3):
             return None
         np.fromfile(fh, dtype=np.float64, count=1)
         r = np.fromfile(fh, dtype=np.float64, count=M)
@@ -71,7 +72,7 @@ def read_ez(fn):
             name = fh.read(16).split(b"\0")[0].decode()
             data = np.fromfile(fh, dtype=np.float64, count=M * K)
             if name == "ez":
-                return r, xi, data.reshape(K, M)
+                return (r, -xi[::-1], data.reshape(K, M)[::-1]) if ver == 2 else (r, xi, data.reshape(K, M))
     return None
 
 
@@ -84,7 +85,7 @@ if ez is not None and ez[0][-1] >= 0.5:
     j = int(np.argmin(np.abs(r - 0.5)))
     w = r[r <= 1.0]
     mean = np.abs((e[:, :len(w)] * w).sum(1) / w.sum()) if r[-1] >= 1.0 else None
-    sel2 = [(xi >= lo) & (xi <= hi) for lo, hi in zip(edges[:-1], edges[1:])]
+    sel2 = [(xi <= hi) & (xi >= lo) for hi, lo in zip(edges[:-1], edges[1:])]
     print(f"#   |Ez| at r = {r[j]:.2f}: " + " ".join(f"{np.abs(e[m, j]).max():8.4f}" if m.any() else "       -" for m in sel2))
     if mean is not None:
         print("#   |<Ez>| r < 1:   " + " ".join(f"{mean[m].max():8.4f}" if m.any() else "       -" for m in sel2))
@@ -129,7 +130,7 @@ fig, ax = plt.subplots(2, 2, figsize=(12, 8))
 for f, c in ((files[0], "C7"), (files[-1], "C0")):
     d = np.loadtxt(f)
     ax[0, 0].plot(d[:, 0], d[:, 1], color=c, lw=0.6, label=os.path.basename(f))
-ax[0, 0].set(xlabel="xi [c/omega_p] (head of the box at the left)", ylabel="E_z on the axis [E0]")
+ax[0, 0].set(xlabel="xi [c/omega_p] (head of the box at the right)", ylabel="E_z on the axis [E0]")
 ax[0, 0].legend(fontsize=8)
 ax[0, 1].plot(rows[:, 1] * zs, rows[:, 2], "o-")
 ax[0, 1].set(xlabel=zl, ylabel="max |E_z| on the axis [E0]")

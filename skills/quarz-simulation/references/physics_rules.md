@@ -3,14 +3,14 @@
 ## The model in a few lines
 
 - Quasi-static: for every beam time step the plasma is swept slice by slice from the head of the box
-  (`xi.min`) to its tail, with the beams frozen. Then the beams are pushed by `time.dt` in the stored fields.
+  (`xi.max`) to its tail, with the beams frozen. Then the beams are pushed by `time.dt` in the stored fields.
   All slow-time derivatives of the plasma response are dropped.
 - Geometry: (r, theta, xi) with azimuthal modes m = 0 (`modes = 0`, axisymmetric) or m = 0 and 1 (`modes = 1`).
 - Radial grid: any monotone set of nodes (`grid.type = regions`), a conducting wall at `grid.rmax`.
 - Plasma particles are rings (with `modes = 1`: several particles per ring); beams are 3D macro-particles.
 - Lasers: envelope model (ponderomotive force on the plasma, envelope equation for the pulse).
 - Units: lengths c/omega_p, times 1/omega_p, densities n0, momenta m c of the species, fields m_e c omega_p / e.
-  xi = ct - z: head at small xi.
+  xi = z - ct: the beams move towards +xi, the head is at the largest xi.
 
 ## What it can and cannot give
 
@@ -30,7 +30,7 @@
 2. Regime from n_b/n0 and k_p sigma_r: n_b/n0 << 1 linear (wake of the order n_b/n0 E0 or below; a long bunch
    drives little until it self-modulates); n_b/n0 > 1 and k_p sigma_r < 1 blowout (bubble radius about 2 sqrt(Lambda),
    Lambda = n_b/n0 (k_p sigma_r)^2).
-3. Box: `xi.min` just ahead of the head (3 sigma, or the cut), `xi.max` behind the region of interest.
+3. Box: `xi.max` just ahead of the head (3 sigma, or the cut), `xi.min` behind the region of interest.
    `xi.step` 0.05 (linear), 0.005-0.01 (blowout).
 4. Radial grid: `grid.regions` with cells <= sigma_r/10 over the narrowest beam, 0.01-0.02 over the bubble,
    up to 0.05 outside in a short box; in a box longer than about 300 not more than 0.02-0.03 inside the plasma,

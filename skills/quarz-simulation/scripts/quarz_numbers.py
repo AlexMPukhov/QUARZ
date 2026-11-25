@@ -86,7 +86,7 @@ if a.wavelength_um:
     if a.tau_fs:
         L0 = a.tau_fs * 1e-15 * c * 1e6 / 1.177 / kpinv
         print(f"  input: laser.L0 = {L0:.5g}        (c/omega_p; intensity FWHM = 1.177 L0)")
-        print(f"  input: laser.xi0 >= xi.min + {3 * L0:.4g}   (3 L0 behind the head of the box);  xi.step <= {L0 / 20:.3g}")
+        print(f"  input: laser.xi0 <= xi.max - {3 * L0:.4g}   (3 L0 behind the head of the box);  xi.step <= {L0 / 20:.3g}")
 
 if a.length_m:
     L = a.length_m * 1e6 / kpinv

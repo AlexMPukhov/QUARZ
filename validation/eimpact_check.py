@@ -25,7 +25,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-from quarz_read import read_fields  # noqa: E402
+from quarz_read import read_fields, head_first  # noqa: E402
 
 ME = 510998.95
 IP = {"Xe": [12.1298, 20.975, 32.1230], "Ar": [15.7596, 27.62966, 40.74], "He": [24.58739, 54.41776]}
@@ -82,8 +82,8 @@ if what == "rate":
     nlab = n0 * (da * gam / (gam - u) + db * gam / (gam + u))   # cm^-3
     sg = float(sigma(gas, z0, E, table)[0])
     R = nlab * sg * beta * kpi                                    # per k_p^-1 of xi
-    f = read_fields(d + "/fields_000000.bin")
-    r, xi = f["r"], f["xi"]
+    f = head_first(read_fields(d + "/fields_000000.bin"))
+    r, xi = f["r"], f["s"]   # s = -xi: distance behind the head of the box
     sel = r < 0.8 * r.max()
     ne = f["ne"][len(xi) // 2, sel].mean() * n0
     print(f"  E = {E:.2f} eV, sigma({gas}{'+' * z0 if z0 else ''} -> +1) = {sg:.4e} cm^2"
@@ -95,7 +95,7 @@ if what == "rate":
         code = (f["nz_xe"][k, sel].mean() / dens) - z0
         ref = -np.expm1(-R * (xi[k] + (xi[1] - xi[0])))
         worst = max(worst, abs(code / ref - 1))
-        out.append(f"xi = {xi[k]:.0f}: {code:.4e} / {ref:.4e}")
+        out.append(f"xi = {-xi[k]:.0f}: {code:.4e} / {ref:.4e}")
     print("  ionized fraction code / expected:  " + "   ".join(out) + f"   (max rel. diff {worst:.1e})")
 elif what == "loss":
     d, n0, u = sys.argv[2], float(sys.argv[3]), float(sys.argv[4])

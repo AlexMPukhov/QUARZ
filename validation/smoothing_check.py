@@ -3,7 +3,7 @@ The criterion is the convergence of the fields AFTER the closure spike: the spik
 axis caustic of a cold plasma) is unphysical, its height need not converge.
 usage: smoothing_check.py ref_dir run_dir...
 For each run: r.m.s. change of E_z(0) and psi(0) relative to ref_dir behind the bubble
-(xi 9.2..11.9) and around the witness (6.4..7.2); the E_z minimum and axis density maximum in the
+(xi -11.9..-9.2) and around the witness (-7.2..-6.4); the E_z minimum and axis density maximum in the
 closure region (8.5..9.6) are printed for information only."""
 import re
 import sys
@@ -12,10 +12,12 @@ import numpy as np
 
 
 def load(d):
-    a = np.loadtxt(d + "/axis_000000.txt", comments="#")
+    a = np.loadtxt(d + "/axis_000000.txt", comments="#")[::-1]   # from the head
+    a[:, 0] *= -1   # s = -xi: distance behind the head of the box
     return a[:, 0], a[:, 1], a[:, 2], a[:, 3]
 
 
+# the windows below are in s = -xi (distance behind the head), as returned by load()
 def l2(x0, f0, x1, f1, a, b):
     xs = np.arange(a, b, 0.005)
     r0, r1 = np.interp(xs, x0, f0), np.interp(xs, x1, f1)

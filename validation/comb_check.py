@@ -15,7 +15,7 @@ import numpy as np
 from scipy.special import eval_laguerre
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-from quarz_read import read_fields  # noqa: E402
+from quarz_read import head_first, read_fields  # noqa: E402
 
 
 
@@ -31,7 +31,7 @@ def project(A, r, p, w):   # amplitude of LG_p in A(r) (weights r dr; LG_p ortho
 what = sys.argv[1]
 if what == "init":
     d = sys.argv[2]
-    f = read_fields(os.path.join(d, "fields_000000.bin")); xi, r = f["xi"], f["r"]
+    f = head_first(read_fields(os.path.join(d, "fields_000000.bin"))); xi, r = f["s"], f["r"]   # s = -xi (laser_comb.in: xi0 = -55)
     A = f["a_re"] + 1j * f["a_im"]
     # the deck of the validation (laser_comb.in), evaluated independently
     n0, lam0 = 6e18, 1.03
@@ -68,7 +68,7 @@ elif what == "drift":
     fs = sorted(x for x in os.listdir(d) if x.startswith("fields_"))
     t, C = [], []
     for fn in fs:
-        f = read_fields(os.path.join(d, fn)); r = f["r"]; k = len(f["xi"]) // 2
+        f = head_first(read_fields(os.path.join(d, fn))); r = f["r"]; k = len(f["xi"]) // 2   # slices from the head
         A = (f["a_re"] + 1j * f["a_im"])[k:k + 1]
         t.append(f["t"]); C.append([project(A, r, q, w)[0] for _, q in lines])
     t, C = np.array(t), np.array(C)

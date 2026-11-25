@@ -80,10 +80,15 @@ public:
     // weighted sums for (global) diagnostics: S[0] = sum w, S[1..15] moments, S[16] = live count
     std::array<double, 17> sums() const;
     BeamDiag from_sums(const std::array<double, 17>& S, Real t) const;   // S from sums() (any ranks summed)
-    std::vector<double> slice_sums(double lo, double hi, int nbins) const;
+    std::vector<double> slice_sums(double lo, double hi, int nbins) const;   // bins [lo, hi) in the user xi (Types.hpp)
     static void write_slices_file(const std::string& filename, Real t, Real q, double lo, double hi, int nbins,
                                   const std::vector<double>& sums);
     void dump(const std::string& filename, int stride = 1) const;   // every stride-th live particle
+    // native dump header (24 bytes): char magic[8] = "QUARZDMP", int32 version (1), int32 columns per particle
+    // (7, or 10 with spin), int64 n; then n x columns doubles. Dumps of QUARZ v1.0.0 have no header (xi = t - z).
+    static constexpr char kDumpMagic[9] = "QUARZDMP";
+    static constexpr int32_t kDumpVersion = 1;
+    static void write_dump_header(std::ostream& out, int ncols, long long n);
     Real charge() const { return q_; }
     Real mass() const { return m_; }
     bool adaptive_dt() const { return adaptive_dt_ && !rigid_; }
@@ -114,7 +119,9 @@ public:
 
 private:
     void init_gaussian(const Config& cfg);
-    void init_file(const std::string& filename);
+    void init_file(const std::string& filename, const std::string& format, size_t block);   // text or native dump
+    void init_dump(const std::string& filename, size_t block);   // native beam_<name>_NNNNNN.bin, in blocks
+    void init_openpmd(const Config& cfg);           // <beam>.profile = openpmd (OpenPMDReader.hpp)
     void init_parsed(const Config& cfg);
 public:
     void deposit_analytic(const View3D& src) const;
@@ -135,7 +142,9 @@ private:
     struct RefAcc { double w = 0, wg = 0, wxi = 0; long n = 0; };
     void accumulate(RefAcc& a, const double* p) const;   // p = x y px py pz xi w
     void adopt_local(const std::vector<double>& all);    // whole beam (packed 7) -> local particles + refs
-    void finish_init(std::vector<double>& local, const RefAcc& a);
+    // local: 7 doubles per particle (the initial spin s0 is appended for a beam with spin), or
+    // 10 with have_spin (spins already set)
+    void finish_init(std::vector<double>& local, const RefAcc& a, bool have_spin = false);
     long np_global_ = 0;
     bool rigid_ = false;
     bool adaptive_dt_ = true;

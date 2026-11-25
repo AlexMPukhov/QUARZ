@@ -70,23 +70,33 @@ int main(int argc, char* argv[]) {
         check(err < 1e-12, "\"" + cs.expr + "\"" + m);
     }
 
-    // device evaluation must give the same numbers
+    // device evaluation must give the same numbers: bit-identical on host backends (the same math
+    // library); on GPUs the device exp/sin/pow (1-2 ulp) and fused multiply-adds differ from the host
+    // in the last bits, so there a few ulp relative to the function's scale are allowed
     {
         Parser p("exp(-(x^2+y^2)/(2*w0^2)) * if(z < L, sin(pi*z/(2*L))^2, 1) + 0.1*x*y", {"x", "y", "z"}, C);
         const ParserExec e = p.exec();
         const int n = 1000;
-        View1D out("out", n);
+        View1D in("in", 3 * n), out("out", n);
+        auto hin = Kokkos::create_mirror_view(in);   // the points are computed on the host: identical inputs
+        for (int i = 0; i < n; ++i) {
+            hin(3 * i) = -2 + 4.0 * i / n; hin(3 * i + 1) = 1 - 2.0 * i / n; hin(3 * i + 2) = 6.0 * i / n;
+        }
+        Kokkos::deep_copy(in, hin);
         Kokkos::parallel_for("parser_dev", Range(0, n), KOKKOS_LAMBDA(int i) {
-            const double x = -2 + 4.0 * i / n, y = 1 - 2.0 * i / n, z = 6.0 * i / n;
-            out(i) = e(x, y, z);
+            out(i) = e(in(3 * i), in(3 * i + 1), in(3 * i + 2));
         });
         auto h = Kokkos::create_mirror_view_and_copy(HostSpace(), out);
-        double err = 0;
+        double err = 0, scale = 0;
         for (int i = 0; i < n; ++i) {
-            const double x = -2 + 4.0 * i / n, y = 1 - 2.0 * i / n, z = 6.0 * i / n;
-            err = std::max(err, std::fabs(h(i) - p(x, y, z)));
+            const double f = p(hin(3 * i), hin(3 * i + 1), hin(3 * i + 2));
+            err = std::max(err, std::fabs(h(i) - f));
+            scale = std::max(scale, std::fabs(f));
         }
-        check(err == 0.0, "device (Kokkos kernel) evaluation identical to host");
+        std::printf("    device vs host: max |difference| = %.3e (max |f| = %.3e, backend %s)\n", err, scale,
+                    ExecSpace::name());
+        if (exec_is_host()) check(err == 0.0, "device (Kokkos kernel) evaluation identical to host (host backend)");
+        else check(err <= 1e-14 * scale, "device (Kokkos kernel) evaluation equal to host within 1e-14 relative (GPU backend)");
     }
 
     // constant folding: an expression without variables is a single constant

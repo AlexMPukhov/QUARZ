@@ -3,13 +3,15 @@
 
 Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QUARZ.
 
-- **`fields_NNNNNN.bin`** (format version 2). Header: int32 version = 2,
+- **`fields_NNNNNN.bin`** (format version 3). Header: int32 version = 3,
   int32 M, int32 K, int32 mode1, float64 t, r[M], ξ[K], int32 ncomp. Then
-  ncomp blocks of {char name[16], float64 [K][M]}.
+  ncomp blocks of {char name[16], float64 [K][M]}. ξ = z − t increases with the slice index:
+  the head of the box is the last slice. Version 2 = QUARZ v1.0.0 (ξ = t − z, head first):
+  `tools/quarz_read.py` and the GUI read both and convert version 2 (slices reversed, ξ negated).
   - m = 0 components: `psi ez er eth br bth bz ne ni rhob`.
   - m = 1 components (when present): the same names with `_c` / `_s`, the
     cos / sin amplitudes in f = f₀ + f_c cos θ + f_s sin θ.
-- **`axis_NNNNNN.txt`**: ξ, E_z(0), ψ(0), n_e(0), ρ_b(0), and the focusing
+- **`axis_NNNNNN.txt`**: ξ (increasing, head last), E_z(0), ψ(0), n_e(0), ρ_b(0), and the focusing
   slope (E_r − B_θ)/r at the first node. With m = 1 it adds W_x(0) and W_y(0),
   the transverse force on the axis. Fixed-width columns (11 significant digits).
 - **`beams.txt`**, one line per beam per step, with columns:
@@ -26,7 +28,8 @@ Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QU
   w_rms = (2⟨r²⟩)^{1/2}, ⟨ξ⟩, L_rms (all weighted with |â|²) and ∫|â|² dV.
   ∫|â|² dV is not conserved in a plasma: during depletion the photon number is
   conserved and the frequency drops. The field files contain the envelope as
-  `a_re`, `a_im` (openPMD: mesh `laserEnvelope`, components `re`, `im`).
+  `a_re`, `a_im`, with a = Re[(a_re + i a_im) e^{i k₀ ξ}] in the user ξ = z − t (openPMD: mesh
+  `laserEnvelope`, components `re`, `im`).
 - **Ionization runs** add `ionization.txt`, one line per step, with four columns per ionizable species:
   - the weight of the electrons born in the sweep, in units of n₀(c/ω_p)² per c/ω_p;
   - the same as electrons per metre of plasma;
@@ -40,9 +43,16 @@ Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QU
   the slice files and the particle dumps are first written per rank
   (`*.partN`) and merged into the usual files by rank 0 at the end of the run;
   if a run is killed, the `.partN` files hold the data.
-- **`beam_<name>_NNNNNN.bin`**: int32 n, then n × (x, y, p_x, p_y, p_z, ξ, w), or n × (…, w, s_x, s_y, s_z)
-  for a beam with `<beam>.spin` (readers infer 7 or 10 doubles from the file size).
-  Particles removed from the beam (w = 0) are not written.
+- **`beam_<name>_NNNNNN.bin`**: a 24-byte header, char magic[8] = `QUARZDMP`, int32 version = 1, int32 columns
+  (7, or 10 for a beam with `<beam>.spin`), int64 n; then n × (x, y, p_x, p_y, p_z, ξ, w), or
+  n × (…, w, s_x, s_y, s_z). Code units: x, y, ξ in c/ω_p (ξ = z − t), p in m_s c of the species, w in
+  n₀(c/ω_p)³. Dumps of QUARZ v1.0.0 have no header (int32 n, then the records; ξ = t − z): the beam import
+  refuses them, `tools/convert_deck.py --beam-file OLD NEW` converts them, and `tools/quarz_read.py`
+  reads them converted, with a warning. Particles removed from the beam (w = 0) are not written.
+  A dump can be read back as a beam (`<beam>.profile = file`, `<beam>.file = beam_<name>_NNNNNN.bin`). The
+  momenta of a dump are half a time step behind the positions (leapfrog), so a run started from a dump is not
+  an exact continuation (use checkpoints for that); with `particle_stride` > 1 the dump holds a subset
+  with unchanged weights.
 - **openPMD** (`output.format = openpmd` or `both`): one file per output step,
   `openpmd/data_NNNNNN.h5` (or `.bp`, `.json`), following the
   [openPMD standard 1.1](https://github.com/openPMD/openPMD-standard).
@@ -50,7 +60,11 @@ Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QU
     `rho_beam`, in geometry `thetaMode`, axes (r, z), shape [modes][r][z].
     The modes are (f₀) or (f₀, f_c, f_s) with f = f₀ + f_c cos θ + f_s sin θ
     (geometryParameters `m=2;imag=+`), the convention of openPMD-viewer, FBPIC and WarpX.
-  - **Longitudinal axis:** the lab-frame z = t − ξ, stored in increasing z.
+  - **Longitudinal axis:** co-moving, as in other quasi-static codes: the mesh axis `z` is ξ = z_lab − ct (the
+    same values and order as the native files; `gridGlobalOffset` = ξ_min). The lab position is z_lab = ξ + ct
+    with the iteration time t (series attribute `quarz_coordinates`). QUARZ v1.0.0 files are in the lab frame
+    (z = t − ξ_v1 = ξ + t, `quarz_coordinates` = "z = t - xi (lab frame); …"); the beam import
+    (`<beam>.profile = openpmd`) recognises them and converts the positions exactly with the iteration time.
   - **Radial grid:** openPMD requires uniform spacing, so by default the fields are
     interpolated (piecewise linearly, consistent with the hat functions) onto a
     uniform radial grid. The default spacing is h_min, which can make the files much
@@ -70,9 +84,13 @@ Section numbers (§) refer to the README.md of https://github.com/AlexMPukhov/QU
     openPMD-viewer. **ParaView:** load the plugin `tools/paraview/openPMDRectilinearReader.py`
     (Tools → Manage Plugins) and open a `.pmd` file with the reader "openPMD Reader (rectilinear
     meshes)": the fields appear on the true non-uniform nodes (see `tools/paraview/README.md`).
-    The old attribute `quarz_r_nodes` is still written (deprecated).
-  - **Particles:** every beam is a species with `position` (x, y, z = t − ξ),
-    `positionOffset` (0), `momentum` (per physical particle), `weighting`
+    **Grid size limit of the interim form:** HDF5 stores an attribute in 64 KB, so with a released
+    openPMD-api (attribute `gridCoordinates_r`) and HDF5 files the native grid can have at most 8181 radial
+    nodes; beyond that the run stops at the start with a message. The data-set form has no limit; otherwise use
+    `output.openpmd_grid = uniform`, the native output, or `output.openpmd_backend = bp` if the openPMD-api has
+    ADIOS2. The old per-mesh copy `quarz_r_nodes` (same limit, in every build) is no longer written.
+  - **Particles:** every beam is a species with `position` (x, y, z = ξ, co-moving like the meshes),
+    `positionOffset` (0, so openPMD-viewer also shows ξ), the species attribute `quarz_particle_stride`, `momentum` (per physical particle, in m_e c × `unitSI`, unlike the m_s c of the native files), `weighting`
     (physical particles per macro-particle), `charge` and `mass`.
   - **Units:** SI when `units.n0_cm3` is given, otherwise normalised units with
     `unitSI` = 1 (the series attribute `quarz_units` says which).

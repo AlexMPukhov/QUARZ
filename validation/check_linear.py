@@ -1,10 +1,10 @@
 """Compare QUARZ against the linear-theory wake of a Gaussian driver in a
 conducting cylinder of radius R (Green's function with Dirichlet psi(R)=0).
 
-   dn(r,xi)  = Int_{-inf}^{xi} sin(xi-xi') rho_b(r,xi') dxi'
+   dn(r,s)  = Int_{-inf}^{s} sin(s-s') rho_b(r,s') ds',   s = -xi (distance behind the head)
    (lap_perp - 1) psi = dn   ->  psi = -Int r' dr' G(r,r') dn(r')
    G = I0(r<) [K0(r>) - K0(R) I0(r>)/I0(R)]
-   Ez = d psi/dxi,  Er - Btheta = -d psi/dr
+   Ez = d psi/ds = -d psi/dxi,  Er - Btheta = -d psi/dr
 usage: python check_linear.py out_dir [label]
 """
 import sys
@@ -14,9 +14,9 @@ sys.path.insert(0, "../tools")
 from quarz_read import read_fields
 
 d = read_fields(sys.argv[1] + "/fields_000000.bin")
-r, xi = d["r"], d["xi"]
+r, xi = d["r"], -d["xi"]   # xi here: s = -xi = distance behind the head of the box
 nb = float(sys.argv[3]) if len(sys.argv) > 3 else 0.01
-sr, sx, x0, R, cut =  0.5, 1.0, 4.0, r[-1], 4.0
+sr, sx, x0, R, cut =  0.5, 1.0, 4.0, r[-1], 4.0   # driver at xi = -4 (s = 4)
 
 # reference on a fine uniform quadrature grid in r'
 rq = np.linspace(0, R, 4001)
@@ -58,4 +58,4 @@ e2 = abs(Wr[:, ir] - Wr_ref[:, ir]).max() / abs(Wr_ref[:, ir]).max()
 e3 = abs(d["psi"][:, 0] - psi_ref[:, 0]).max() / abs(psi_ref[:, 0]).max()
 label = sys.argv[2] if len(sys.argv) > 2 else sys.argv[1]
 print(f"{label}: max|Ez|={amp:.4e}  rel.err Ez(r=0)={e1:.3e}  psi(0)={e3:.3e}  (Er-Bth)(r=0.5)={e2:.3e}")
-np.savez(sys.argv[1] + "/linear_ref.npz", xi=xi, r=r, Ez_ref=Ez_ref, Wr_ref=Wr_ref)
+np.savez(sys.argv[1] + "/linear_ref.npz", xi=d["xi"], r=r, Ez_ref=Ez_ref, Wr_ref=Wr_ref)

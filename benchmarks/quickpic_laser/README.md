@@ -1,5 +1,9 @@
 # Laser wakefield benchmarks of the QuickPIC laser module (Meng et al. 2026)
 
+**Convention:** the decks use QUARZ's ξ = z − t (head of the box at `xi.max`). `compare.py`, `fbpic_ref.py` and the
+ξ ranges in this README use ξ = t − z (the orientation of the paper's figures and of the FBPIC script); `compare.py`
+converts the QUARZ output to it. `plot_maps.py` plots QUARZ's own ξ.
+
 W. Meng et al., "Improvement of the laser module in the quasi-static PIC code QuickPIC", Plasma Phys. Control.
 Fusion (2026), doi:10.1088/1361-6587/aebd1b, benchmark a new envelope solver of QuickPIC (Crank–Nicolson in s,
 BDF2 in ξ, a 3D Cartesian multigrid solve per slice) against OSIRIS. QuickPIC solves the same envelope equation as

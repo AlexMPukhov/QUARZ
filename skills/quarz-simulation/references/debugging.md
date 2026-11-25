@@ -9,6 +9,7 @@ the user with the input and the log, and suggest an issue at https://github.com/
 |---|---|
 | `UNKNOWN KEY: input key '...' was not used` | misspelt key; a key that does nothing in this setup (e.g. `time.nt_per_betatron` without `time.adaptive = 1`); or a `<beam>.key` whose beam is not listed in `beams` (the same for `plasma.species`) |
 | `ERROR (rank 0): ...` | wrong value or missing key; the message names it (e.g. `required key 'driver.length' is missing` for `<beam>.profile = flattop`). Parsed formulas: `parser: unknown symbol ...` names the position |
+| `xi.convention is missing` | every input must state `xi.convention = z-t` (since v2.0.0). For an input written for v2 add the line; an input for QUARZ v1.0.0 (xi = ct - z) must be converted with `tools/convert_deck.py`, which adds it |
 | a laser key is refused | `laser.lambda0_um` needs `units.n0_cm3`; `laser.file` needs a build with HDF5 |
 
 Look up every key in `input_reference.md`; do not guess names from other codes (QUARZ has no blocks, no `--check`
@@ -29,7 +30,7 @@ switch, and its lengths are in c/omega_p, not in metres).
 | symptom | cause, cure |
 |---|---|
 | wake much smaller or larger than the estimate | `<beam>.n0` is the peak density in units of n0 (not a charge); recompute with `scripts/quarz_numbers.py`; check the particle number from the `charge` column of `beams.txt` |
-| the wake has the wrong sign or the beam sits at the wrong end | xi = ct - z: the head is at small xi. A witness goes behind the driver, i.e. at larger xi |
+| the wake has the wrong sign or the beam sits at the wrong end | xi = z - ct: the head is at the largest xi (`xi.max`). A witness goes behind the driver, i.e. at smaller xi. An input written for QUARZ v1.0.0 (xi = ct - z) is refused (no `xi.convention`): convert it with `tools/convert_deck.py` |
 | the wake jumps far behind the head, at a place that moves with `<species>.ppc` or the grid | the log has `Note: the box is ... long and the radial cells inside the plasma ... reach h = ...`: clustering of the plasma macro-particles in a long box, turned into field noise by coarse radial cells (rule 9 of SKILL.md): cells <= 0.02-0.03 everywhere inside the plasma, then more `<species>.ppc`; judge the wake off the axis; say where the box stops being reliable |
 | a self-modulation run differs from run to run, or grows without a seed | macro-particle noise seeds it: more particles, a real seed (`<beam>.xi_cut_head`), or the quiet loaders (`<beam>.profile = parsed`, `<beam>.rods`) |
 | spike of E_z at the end of the bubble changes with resolution | expected in a quasi-static code; compare the fields behind it, use `plasma.smooth_length` |

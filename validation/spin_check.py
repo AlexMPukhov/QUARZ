@@ -44,7 +44,7 @@ if mode == "channel":
     print(f" spin.txt: final polarization P = |<s>|: " +
           "  ".join(f"{k} {v['P'][-1]:.6f}" for k, v in sl.items()))
 elif mode == "wake":
-    # RK4 of du/dt = (q/m)(E + v x B), ds/dt = (q/m) s x W, dxi/dt = 1 - v_z with the stored (stationary) fields
+    # RK4 of du/dt = (q/m)(E + v x B), ds/dt = (q/m) s x W, dxi/dt = v_z - 1 with the stored (stationary) fields
     from quarz_read import read_fields
     nend = int(sys.argv[4])
     F = read_fields(f"{out}/fields_{step:06d}.bin")
@@ -77,7 +77,7 @@ elif mode == "wake":
         du = -(E + np.cross(be, B, axis=0))
         W = (a + 1 / g) * B - (a * g / (g + 1) * np.sum(be * B, axis=0)) * be - (a + 1 / (g + 1)) * np.cross(be, E, axis=0)
         ds = -np.cross(sp, W, axis=0)
-        return np.concatenate([be[0:1], be[1:2], 1 - be[2:3], du, ds])
+        return np.concatenate([be[0:1], be[1:2], be[2:3] - 1, du, ds])
 
     y = np.array([b0["x"], b0["y"], b0["xi"], b0["px"], b0["py"], b0["pz"], b0["sx"], b0["sy"], b0["sz"]])
     nsub = int(np.ceil(T / 0.01))
