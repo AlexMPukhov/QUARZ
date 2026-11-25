@@ -42,7 +42,8 @@ and the code refuses or converts them rather than misreading them:
 radial grids for plasma wakefields*, [arXiv:2610.16910](https://arxiv.org/abs/2610.16910) (2026).
 Please cite it if you use QUARZ (BibTeX at the end of this file). **Software:** archived on Zenodo,
 DOI [10.5281/zenodo.23472094](https://doi.org/10.5281/zenodo.23472094) (all versions; v1.0.0:
-[10.5281/zenodo.23472095](https://doi.org/10.5281/zenodo.23472095)). This is version 2.0.0. License: BSD 3-Clause (`LICENSE`).
+[10.5281/zenodo.23472095](https://doi.org/10.5281/zenodo.23472095); v2.0.0:
+[10.5281/zenodo.24531845](https://doi.org/10.5281/zenodo.24531845)). This is version 2.0.0. License: BSD 3-Clause (`LICENSE`).
 
 QUARZ is a quasi-static particle-in-cell code for plasma wakefield
 acceleration in the spirit of LCODE-2D, written in C++17 on top of
@@ -1902,8 +1903,8 @@ and runs every example they ship. Details and the trial with a fresh agent: `doc
   year      = {2026},
   version   = {2.0.0},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.23472094},
-  url       = {https://doi.org/10.5281/zenodo.23472094}
+  doi       = {10.5281/zenodo.24531845},
+  url       = {https://doi.org/10.5281/zenodo.24531845}
 }
 ```
 

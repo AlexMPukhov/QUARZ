@@ -7,7 +7,7 @@ authors:
   - family-names: Wilson
     given-names: Thomas C.
 version: "2.0.0"
-doi: "10.5281/zenodo.23472094"
+doi: "10.5281/zenodo.24531845"
 identifiers:
   - type: doi
     value: "10.5281/zenodo.23472094"
@@ -15,6 +15,9 @@ identifiers:
   - type: doi
     value: "10.5281/zenodo.23472095"
     description: "QUARZ 1.0.0"
+  - type: doi
+    value: "10.5281/zenodo.24531845"
+    description: "QUARZ 2.0.0"
 repository-code: "https://github.com/AlexMPukhov/QUARZ"
 license: BSD-3-Clause
 preferred-citation:
