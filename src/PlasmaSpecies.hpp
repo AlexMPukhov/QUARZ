@@ -68,9 +68,11 @@ public:
     const IonSpeciesInfo& ion_info() const { return ion_; }
     void set_laser(Real k0, bool circular) { ion_.P.laser = true; ion_.P.k0 = k0; ion_.P.circular = circular; }
     // slice kl (global k) of time step `step`: ionization with the fields f of the slice, beam impact
-    // sources imp(kl, node, 3) (empty: none); new electrons are appended to `prod`
+    // sources imp(kl, node, 3) (empty: none); new electrons are appended to `prod`.
+    // ploss (non-empty: laser.ionization_losses): every laser-driven field ionization adds the energy the laser
+    // must give, per unit volume and unit xi, to the nodes (Laser::loss(), applied at the next slice)
     IonizeResult ionize(const SliceFields& f, const View3D& imp, int kl, Real dxi, int k, int step, PlasmaSpecies& prod,
-                        const View3D& eimp = View3D(), const EITargets& eit = EITargets());
+                        const View3D& eimp = View3D(), const EITargets& eit = EITargets(), const View1D& ploss = View1D());
     // electron-impact ionization (Ionization.hpp): projectile electrons deposit their rates per target and
     // energy bin; ionizable species deposit the density of every target level; projectiles lose energy
     void deposit_eimpact(const View3D& eimp, const EITargets& eit) const;

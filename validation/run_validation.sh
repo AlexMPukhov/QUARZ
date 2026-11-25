@@ -232,6 +232,13 @@ sec12() {
     $QS ion_laser.in gas.ppc=$(q 96 16) > /dev/null
     echo " laser ionization of N (up to N5+), a0 = 0.1, 0.8 um at 1e17 cm^-3, wide spot: code vs cycle-resolved ADK and test particles:"
     python3 ion_check.py laser out_ion_laser 1e17 132 0.1 3 -10 N 1e-6 5 2>/dev/null
+    S="time.steps=$(q 40 20) gas.ppc=$(q 8 4)"
+    $QS ion_loss.in $S output.dir=out_ion_loss_on > /dev/null
+    $QS ion_loss.in $S output.dir=out_ion_loss_off laser.ionization_losses=0 > /dev/null
+    $QS ion_loss.in $S output.dir=out_ion_loss_pl plasma.species=electrons electrons.density=0.3 electrons.ppc=$(q 8 4) > /dev/null
+    $QS ion_loss.in $S output.dir=out_ion_loss_noip laser.ionization_potential_loss=0 > /dev/null
+    echo " ionization losses of the laser (H, a0 = 0.012): laser energy vs the sum over the born electrons:"
+    python3 ion_loss_check.py out_ion_loss_on out_ion_loss_off out_ion_loss_pl 13.598 0.03 out_ion_loss_noip
     $QS ion_impact.in gas.ppc=$(q 32 8) gas.ionization.nsplit=$(q 2000 200) > /dev/null
     echo " impact ionization of Ar by a rigid 400 GeV proton beam (Bethe, M^2 = 4.22, C = 37.93; nsplit = 2000):"
     python3 ion_check.py impact out_ion_impact 1e15 4.22:37.93 10 1 15 -50 427 1

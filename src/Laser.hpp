@@ -54,10 +54,18 @@ public:
 
     // start of a sweep: the envelope advanced in the previous sweep becomes the current one
     void begin_step();
-    // from the upstream rank: a^n of slices k0-2, k0-1 and the carry (X, G) of slice k0-1: 8 M doubles
+    // from the upstream rank: a^n of slices k0-2, k0-1, the carry (X, G) of slice k0-1 and the ionization losses of
+    // slice k0-1 (applied at k0): 9 M doubles
     void set_guard(const double* p);
     void get_guard(std::vector<double>& buf) const;   // the same for the last local slices
-    static size_t guard_size(int M) { return 8 * static_cast<size_t>(M); }
+    static size_t guard_size(int M) { return 9 * static_cast<size_t>(M); }
+
+    // laser.ionization_losses (default on): the ionization of slice k adds to loss() the energy per unit volume and
+    // unit xi that the laser must give (PlasmaSpecies::ionize); the advance of slice k+1, where the new electrons
+    // first enter chi, removes it with an absorbing (imaginary) susceptibility  chi -> chi - i P / (k0 <a^2>),
+    // which takes  d(k0^2 <a^2>)/dt = -P  from the cycle-averaged laser energy density. Empty view when off.
+    const View1D& loss() const { return ploss_; }
+    bool losses() const { return losses_; }
 
     // slice kl: <a^2>, d<a^2>/dr (into f.aa, f.daa) and the beam ponderomotive arrays
     void prepare_slice(int kl, SliceFields& f);
@@ -90,6 +98,9 @@ private:
     View3D pond_;        // (KL, M, 3)
     View3D guard_;       // (4, M, 2): [a^n at k0-2, a^n at k0-1, X(k0-1), G(k0-1)] from the upstream rank
     View3D carry_;       // (2, M, 2): X, G of the previous slice (bdf2/euler: X_{k-1}, X_{k-2})
+    bool losses_ = true; // laser.ionization_losses
+    bool loss_ip_ = true;// laser.ionization_potential_loss (read by the ionizable species; here for the run summary)
+    View1D ploss_;       // (M): ionization losses of the previous slice (energy per volume and xi), consumed by advance_slice
     View1D la_, lb_, lc_;                   // L0 coefficients
     View1D aa_tmp_;                         // scratch
     View1D cpr_, cpi_, dpr_, dpi_;          // Thomas scratch (complex)

@@ -73,6 +73,9 @@ Laser::Laser(const Config& cfg, const RadialGrid& grid, const FieldSolver& solve
     guard_ = View3D("laser.guard", 4, M, 2);
     carry_ = View3D("laser.carry", 2, M, 2);
     aa_tmp_ = View1D("laser.aa", M);
+    losses_ = cfg.get_bool("laser.ionization_losses", true);
+    loss_ip_ = cfg.get_bool("laser.ionization_potential_loss", true);
+    ploss_ = View1D("laser.ploss", M);   // stays zero without ionizable species
     cpr_ = View1D("laser.cpr", M); cpi_ = View1D("laser.cpi", M);
     dpr_ = View1D("laser.dpr", M); dpi_ = View1D("laser.dpi", M);
     solver.ln_coefficients(l_, la_, lb_, lc_);
@@ -244,6 +247,9 @@ std::string Laser::description() const {
     std::snprintf(b, sizeof(b), "Laser envelope: k0 = omega0/omega_p = %g, %s polarisation (%s, %s)",
                   k0_, circular_ ? "circular" : "linear", m, xsn[xi_scheme_]);
     std::string s = b;
+    s += !losses_ ? "\n  ionization losses: off (laser.ionization_losses = 0)"
+         : loss_ip_ ? "\n  ionization losses: on (ionization energy, birth quiver and drift energy taken from the laser)"
+                    : "\n  ionization losses: on without Ip (birth quiver and drift energy; laser.ionization_potential_loss = 0)";
     for (const std::string& line : file_info_) s += "\n  laser file: " + line;
     for (const std::string& line : comb_info_) s += "\n  comb " + line;
     return s;
@@ -252,6 +258,7 @@ std::string Laser::description() const {
 void Laser::begin_step() {
     if (advanced_) std::swap(a_, an_);
     advanced_ = false;
+    Kokkos::deep_copy(ploss_, 0.0);   // the head of the box (other ranks: set_guard)
 }
 
 void Laser::set_guard(const double* p) {
@@ -262,6 +269,9 @@ void Laser::set_guard(const double* p) {
         for (int j = 0; j < M; ++j)
             for (int c = 0; c < 2; ++c) h(l, j, c) = p[o++];
     Kokkos::deep_copy(guard_, h);
+    auto hl = Kokkos::create_mirror_view(ploss_);
+    for (int j = 0; j < M; ++j) hl(j) = p[o++];
+    Kokkos::deep_copy(ploss_, hl);
 }
 
 void Laser::get_guard(std::vector<double>& buf) const {
@@ -275,6 +285,8 @@ void Laser::get_guard(std::vector<double>& buf) const {
     for (int l = 0; l < 2; ++l)
         for (int j = 0; j < M; ++j)
             for (int c = 0; c < 2; ++c) buf.push_back(hc(l, j, c));
+    auto hl = Kokkos::create_mirror_view_and_copy(HostSpace(), ploss_);   // losses of the last local slice
+    for (int j = 0; j < M; ++j) buf.push_back(hl(j));
 }
 
 void Laser::prepare_slice(int kl, SliceFields& f) {
@@ -315,6 +327,8 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
     auto a = a_; auto an = an_; auto g = guard_; auto carry = carry_;
     auto la = la_; auto lb = lb_; auto lc = lc_;
     auto chi = chi0;
+    auto pl = ploss_; auto pond = pond_;
+    const bool lossy = losses_;
     auto cpr = cpr_, cpi = cpi_, dpr = dpr_, dpi = dpi_;
     const Real dxi = box_.dxi, dt = dt_, k0 = k0_;
     const bool first = (kl == 0);
@@ -333,6 +347,15 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
         const Real s0 = Real(2) / (dt * dxi);
         const Real s1 = cd * s0, s2 = Real(4) / dt;
         const Cx alpha{s1, -s2 * k0};   // trapezoid: 8/(dt dxi) - 4 i k0 / dt
+        // H = L - chi + i chi_i at node j: chi_i = P / (k0 <a^2>) absorbs the ionization losses P of the previous slice
+        auto Hd = [&](int j, Real bj) -> Cx {
+            Real ci = 0;
+            if (lossy && pl(j) > Real(0)) {
+                const Real aa = pond(kl, j, 0);
+                if (aa > Real(1e-30)) ci = pl(j) / (k0 * aa);
+            }
+            return Cx{bj - chi(j), ci};
+        };
         Cx dprev{0, 0}, cprev{0, 0};
         for (int j = 0; j < N; ++j) {
             if (axis0 && j == 0) {   // vortex (l >= 1): a^ = 0 on the axis
@@ -341,14 +364,15 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
             }
             const Real aj = j > 0 ? la(j) : Real(0), bj = lb(j), cj = lc(j);
             // H a^n at node j
-            Cx Ha = cscale(bj - chi(j), A(j));
+            const Cx hd = Hd(j, bj);
+            Cx Ha = cmul(hd, A(j));
             if (j > 0) Ha = cadd(Ha, cscale(aj, A(j - 1)));
             Ha = cadd(Ha, cscale(cj, A(j + 1)));
             // [8/(dt dxi) - 4 i k0/dt - H] X_k = 8/(dt dxi) X_{k-1} + 4/dt G_{k-1} + 2 H a^n_k
             const Cx hist = scheme == 0 ? cadd(cscale(c1 * s0, Xp(j)), cscale(s2, Gp(j)))
                                         : cadd(cscale(c1 * s0, Xp(j)), cscale(c2 * s0, Gp(j)));
             const Cx rhs = cadd(hist, cscale(Real(2), Ha));
-            const Cx diag = csub(alpha, Cx{bj - chi(j), Real(0)});
+            const Cx diag = csub(alpha, hd);
             const Real low = -aj, up = -cj;
             const Cx m = csub(diag, cscale(low, cprev));
             const Cx cpj = cdiv(Cx{up, Real(0)}, m);
@@ -378,7 +402,7 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
             Cx G{0, 0};
             if (j < N) {
                 const Real aj = j > 0 ? la(j) : Real(0), bj = lb(j), cj = lc(j);
-                Cx HY = cscale(bj - chi(j), Y(j));
+                Cx HY = cmul(Hd(j, bj), Y(j));
                 if (j > 0) HY = cadd(HY, cscale(aj, Y(j - 1)));
                 HY = cadd(HY, cscale(cj, Y(j + 1)));
                 G = cadd(cmul(Cx{Real(0), k0}, X), cscale(Real(0.25) * dt, HY));
@@ -389,6 +413,7 @@ void Laser::advance_slice(int kl, const View1D& chi0) {
         for (int j = 0; j <= N; ++j) {
             an(kl, j, 0) += a(kl, j, 0);
             an(kl, j, 1) += a(kl, j, 1);
+            pl(j) = Real(0);   // consumed; the ionization of this slice fills it for the next one
         }
     });
 }

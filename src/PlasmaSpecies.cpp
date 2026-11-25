@@ -857,6 +857,27 @@ struct IonizeKernel {
     bool quiet = false;                           // ionization.quiet: accumulator emission, stratified draws
     View1D acc;                                   //   accumulated expected ionization of every particle
     Real qs[7] = {0, 0, 0, 0, 0, 0, 0};           //   random offsets of the R_7 sequence in this slice
+    View1D ploss;                                 // laser.ionization_losses: energy the laser gives, per volume and xi
+    bool has_loss = false;
+
+    // laser.ionization_losses: energy taken from the laser by a laser-driven field ionization z -> z+1 of weight wgt,
+    // deposited on the nodes of the parent (per unit volume and unit xi; Laser::advance_slice of the next slice):
+    //   U_z f_L   ionization energy, times the laser's share f_L = 1 - W(E_slow)/W of the rate (the slow wake and beam
+    //             fields pay the rest); laser.ionization_potential_loss = 0 drops it (as in FBPIC / WarpX, which create
+    //             the electrons at rest but do not take Ip from the field);
+    //   <a^2>/2   the quiver energy: the cycle-averaged envelope gains it when the susceptibility grows (photon number
+    //             conserved, frequency up-shifted), but a tunnel electron is born at rest in the field;
+    //   p_d^2/2   the drift energy of the residual momentum p_d = -a(phi_birth) (QUARZ gives it to the new electron).
+    // Times gamma/Delta of the parent (the number of atoms passing per unit time; 1 for atoms at rest).
+    KOKKOS_INLINE_FUNCTION void lose(const PGeo& pg, Real wgt, int l, Real gfac, Real Aamp, Real Ex, Real Ey, Real Ez,
+                                     Real Wtot, Real dp2) const {
+        if (!has_loss || !(Wtot > Real(0))) return;
+        const Real ws = adk_rate(P, l, Kokkos::sqrt(Ex * Ex + Ey * Ey + Ez * Ez));
+        const Real fl = Kokkos::fmax(Real(1) - ws / Wtot, Real(0));
+        const Real aa = P.circular ? Aamp * Aamp : Real(0.5) * Aamp * Aamp;
+        const Real e = wgt * gfac * ((P.loss_ip ? P.ue[l] * fl : Real(0)) + Real(0.5) * (aa + dp2)) / dxi;
+        for (int cc = 0; cc < 2; ++cc) Kokkos::atomic_add(&ploss(pg.j + cc), e * pg.W[cc] * g.inv_V(pg.j + cc));
+    }
 
     // quiet draws: point j of the R_7 low-discrepancy sequence (Roberts), dimension dim, shifted by qs: the
     // draws of the electrons born in a slice (index j in the slice) fill [0, 1) evenly instead of at random
@@ -902,7 +923,8 @@ struct IonizeKernel {
 
     // new macro-electron j: parent velocity + laser drift (field-born electrons in the laser), or
     // + the delta-electron momentum (impact-born, P.delta; lnwm = ln W_max, kap: see Ionization.hpp)
-    KOKKOS_INLINE_FUNCTION void electron(int j, Real X, Real Y, Real PX, Real PY, Real D, Real wgt, const IonRate& R,
+    // returns the square of the laser drift momentum given to the electron (0 if none)
+    KOKKOS_INLINE_FUNCTION Real electron(int j, Real X, Real Y, Real PX, Real PY, Real D, Real wgt, const IonRate& R,
                                          bool laser_born, Real Aamp, Real Ex, Real Ey, Real Ez, Real EL, int l,
                                          uint64_t i, uint64_t d, int kind, Real lnwm, Real kap, Real pin, Real Je,
                                          uint64_t qj) const {
@@ -941,7 +963,7 @@ struct IonizeKernel {
             const Real q2 = Real(1) + qx * qx + qy * qy, gm = Kokkos::sqrt(q2 + qz * qz);
             ex(j) = X; ey(j) = Y; epx(j) = qx; epy(j) = qy; edl(j) = qz > Real(0) ? q2 / (gm + qz) : gm - qz;
             ew(j) = wgt; efresh(j) = 1;
-            return;
+            return Real(0);
         }
         Real dpx = 0, dpy = 0;
         if (laser_born && Aamp > Real(0)) {
@@ -974,6 +996,7 @@ struct IonizeKernel {
             }
         }
         ex(j) = X; ey(j) = Y; epx(j) = PX + dpx; epy(j) = PY + dpy; edl(j) = D; ew(j) = wgt; efresh(j) = 1;
+        return dpx * dpx + dpy * dpy;
     }
 
     KOKKOS_INLINE_FUNCTION void operator()(int i) const {
@@ -1046,8 +1069,9 @@ struct IonizeKernel {
             const int kind = v < R.W * dtf ? 0 : (v < R.W * dtf + Rimp * dxi ? 1 : 2);
             Real lw = lnwm, Je = 0;
             if (kind == 2) ekin(pg, z, quiet ? qr(1, qj) : ion_rand(key, ii, 2), lw, Je);
-            electron(ne0 + cnt_e(i), X, Y, PX, PY, D, we, R, P.laser && kind == 0, Aamp, Ex, Ey, Ez, EL, z, ii, 1u << 20,
-                     kind, lw, kap, pin, Je, qj);
+            const Real dp2 = electron(ne0 + cnt_e(i), X, Y, PX, PY, D, we, R, P.laser && kind == 0, Aamp, Ex, Ey, Ez, EL, z,
+                                      ii, 1u << 20, kind, lw, kap, pin, Je, qj);
+            if (kind == 0 && P.laser && EL > Real(0)) lose(pg, we, z, dtf / dxi, Aamp, Ex, Ey, Ez, R.W, dp2);
             return;
         }
         // ---- whole macro-particle, possibly several levels in this slice
@@ -1084,8 +1108,9 @@ struct IonizeKernel {
                 const int kind = v < R.W * dtf ? 0 : (v < R.W * dtf + Ri * dxi ? 1 : 2);
                 Real lw = lnwm, Je = 0;
                 if (kind == 2) ekin(pg, l, quiet ? qr(1, qj) : ion_rand(key, ii, d + 2), lw, Je);
-                electron(ne0 + cnt_e(i) + ne, X, Y, PX, PY, D, wi, R, P.laser && kind == 0, Aamp, Ex, Ey, Ez, EL, l, ii,
-                         (2u + static_cast<uint64_t>(l)) << 20, kind, lw, kap, pin, Je, qj);
+                const Real dp2 = electron(ne0 + cnt_e(i) + ne, X, Y, PX, PY, D, wi, R, P.laser && kind == 0, Aamp, Ex, Ey,
+                                          Ez, EL, l, ii, (2u + static_cast<uint64_t>(l)) << 20, kind, lw, kap, pin, Je, qj);
+                if (kind == 0 && P.laser && EL > Real(0)) lose(pg, wi, l, dtf / dxi, Aamp, Ex, Ey, Ez, R.W, dp2);
             }
             ++ne;
         }
@@ -1096,7 +1121,7 @@ struct IonizeKernel {
 } // namespace
 
 IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int kl, Real dxi, int k, int step,
-                                   PlasmaSpecies& prod, const View3D& eimp, const EITargets& eit) {
+                                   PlasmaSpecies& prod, const View3D& eimp, const EITargets& eit, const View1D& ploss) {
     IonizeResult res;
     if (!ionizable_ || Np_ == 0) return res;
     uint64_t nh = 1469598103934665603ULL;   // FNV-1a of the species name
@@ -1119,6 +1144,7 @@ IonizeResult PlasmaSpecies::ionize(const SliceFields& f, const View3D& imp, int 
         K.eflag = eflag;
         K.eimp = eimp; K.eit = eit; K.has_e = ion_.P.eimp && eimp.extent(0) > 0;
         K.quiet = ion_.quiet; K.acc = acc_;
+        K.ploss = ploss; K.has_loss = ploss.extent(0) > 0;
         for (int dd = 0; dd < 7; ++dd) K.qs[dd] = ion_rand(key, 0x51ce0ffULL, 9000 + dd);
         return K;
     };
