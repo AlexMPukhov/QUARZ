@@ -35,6 +35,38 @@ the run with `unknown input key(s): ...`; a known key that this setup does not r
 a bunch that comes from a file, a species taken out of `plasma.species`) is reported as
 `WARNING: input key '...' was not used`. `input.allow_unknown = 1` turns the error into a warning.
 
+**Common names.** The quantities that all codes of the family have can be written with the common
+names; each is rewritten into the QUARZ key of the tables below before the run is set up. Giving
+both names of one quantity is an error.
+
+| common name | QUARZ key | remark |
+|---|---|---|
+| `grid.m_max` | `modes` | highest azimuthal mode |
+| `grid.r_max` | `grid.rmax` | |
+| `laser.wavelength` | `laser.k0` | with a unit: k0 = 2π/(k_p λ) |
+| `laser.tau_fwhm` | `laser.L0` | FWHM of the intensity: L0 = c τ / √(2 ln 2) |
+| `laser.waist` | `laser.w0` | |
+| `laser.z_focus` | `laser.focus` | |
+| `<bunch>.species = electron \| positron \| proton` | `<beam>.charge`, `<beam>.mass` | |
+| `<bunch>.charge` **with a unit** (`fC pC nC`) | `<beam>.n0` | total charge of a `gaussian` or `flattop` bunch (inside its cut); needs the reference density. A plain number stays the charge number of the particles |
+| `<bunch>.energy` (`eV … TeV`) | `<beam>.gamma` | kinetic energy: γ = 1 + E/(m c²) |
+| `<bunch>.energy_spread` | `<beam>.espread` | |
+| `<bunch>.sigma_x`, `sigma_y` | `<beam>.sigma_r` | must be equal: the beams of QUARZ are round |
+| `<bunch>.sigma_z` | `<beam>.sigma_xi` | |
+| `<bunch>.emittance_x`, `emittance_y` | `<beam>.emit_n` | must be equal |
+| `<bunch>.zeta_center` | `<beam>.xi0` | counted from the rear end of the box: xi0 = `xi.min` + zeta_center |
+| `<bunch>.macroparticles` | `<beam>.nparticles` | |
+| `<bunch>.file_species`, `file_iteration` | `<beam>.openpmd_species`, `openpmd_iteration` | |
+
+```
+units { n0 = 1e17 cm^-3 }
+bunch driver {
+  species = electron;  charge = 150 pC;  energy = 1 GeV
+  sigma_x = 8 um;  sigma_y = 8 um;  sigma_z = 17 um
+  zeta_center = 135 um
+}
+```
+
 **Command line.** `quarz input.in [key=value ...] [--check] [--restart <checkpoint dir | latest>]`:
 `--check` reads the input, sets the run up, reports as above and stops before the first step;
 `--restart` is the same as the key `restart.from`.
