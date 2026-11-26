@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -49,14 +50,22 @@ int main(int argc, char* argv[]) {
         Kokkos::ScopeGuard kokkos(kargc, args.data());
 
         if (argc < 2) {
-            if (comm.root()) std::cerr << "usage: [mpirun -np P] quarz <input file> [key=value ...] [--kokkos-... options]\n";
+            if (comm.root()) std::cerr << "usage: [mpirun -np P] quarz <input file> [key=value ...] [--check] [--restart <checkpoint dir | latest>] [--kokkos-... options]\n";
             rc = 1;
         } else {
             try {
                 quarz::Config cfg(argv[1]);
-                // command line overrides:  key=value
+                // command line: key=value overrides, --check (read the input, set everything up, stop before the
+                // first step), --restart <checkpoint dir | latest> (= restart.from)
+                bool check = false;
                 for (int i = 2; i < argc; ++i) {
                     std::string a = argv[i];
+                    if (a == "--check") { check = true; continue; }
+                    if (a == "--restart") {
+                        if (i + 1 >= argc) throw std::runtime_error("--restart needs a checkpoint directory or 'latest'");
+                        cfg.set("restart.from", argv[++i]);
+                        continue;
+                    }
                     auto eq = a.find('=');
                     if (a.rfind("--", 0) == 0 || eq == std::string::npos) continue;
                     cfg.set(a.substr(0, eq), a.substr(eq + 1));
@@ -66,10 +75,25 @@ int main(int argc, char* argv[]) {
                               << (ndev > 0 ? ", " + std::to_string(ndev) + " GPU(s) per node" : std::string()) << "\n";
                 {
                     quarz::Simulation sim(cfg);
-                    sim.run();
+                    // every key is read while the run is set up: a key that nobody read is misspelt or does not
+                    // belong to this setup, and the run would silently use a default. Stop before the first step.
+                    // (A restarted run takes part of its state from the checkpoint and reads fewer keys: warning.)
+                    cfg.n0_cm3();                          // the reference density may serve the units only
+                    const bool allow = cfg.get_bool("input.allow_unused", false);
+                    const auto unused = cfg.unused_keys();
+                    const bool restart = cfg.has("restart.from");
+                    if (!unused.empty() && !restart && !allow) {
+                        std::string m = "unknown input key(s):";
+                        for (const auto& k : unused) m += " '" + k + "'";
+                        throw std::runtime_error(m + " (misspelt, or not valid in this setup)");
+                    }
+                    if (comm.root())
+                        for (const auto& k : unused) std::cout << "WARNING: input key '" << k << "' was not used\n";
+                    if (check) {
+                        if (comm.root()) std::cout << "check: input ok (" << cfg.keys().size() << " keys), no step done\n";
+                    } else
+                        sim.run();
                 }
-                if (comm.root())
-                    for (const auto& k : cfg.unused_keys()) std::cout << "WARNING: input key '" << k << "' was not used\n";
             } catch (const std::exception& e) {
                 std::cerr << "ERROR (rank " << comm.rank() << "): " << e.what() << "\n";
                 rc = 2;

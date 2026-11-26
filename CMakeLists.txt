@@ -167,6 +167,7 @@ if(QUARZ_BUILD_TESTS)
   # sync, every input key named in the skills exists in the code, snippets and example inputs pass the check and run
   add_test(NAME agent_skill COMMAND sh ${CMAKE_SOURCE_DIR}/tests/agent_skill.sh $<TARGET_FILE:quarz>)
   add_test(NAME long_box_note COMMAND sh ${CMAKE_SOURCE_DIR}/tests/long_box_note.sh $<TARGET_FILE:quarz>)
+  add_test(NAME deck_standard COMMAND sh ${CMAKE_SOURCE_DIR}/tests/deck_standard.sh $<TARGET_FILE:quarz>)
   # laser.ionization_losses: change of the laser energy vs the sum over the electrons born in the run (python3, numpy)
   add_test(NAME ionization_losses COMMAND sh ${CMAKE_SOURCE_DIR}/tests/ionization_losses.sh $<TARGET_FILE:quarz>)
 endif()
