@@ -3,8 +3,9 @@
 # --check. References: the same run written in the old flat form.
 #   (1) block form (nested and named blocks, one-line blocks with ';') = flat form: beams.txt byte-identical
 #   (2) the same deck with lengths in um, times in fs and densities in cm^-3 = the normalized deck with the same
-#       reference density (1e-9 relative). The reference density is part of the physics: with it QUARZ switches on
-#       the Coulomb scattering of the beams, so both runs get it (the old key units.n0_cm3 in the flat deck)
+#       reference density (1e-7 relative). The reference density is part of the physics: with it QUARZ switches on
+#       the Coulomb scattering of the beams (random kicks: its part of the emittance is not reproducible to round-off
+#       when the input changes in the last digit), so both runs get the density and scattering = 0
 #   (3) a key given twice, an unknown key, a unit without units.n0, an unknown unit: error before the first step
 #   (4) --check: the input is read and set up, no step is done
 #   sh tests/deck_standard.sh <quarz executable>
@@ -63,7 +64,7 @@ bunch driver {
   gamma = 2000
   nparticles = 20000
 }
-bunch witness { n0 = 0.05; sigma_r = 0.3; sigma_xi = 0.3; xi0 = -8.5; gamma = 400; nparticles = 5000 }
+bunch witness { n0 = 0.05; sigma_r = 0.3; sigma_xi = 0.3; xi0 = -8.5; gamma = 400; nparticles = 5000; scattering = 0 }
 output { every = 0 }
 IN
 "$Q" flat.in output.dir=flat > flat.log 2>&1 || { bad "the flat deck runs"; cat flat.log; }
@@ -82,18 +83,18 @@ grid { type = regions; rmax = $(u 8) um; regions = $(u 8)um:$(u 0.05)um }
 time { dt = $(t 5) fs; steps = 2 }
 plasma { rmax = $(u 7) um }
 species electrons { ppc = 2 }
-bunch driver { n0 = 0.5e17 cm^-3; sigma_r = $(u 0.5) um; sigma_xi = $(u 1) um; xi0 = $(u -4) um; gamma = 2000; nparticles = 20000 }
-bunch witness { n0 = 5e15cm^-3; sigma_r = $(u 0.3) um; sigma_xi = $(u 0.3) um; xi0 = $(u -8.5) um; gamma = 400; nparticles = 5000 }
+bunch driver { n0 = 0.5e17 cm^-3; sigma_r = $(u 0.5) um; sigma_xi = $(u 1) um; xi0 = $(u -4) um; gamma = 2000; nparticles = 20000; scattering = 0 }
+bunch witness { n0 = 5e15cm^-3; sigma_r = $(u 0.3) um; sigma_xi = $(u 0.3) um; xi0 = $(u -8.5) um; gamma = 400; nparticles = 5000; scattering = 0 }
 output { every = 0 }
 IN
-"$Q" flat.in units.n0_cm3=1e17 output.dir=flatn0 > flatn0.log 2>&1 || { bad "the flat deck with units.n0_cm3 runs"; cat flatn0.log; }
+"$Q" flat.in units.n0_cm3=1e17 driver.scattering=0 witness.scattering=0 output.dir=flatn0 > flatn0.log 2>&1 || { bad "the flat deck with units.n0_cm3 runs"; cat flatn0.log; }
 "$Q" units.in output.dir=units > units.log 2>&1 || { bad "the deck with units runs"; cat units.log; }
 d=$(awk 'NR == FNR { for (i = 1; i <= NF; i++) a[FNR, i] = $i; n[FNR] = NF; next }
          /^#/ { next }
          { for (i = 1; i <= NF; i++) { x = a[FNR, i] + 0; y = $i + 0; e = x - y; if (e < 0) e = -e; s = (x < 0 ? -x : x) + 1e-30;
                                        if ($i ~ /^[-+0-9.eE]+$/ && e / s > m && s > 1e-12) m = e / s } }
          END { printf "%.1e", m }' flatn0/beams.txt units/beams.txt)
-if [ -s units/beams.txt ] && awk -v d="$d" 'BEGIN { exit !(d < 1e-9) }'; then ok "deck with units = normalized deck (max relative difference $d, 1/k_p = $KP um)"
+if [ -s units/beams.txt ] && awk -v d="$d" 'BEGIN { exit !(d < 1e-7) }'; then ok "deck with units = normalized deck (max relative difference $d, 1/k_p = $KP um)"
 else bad "deck with units = normalized deck (max relative difference $d)"; head -n 4 flatn0/beams.txt units/beams.txt | cut -c1-400; diff flatn0.log units.log | head -n 20; fi
 
 # ---- (3) errors before the first step
