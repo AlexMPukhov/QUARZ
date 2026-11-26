@@ -30,6 +30,9 @@ public:
     double number(const std::string& text, const std::string& what) const;
     // reference density in cm^-3 from units.n0_cm3 or units.n0 (0 if neither is given)
     double n0_cm3() const;
+    // the common key names of the VLPL family (grid.m_max, laser.tau_fwhm, <bunch>.charge with a unit, .energy,
+    // .sigma_x ...) rewritten into the keys the code reads; call once after the command-line overrides
+    void apply_standard_names();
 
     double      get_double(const std::string& key) const;                 // required
     double      get_double(const std::string& key, double def) const;     // optional

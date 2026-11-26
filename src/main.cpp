@@ -91,6 +91,7 @@ int main(int argc, char* argv[]) {
                     if (a.rfind("--", 0) == 0 || eq == std::string::npos) continue;
                     cfg.set(a.substr(0, eq), a.substr(eq + 1));
                 }
+                cfg.apply_standard_names();
                 if (comm.root() && comm.size() > 1)
                     std::cout << "MPI: " << comm.size() << " ranks (decomposition along xi)"
                               << (ndev > 0 ? ", " + std::to_string(ndev) + " GPU(s) per node" : std::string()) << "\n";

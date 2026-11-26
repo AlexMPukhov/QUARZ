@@ -235,6 +235,172 @@ std::vector<std::pair<double, double>> Config::get_pairs(const std::string& key)
     return out;
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// Common key names of the VLPL family (README section 5, "Common names"). Each is rewritten into the key of
+// QUARZ that the code reads; giving both spellings of one quantity is an error.
+namespace {
+// "<number> <unit>" -> value in the unit named by the table (energy: MeV, charge: C); false if the unit is none of them
+bool with_unit(const std::string& text, const char* const* names, const double* factors, int n, double& value) {
+    const std::string v = trim(text);
+    size_t pos = 0;
+    double x = 0;
+    try { x = std::stod(v, &pos); } catch (...) { return false; }
+    const std::string u = trim(v.substr(pos));
+    for (int i = 0; i < n; ++i)
+        if (u == names[i]) { value = x * factors[i]; return true; }
+    return false;
+}
+const char* const charge_units[] = {"fC", "pC", "nC", "uC", "C"};
+const double charge_factors[] = {1e-15, 1e-12, 1e-9, 1e-6, 1.0};
+const char* const energy_units[] = {"eV", "keV", "MeV", "GeV", "TeV"};
+const double energy_factors[] = {1e-6, 1e-3, 1.0, 1e3, 1e6};
+}  // namespace
+
+void Config::apply_standard_names() {
+    // new -> old, the same value
+    const auto rename = [&](const std::string& neu, const std::string& old) {
+        if (!kv_.count(neu)) return;
+        if (kv_.count(old))
+            throw std::runtime_error("Config: '" + neu + "' and '" + old + "' are two names of one quantity: give one");
+        kv_[old] = kv_[neu];
+        kv_.erase(neu);
+    };
+    // the common value of new1, new2 (e.g. sigma_x, sigma_y of a round beam) -> old
+    const auto merge = [&](const std::string& n1, const std::string& n2, const std::string& old) {
+        if (!kv_.count(n1) && !kv_.count(n2)) return;
+        if (kv_.count(old))
+            throw std::runtime_error("Config: '" + (kv_.count(n1) ? n1 : n2) + "' and '" + old +
+                                     "' are two names of one quantity: give one");
+        const std::string& first = kv_.count(n1) ? n1 : n2;
+        const double a = number(kv_[first], "key '" + first + "'");
+        if (kv_.count(n1) && kv_.count(n2)) {
+            const double b = number(kv_[n2], "key '" + n2 + "'");
+            if (std::abs(a - b) > 1e-12 * std::max(std::abs(a), std::abs(b)))
+                throw std::runtime_error("Config: '" + n1 + "' and '" + n2 + "' differ: the beams of QUARZ are round (" +
+                                         old + ")");
+        }
+        std::ostringstream os;
+        os.precision(17);
+        os << a;
+        kv_[old] = os.str();
+        kv_.erase(n1);
+        kv_.erase(n2);
+    };
+    const auto put = [&](const std::string& key, double x) {
+        std::ostringstream os;
+        os.precision(17);
+        os << x;
+        kv_[key] = os.str();
+    };
+
+    // ---- grid
+    rename("grid.m_max", "modes");
+    rename("grid.r_max", "grid.rmax");
+
+    // ---- laser
+    rename("laser.waist", "laser.w0");
+    rename("laser.z_focus", "laser.focus");
+    if (kv_.count("laser.tau_fwhm")) {                     // FWHM of the intensity; a ~ exp(-xi^2 / L0^2): FWHM = sqrt(2 ln 2) L0
+        if (kv_.count("laser.L0"))
+            throw std::runtime_error("Config: 'laser.tau_fwhm' and 'laser.L0' are two names of one quantity: give one");
+        put("laser.L0", number(kv_["laser.tau_fwhm"], "key 'laser.tau_fwhm'") / std::sqrt(2.0 * std::log(2.0)));
+        kv_.erase("laser.tau_fwhm");
+    }
+    if (kv_.count("laser.wavelength")) {                   // k0 = omega0 / omega_p = 2 pi / (k_p lambda)
+        if (kv_.count("laser.k0") || kv_.count("laser.lambda0_um"))
+            throw std::runtime_error("Config: 'laser.wavelength' and 'laser.k0' / 'laser.lambda0_um' are names of one "
+                                     "quantity: give one");
+        const double lam = number(kv_["laser.wavelength"], "key 'laser.wavelength'");
+        if (!(lam > 0)) throw std::runtime_error("Config: laser.wavelength must be positive");
+        put("laser.k0", 2.0 * 3.14159265358979323846 / lam);
+        kv_.erase("laser.wavelength");
+    }
+
+    // ---- bunches
+    std::vector<std::string> beams;
+    {
+        std::istringstream ls(kv_.count("beams") ? kv_["beams"] : std::string());
+        for (std::string t; ls >> t;) beams.push_back(t);
+    }
+    for (const std::string& b : beams) {
+        rename(b + ".sigma_z", b + ".sigma_xi");
+        merge(b + ".sigma_x", b + ".sigma_y", b + ".sigma_r");
+        merge(b + ".emittance_x", b + ".emittance_y", b + ".emit_n");
+        rename(b + ".energy_spread", b + ".espread");
+        rename(b + ".macroparticles", b + ".nparticles");
+        rename(b + ".file_species", b + ".openpmd_species");
+        rename(b + ".file_iteration", b + ".openpmd_iteration");
+
+        // total charge: "<beam>.charge" with a unit of charge (a plain number is the charge number of the particles)
+        double qtot = 0;
+        bool total = false;
+        if (kv_.count(b + ".charge") && with_unit(kv_[b + ".charge"], charge_units, charge_factors, 5, qtot)) {
+            total = true;
+            kv_.erase(b + ".charge");
+        }
+        // particle species
+        if (kv_.count(b + ".species")) {
+            const std::string s = trim(kv_[b + ".species"]);
+            if (kv_.count(b + ".charge") || kv_.count(b + ".mass"))
+                throw std::runtime_error("Config: '" + b + ".species' and '" + b + ".charge' / '.mass' (numbers): give one");
+            if (s == "electron") { put(b + ".charge", -1); put(b + ".mass", 1); }
+            else if (s == "positron") { put(b + ".charge", 1); put(b + ".mass", 1); }
+            else if (s == "proton") { put(b + ".charge", 1); put(b + ".mass", 1836.15267343); }
+            else throw std::runtime_error("Config: " + b + ".species = " + s + ": electron, positron or proton");
+            kv_.erase(b + ".species");
+        }
+        const double qnum = kv_.count(b + ".charge") ? number(kv_[b + ".charge"], "key '" + b + ".charge'") : -1.0;
+        const double mass = kv_.count(b + ".mass") ? number(kv_[b + ".mass"], "key '" + b + ".mass'") : 1.0;
+        // kinetic energy -> gamma
+        if (kv_.count(b + ".energy")) {
+            if (kv_.count(b + ".gamma"))
+                throw std::runtime_error("Config: '" + b + ".energy' and '" + b + ".gamma': give one");
+            double mev = 0;
+            if (!with_unit(kv_[b + ".energy"], energy_units, energy_factors, 5, mev))
+                throw std::runtime_error("Config: " + b + ".energy = " + kv_[b + ".energy"] +
+                                         ": the kinetic energy with its unit (eV keV MeV GeV TeV)");
+            put(b + ".gamma", 1.0 + mev / (0.51099895 * mass));
+            kv_.erase(b + ".energy");
+        }
+        // position counted from the rear end of the window (as in GEM-PIC-RZ): xi0 = xi.min + zeta_center
+        if (kv_.count(b + ".zeta_center")) {
+            if (kv_.count(b + ".xi0"))
+                throw std::runtime_error("Config: '" + b + ".zeta_center' and '" + b + ".xi0': give one");
+            if (!kv_.count("xi.min")) throw std::runtime_error("Config: " + b + ".zeta_center needs xi.min");
+            put(b + ".xi0", number(kv_["xi.min"], "key 'xi.min'") + number(kv_[b + ".zeta_center"], "key '" + b + ".zeta_center'"));
+            kv_.erase(b + ".zeta_center");
+        }
+        // total charge -> peak density of the Gaussian or flat-top bunch (the weight sum of Beam::init_gaussian)
+        if (total) {
+            if (kv_.count(b + ".n0"))
+                throw std::runtime_error("Config: '" + b + ".charge' with a unit (total charge) and '" + b + ".n0': give one");
+            const std::string prof = kv_.count(b + ".profile") ? trim(kv_[b + ".profile"]) : std::string("gaussian");
+            if ((prof != "gaussian" && prof != "flattop") || kv_.count(b + ".xi_cut_head"))
+                throw std::runtime_error("Config: " + b + ".charge as the total charge: only for profile = gaussian | "
+                                         "flattop without xi_cut_head (files carry their charge)");
+            const double n0 = n0_cm3();
+            if (!(n0 > 0)) throw std::runtime_error("Config: " + b + ".charge as the total charge needs units.n0");
+            if (!kv_.count(b + ".sigma_r")) throw std::runtime_error("Config: " + b + ".charge needs " + b + ".sigma_r");
+            const double sr = number(kv_[b + ".sigma_r"], "key '" + b + ".sigma_r'");
+            const double cut = kv_.count(b + ".cut") ? number(kv_[b + ".cut"], "key '" + b + ".cut'") : 3.0;
+            const double pi = 3.14159265358979323846;
+            const double Pr = 1.0 - std::exp(-0.5 * cut * cut);
+            double vol;                                     // weight sum per unit peak density, in k_p^-3
+            if (prof == "gaussian") {
+                if (!kv_.count(b + ".sigma_xi")) throw std::runtime_error("Config: " + b + ".charge needs " + b + ".sigma_z");
+                const double sxi = number(kv_[b + ".sigma_xi"], "key '" + b + ".sigma_xi'");
+                vol = std::pow(2 * pi, 1.5) * sr * sr * sxi * Pr * std::erf(cut / std::sqrt(2.0));
+            } else {
+                if (!kv_.count(b + ".length")) throw std::runtime_error("Config: " + b + ".charge needs " + b + ".length");
+                vol = 2 * pi * sr * sr * Pr * number(kv_[b + ".length"], "key '" + b + ".length'");
+            }
+            const double kp_cm = 5.64146e4 * std::sqrt(n0) / 2.99792458e10;          // 1/cm
+            const double npart = qtot / (1.602176634e-19 * std::abs(qnum));           // real particles
+            put(b + ".n0", npart * kp_cm * kp_cm * kp_cm / n0 / vol);
+        }
+    }
+}
+
 std::vector<std::string> Config::keys() const {
     std::vector<std::string> out;
     for (const auto& kv : kv_) out.push_back(kv.first);
