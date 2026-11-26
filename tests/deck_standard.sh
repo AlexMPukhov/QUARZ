@@ -91,7 +91,7 @@ d=$(awk 'NR == FNR { for (i = 1; i <= NF; i++) a[FNR, i] = $i; n[FNR] = NF; next
                                        if ($i ~ /^[-+0-9.eE]+$/ && e / s > m && s > 1e-12) m = e / s } }
          END { printf "%.1e", m }' flat/beams.txt units/beams.txt)
 if [ -s units/beams.txt ] && awk -v d="$d" 'BEGIN { exit !(d < 1e-9) }'; then ok "deck with units = normalized deck (max relative difference $d, 1/k_p = $KP um)"
-else bad "deck with units = normalized deck (max relative difference $d)"; fi
+else bad "deck with units = normalized deck (max relative difference $d)"; head -n 4 flat/beams.txt units/beams.txt | cut -c1-400; diff flat.log units.log | head -n 20; fi
 
 # ---- (3) errors before the first step
 expect() {   # <name> <pattern> <deck> [args]
@@ -109,6 +109,16 @@ sed 's/^xi.step = 0.05/xi.step = 0.84 um/' flat.in > nounit.in
 expect "a unit without the reference density is an error" "needs the reference" nounit.in
 { echo "units.n0 = 1e17 cm^-3"; sed 's/^xi.step = 0.05/xi.step = 0.84 parsec/' flat.in; } > badunit.in
 expect "an unknown unit is an error" "unknown unit" badunit.in
+{ cat flat.in; echo "driver.espred = 0.01"; } > typo2.in
+expect "a misspelt key of a bunch is an error" "unknown input key" typo2.in
+# a known key that this setup does not read (the file of a Gaussian bunch): a warning before the first step, the run goes on
+{ cat flat.in; echo "driver.file = nothing.bin"; } > unused.in
+"$Q" unused.in output.dir=unused > unused.log 2>&1
+rc=$?
+if [ $rc -eq 0 ] && grep -q "^WARNING: input key 'driver.file' was not used" unused.log && cmp -s flat/beams.txt unused/beams.txt &&
+   [ "$(grep -n "^WARNING: input key" unused.log | cut -d: -f1 | head -n 1)" -lt "$(grep -n "^step " unused.log | cut -d: -f1 | head -n 1)" ]; then
+    ok "a known key that the setup does not read: warning before the first step, same result"
+else bad "a known key that the setup does not read (exit $rc)"; tail -n 4 unused.log; fi
 printf 'xi { step = 0.05\n' > open.in
 expect "an unclosed block is an error" "not closed" open.in
 

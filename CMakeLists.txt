@@ -136,6 +136,26 @@ endif()
 add_executable(quarz src/main.cpp)
 target_link_libraries(quarz PRIVATE quarz_core)
 
+# KnownKeys.inc: the string literals of the sources that look like an input key or a part of one. main.cpp stops
+# a run whose input has a key that is none of them (a misspelt key). Collected again whenever a source changes.
+file(GLOB QUARZ_KEY_SOURCES ${CMAKE_SOURCE_DIR}/src/*.cpp ${CMAKE_SOURCE_DIR}/src/*.hpp)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${QUARZ_KEY_SOURCES})
+set(QUARZ_KEY_LITERALS "")
+foreach(f ${QUARZ_KEY_SOURCES})
+  file(READ ${f} QUARZ_KEY_TEXT)
+  string(REGEX MATCHALL "\"\\.?[A-Za-z_][A-Za-z0-9_.]*\"" QUARZ_KEY_MATCH "${QUARZ_KEY_TEXT}")
+  list(APPEND QUARZ_KEY_LITERALS ${QUARZ_KEY_MATCH})
+endforeach()
+list(REMOVE_DUPLICATES QUARZ_KEY_LITERALS)
+list(SORT QUARZ_KEY_LITERALS)
+list(LENGTH QUARZ_KEY_LITERALS QUARZ_KEY_COUNT)
+string(REPLACE ";" ",\n" QUARZ_KEY_LITERALS "${QUARZ_KEY_LITERALS}")
+file(WRITE ${CMAKE_BINARY_DIR}/generated/KnownKeys.inc.new "${QUARZ_KEY_LITERALS}\n")
+execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_BINARY_DIR}/generated/KnownKeys.inc.new
+                ${CMAKE_BINARY_DIR}/generated/KnownKeys.inc)
+target_include_directories(quarz PRIVATE ${CMAKE_BINARY_DIR}/generated)
+message(STATUS "QUARZ: ${QUARZ_KEY_COUNT} key literals for the check of the input keys")
+
 option(QUARZ_BUILD_TESTS "Build unit tests" ON)
 if(QUARZ_BUILD_TESTS)
   enable_testing()
