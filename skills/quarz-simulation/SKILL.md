@@ -86,8 +86,18 @@ horse.
 
 ## The input in one page
 
-Plain `key = value` lines, `#` starts a comment. Everything is in plasma units of the reference density n0:
-lengths in c/omega_p, times in 1/omega_p, densities in n0, momenta in m c, fields in E0 = m c omega_p / e. The
+`key = value` statements, one per line or separated by `;`; `#` starts a comment. Keys are written flat
+(`xi.step = 0.01`) or in blocks (`xi { step = 0.01; min = -12 }`, `bunch driver { ... }`, `species electrons { ... }`,
+`diag light { ... }`: the named blocks add their name to `beams`, `plasma.species`, `diag.names`); a key given twice
+is an error. A number without a unit is in plasma units of the reference density n0:
+lengths in c/omega_p, times in 1/omega_p, densities in n0, momenta in m c, fields in E0 = m c omega_p / e. A number
+may carry a unit (`8 um`, `90 fs`, `5e16 cm^-3`, `2 mrad`, `1 %`) once `units.n0 = 1e17 cm^-3` is given; mind that
+the reference density also switches on the Coulomb scattering of the beams (`<beam>.scattering`). Functions stay
+in plasma units. The names common to the VLPL family are accepted too and rewritten into the keys below
+(`references/input_reference.md`, "Common names"): `grid.m_max`, `grid.r_max`, `laser.wavelength`, `laser.tau_fwhm`,
+`laser.waist`, `laser.z_focus`, and for a bunch `species`, `charge` with a unit (= total charge), `energy`,
+`energy_spread`, `sigma_x`, `sigma_y`, `sigma_z`, `emittance_x`, `emittance_y`, `zeta_center` (from the rear end of the
+box), `macroparticles`, `file_species`, `file_iteration`. The
 co-moving coordinate is **xi = z - ct: the beams move towards +xi, the head of the box is at `xi.max` (often 0)
 and the box extends to negative xi**; the plasma is swept from the head (large xi) to the tail. A beam's head is at
 its largest xi, and a witness behind a driver is at smaller xi. (QUARZ v1.0.0 used xi = ct - z, head at small xi:

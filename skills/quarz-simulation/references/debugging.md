@@ -7,7 +7,8 @@ the user with the input and the log, and suggest an issue at https://github.com/
 
 | message | cause |
 |---|---|
-| `UNKNOWN KEY: input key '...' was not used` | misspelt key; a key that does nothing in this setup (e.g. `time.nt_per_betatron` without `time.adaptive = 1`); or a `<beam>.key` whose beam is not listed in `beams` (the same for `plasma.species`) |
+| `ERROR ... unknown input key(s): ...` | a key the code does not know: misspelt |
+| `UNKNOWN KEY: input key '...' was not used` | a key that does nothing in this setup (e.g. `time.nt_per_betatron` without `time.adaptive = 1`); or a `<beam>.key` whose beam is not listed in `beams` (the same for `plasma.species`) |
 | `ERROR (rank 0): ...` | wrong value or missing key; the message names it (e.g. `required key 'driver.length' is missing` for `<beam>.profile = flattop`). Parsed formulas: `parser: unknown symbol ...` names the position |
 | `xi.convention is missing` | every input must state `xi.convention = z-t` (since v2.0.0). For an input written for v2 add the line; an input for QUARZ v1.0.0 (xi = ct - z) must be converted with `tools/convert_deck.py`, which adds it |
 | a laser key is refused | `laser.lambda0_um` needs `units.n0_cm3`; `laser.file` needs a build with HDF5 |

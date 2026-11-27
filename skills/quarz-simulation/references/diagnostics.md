@@ -14,8 +14,9 @@ step      0  t =          0   sweep 5.066 s
 - Read the summary: is the grid what you meant (axis cell, number of cells), the box, the species, the beams?
 - `sweep ... s` is the time of one step. Trapped or removed plasma particles and extra sub-slices are reported
   on the step lines when they occur.
-- `WARNING: input key '...' was not used` at the end: the key was never read (misspelt, or not valid in this
-  setup). `ERROR (rank 0): ...` stops the run.
+- `WARNING: input key '...' was not used` before the first step: a known key that this setup never read.
+  `ERROR (rank 0): unknown input key(s): ...`: a key the code does not know (misspelt); `ERROR (rank 0): ...`
+  stops the run.
 
 ## Files in `output.dir`
 

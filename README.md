@@ -896,8 +896,73 @@ Threads are set with `OMP_NUM_THREADS`, and Kokkos options (e.g.
 
 ## 5. Input reference
 
-Input files are plain `key = value` lines; `#` starts a comment. Keys that are
-never read are reported at the end of the run, which catches typos.
+Input files hold `key = value` statements; `#` starts a comment. A statement ends at the end
+of the line or at a `;`. The keys can be written flat or in blocks, also mixed in one file:
+
+```
+xi.step = 0.01                      # flat
+xi { step = 0.01; min = -12 }       # a block puts "xi." in front of its keys; blocks may be nested
+bunch driver {                      # named block: keys under "driver.", and "driver" joins the list `beams`
+  n0 = 2;  sigma_r = 0.3;  gamma = 2e4
+}
+species electrons { ppc = 4 }       # joins `plasma.species`
+diag light { every = 10 }           # keys under "diag.light.", joins `diag.names`
+```
+
+The block form is the common input standard of the VLPL family of codes (VLPL, GEM-PIC-RZ, QUARZ).
+The flat form `block.key=value` is also the form of the command-line overrides.
+
+**Units.** A number without a unit is in the normalized units of the code (lengths c/ω_p, times
+1/ω_p, densities n0), as before. A number may carry a unit, with or without a blank
+(`8 um`, `8um`): lengths `nm um mm cm m`, times `as fs ps ns s`, densities `cm^-3 m^-3`, angles
+`rad mrad urad deg`, `%`. It is converted with the reference density, which then has to be given:
+`units.n0 = 1e17 cm^-3` (the same as the older `units.n0_cm3 = 1e17`). The reference density is
+part of the physics too: with it the Coulomb scattering of the beams is on by default
+(`<beam>.scattering`). Pairs take a unit on each number (`grid.regions = 80um:0.5um`). The unit
+decides the conversion; whether a key expects a length or a density is not checked yet, and
+functions (`plasma.density(x,y,z)`) are in normalized units.
+
+**Strictness.** A key given twice in the file is an error. After the run is set up and before the
+first step every key is accounted for: a key that the code does not know at all (misspelt) stops
+the run with `unknown input key(s): ...`; a known key that this setup does not read (the shape of
+a bunch that comes from a file, a species taken out of `plasma.species`) is reported as
+`WARNING: input key '...' was not used`. `input.allow_unknown = 1` turns the error into a warning.
+
+**Common names.** The quantities that all codes of the family have can be written with the common
+names; each is rewritten into the QUARZ key of the tables below before the run is set up. Giving
+both names of one quantity is an error.
+
+| common name | QUARZ key | remark |
+|---|---|---|
+| `grid.m_max` | `modes` | highest azimuthal mode |
+| `grid.r_max` | `grid.rmax` | |
+| `laser.wavelength` | `laser.k0` | with a unit: k0 = 2π/(k_p λ) |
+| `laser.tau_fwhm` | `laser.L0` | FWHM of the intensity: L0 = c τ / √(2 ln 2) |
+| `laser.waist` | `laser.w0` | |
+| `laser.z_focus` | `laser.focus` | |
+| `<bunch>.species = electron \| positron \| proton` | `<beam>.charge`, `<beam>.mass` | |
+| `<bunch>.charge` **with a unit** (`fC pC nC`) | `<beam>.n0` | total charge of a `gaussian` or `flattop` bunch (inside its cut); needs the reference density. A plain number stays the charge number of the particles |
+| `<bunch>.energy` (`eV … TeV`) | `<beam>.gamma` | kinetic energy: γ = 1 + E/(m c²) |
+| `<bunch>.energy_spread` | `<beam>.espread` | |
+| `<bunch>.sigma_x`, `sigma_y` | `<beam>.sigma_r` | must be equal: the beams of QUARZ are round |
+| `<bunch>.sigma_z` | `<beam>.sigma_xi` | |
+| `<bunch>.emittance_x`, `emittance_y` | `<beam>.emit_n` | must be equal |
+| `<bunch>.zeta_center` | `<beam>.xi0` | counted from the rear end of the box: xi0 = `xi.min` + zeta_center |
+| `<bunch>.macroparticles` | `<beam>.nparticles` | |
+| `<bunch>.file_species`, `file_iteration` | `<beam>.openpmd_species`, `openpmd_iteration` | |
+
+```
+units { n0 = 1e17 cm^-3 }
+bunch driver {
+  species = electron;  charge = 150 pC;  energy = 1 GeV
+  sigma_x = 8 um;  sigma_y = 8 um;  sigma_z = 17 um
+  zeta_center = 135 um
+}
+```
+
+**Command line.** `quarz input.in [key=value ...] [--check] [--restart <checkpoint dir | latest>]`:
+`--check` reads the input, sets the run up, reports as above and stops before the first step;
+`--restart` is the same as the key `restart.from`.
 
 **Radial grid**
 

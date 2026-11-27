@@ -17,7 +17,7 @@ https://github.com/AlexMPukhov/QUARZ/issues), not patched.
 ## 1. Is it there already?
 
 Look for `quarz` in the PATH or `<repo>/build/quarz`. Started without arguments it prints
-`usage: [mpirun -np P] quarz <input file> [key=value ...]`. If it is there, go to section 4 (use the path of that
+`usage: [mpirun -np P] quarz <input file> [key=value ...] [--check] [--restart <checkpoint dir | latest>] ...`. If it is there, go to section 4 (use the path of that
 executable wherever this skill writes `build/quarz`).
 
 ## 2. Clone and build
@@ -77,9 +77,11 @@ build/quarz run.in restart.from=latest time.steps=500   # continue from the newe
   steps the efficiency is about N/(N + P - 1): keep P below about N/4. Under Slurm request `--ntasks` >= P,
   otherwise all ranks share one core.
 
-There is no check-only switch. Unknown keys do not stop a run: they are listed at its end as
-`WARNING: input key '...' was not used`. Errors in values stop it with `ERROR (rank 0): ...`. The script
-`scripts/check_input.sh` of the skill quarz-simulation runs the zero-step solve and turns both into a failure.
+`quarz my.in --check` reads the input, sets the run up and stops before the first step. A key that the code does
+not know (misspelt) stops any run before the first step with `ERROR (rank 0): unknown input key(s): ...`; a known
+key that this setup does not read is listed there as `WARNING: input key '...' was not used`. Errors in values
+stop it with `ERROR (rank 0): ...`. The script `scripts/check_input.sh` of the skill quarz-simulation runs the
+zero-step solve and turns all of these, also the warnings, into a failure.
 
 ## 5. Where the output goes
 
